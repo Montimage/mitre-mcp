@@ -152,17 +152,26 @@ def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
         raise ValueError(f"Invalid domain: {domain}")
 
 
-def format_technique(technique: Dict[str, Any]) -> Dict[str, Any]:
-    """Format a technique object for output."""
+def format_technique(technique: Dict[str, Any], include_description: bool = False) -> Dict[str, Any]:
+    """Format a technique object for output with token optimization."""
     if not technique:
         return {}
     
+    # Start with minimal information
     result = {
         "id": technique.get("id", ""),
         "name": technique.get("name", ""),
         "type": technique.get("type", ""),
-        "description": technique.get("description", ""),
     }
+    
+    # Only include description if explicitly requested
+    if include_description:
+        description = technique.get("description", "")
+        # Truncate long descriptions to save tokens
+        if len(description) > 500:
+            result["description"] = description[:497] + "..."
+        else:
+            result["description"] = description
     
     # Add MITRE ATT&CK ID if available
     for ref in technique.get("external_references", []):
@@ -173,17 +182,20 @@ def format_technique(technique: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def format_relationship_map(relationship_map: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Format a relationship map for output."""
+def format_relationship_map(relationship_map: List[Dict[str, Any]], include_description: bool = False, limit: int = None) -> List[Dict[str, Any]]:
+    """Format a relationship map for output with token optimization."""
     if not relationship_map:
         return []
     
     result = []
     for item in relationship_map:
         obj = item.get("object", {})
-        formatted_obj = format_technique(obj)
+        formatted_obj = format_technique(obj, include_description=include_description)
         if formatted_obj:
             result.append(formatted_obj)
+            # Limit number of returned items to save tokens
+            if limit and len(result) >= limit:
+                break
     
     return result
 
@@ -194,18 +206,24 @@ def get_techniques(
     ctx: Context,
     domain: str = "enterprise-attack",
     include_subtechniques: bool = True,
-    remove_revoked_deprecated: bool = False
-) -> Dict[str, List[Dict[str, Any]]]:
+    remove_revoked_deprecated: bool = False,
+    include_descriptions: bool = False,
+    limit: int = 20,
+    offset: int = 0
+) -> Dict[str, Any]:
     """
-    Get all techniques from the MITRE ATT&CK framework.
+    Get techniques from the MITRE ATT&CK framework with token-optimized responses.
     
     Args:
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         include_subtechniques: Include subtechniques in the result
         remove_revoked_deprecated: Remove revoked or deprecated objects
+        include_descriptions: Whether to include technique descriptions (uses more tokens)
+        limit: Maximum number of techniques to return (default: 20)
+        offset: Index to start from when returning techniques (for pagination)
         
     Returns:
-        Dictionary containing a list of techniques
+        Dictionary containing a list of techniques and pagination metadata
     """
     data = get_attack_data(domain, ctx)
     techniques = data.get_techniques(
@@ -213,8 +231,26 @@ def get_techniques(
         remove_revoked_deprecated=remove_revoked_deprecated
     )
     
+    # Apply pagination
+    total_count = len(techniques)
+    end_idx = min(offset + limit, total_count) if limit else total_count
+    paginated_techniques = techniques[offset:end_idx] if offset < total_count else []
+    
+    # Format with consideration for token usage
+    formatted_techniques = [
+        format_technique(technique, include_description=include_descriptions)
+        for technique in paginated_techniques
+    ]
+    
+    # Return with pagination metadata
     return {
-        "techniques": [format_technique(technique) for technique in techniques]
+        "techniques": formatted_techniques,
+        "pagination": {
+            "total": total_count,
+            "offset": offset,
+            "limit": limit,
+            "has_more": end_idx < total_count
+        }
     }
 
 
