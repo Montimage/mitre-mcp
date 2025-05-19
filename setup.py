@@ -49,7 +49,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "mitre-mcp=mitre_mcp_server:main",
+            "mitre-mcp=mitre_mcp.mitre_mcp_server:main",
         ],
     },
 )
