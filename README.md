@@ -90,6 +90,28 @@ mitre-mcp --http
 mitre-mcp --force-download
 ```
 
+## Available Playbooks
+
+We provide two playbooks to help you get started with mitre-mcp, tailored to different experience levels:
+
+### 1. Beginner's Guide
+For those new to MITRE ATT&CK or cybersecurity, check out our [Beginner's Guide](Beginner-Playbook.md). This guide uses simple language and practical examples to help you understand and use MITRE ATT&CK concepts.
+
+**Ideal for:**
+- Non-technical users
+- Security awareness training
+- Basic threat intelligence
+- General cybersecurity education
+
+### 2. Advanced Playbook
+For security professionals and technical users, our [Advanced Playbook](Playbook.md) provides in-depth examples and command-line usage for leveraging mitre-mcp's full capabilities.
+
+**Ideal for:**
+- Security analysts
+- Threat hunters
+- Incident responders
+- Security engineers
+
 ## Usage via MCP Client
 
 To run mitre-mcp as an MCP server for AI-driven clients (e.g., Claude, Windsurf, Cursor):
