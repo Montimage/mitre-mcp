@@ -30,9 +30,19 @@ Thumbs.db
 
 # Testing
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .tox/
+*.cover
+.hypothesis/
+
+# Code quality tools
+.mypy_cache/
+.ruff_cache/
+.bandit
+bandit-report.json
+safety-report.json
 
 # Documentation
 docs/_build/

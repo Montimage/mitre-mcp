@@ -1,12 +1,144 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "mitre-mcp"
+version = "0.2.0"
+description = "MCP server for MITRE ATT&CK framework"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "MITRE MCP Contributors"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "mitreattack-python>=4.0.2,<5.0.0",
+    "mcp[cli]>=0.1.0,<1.0.0",
+    "httpx>=0.24.0,<1.0.0",
+    "requests>=2.25.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0,<8.0.0",
+    "pytest-asyncio>=0.21.0,<1.0.0",
+    "pytest-cov>=4.1.0,<5.0.0",
+    "pytest-mock>=3.11.0,<4.0.0",
+    "black>=24.10.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "mypy>=1.11.0",
+    "bandit>=1.7.0",
+    "safety>=3.0.0",
+    "pre-commit>=3.5.0",
+    "types-requests>=2.31.0",
+]
+
 [tool.black]
-line-length = 88
-target-version = ["py37", "py38", "py39", "py310"]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | data
+)/
+'''
 
 [tool.isort]
 profile = "black"
-multi_line_output = 3
+line_length = 100
+known_first_party = ["mitre_mcp"]
+skip_gitignore = true
+extend_skip = ["data"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-v",
+    "-ra",
+    "--strict-markers",
+    "--cov=mitre_mcp",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "mitreattack.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.bandit]
+exclude_dirs = ["tests", "data", ".venv", "venv"]
+skips = ["B101"]  # Skip assert_used in tests
+
+[tool.bandit.assert_used]
+skips = ["*/test_*.py", "*/conftest.py"]
+
+[tool.coverage.run]
+source = ["mitre_mcp"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.pydocstyle]
+convention = "google"
+add_ignore = ["D100", "D104", "D105", "D107"]
