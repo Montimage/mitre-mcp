@@ -1,4 +1,4 @@
 mitreattack-python>=4.0.2,<5.0.0
-mcp[cli]>=0.1.0,<1.0.0
+fastmcp>=2.0.0
 httpx>=0.24.0,<1.0.0
 requests>=2.25.0,<3.0.0

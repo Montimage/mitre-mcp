@@ -65,6 +65,7 @@ open htmlcov/index.html  # View the coverage report
 3. **Fixtures**: Use pytest fixtures for common test data and setup.
 
 Follow these conventions:
+
 - Test files should be named `test_*.py`
 - Test classes should be named `Test*`
 - Test methods should be named `test_*`

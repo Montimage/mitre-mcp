@@ -5,18 +5,19 @@ Setup script for mitre-mcp package.
 
 import os
 import re
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 # Read version from __init__.py
-with open(os.path.join("mitre_mcp", "__init__.py"), "r", encoding="utf-8") as f:
+with open(os.path.join("mitre_mcp", "__init__.py"), encoding="utf-8") as f:
     version = re.search(r'^__version__ = ["\']([^"\']+)["\']', f.read(), re.MULTILINE).group(1)
 
 # Read README
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README.md", encoding="utf-8") as fh:
     long_description = fh.read()
 
 # Read requirements from requirements.txt
-with open("requirements.txt", "r", encoding="utf-8") as f:
+with open("requirements.txt", encoding="utf-8") as f:
     requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 setup(

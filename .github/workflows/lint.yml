@@ -2,9 +2,9 @@ name: Lint
 
 on:
   push:
-    branches: [ main, develop, claude/* ]
+    branches: [main, develop, claude/*]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
@@ -13,62 +13,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
-    - name: Check code formatting with Black
-      run: |
-        black --check --diff mitre_mcp/ tests/
+      - name: Check code formatting with Black
+        run: |
+          black --check --diff mitre_mcp/ tests/
 
-    - name: Check import sorting with isort
-      run: |
-        isort --check-only --diff mitre_mcp/ tests/
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only --diff mitre_mcp/ tests/
 
-    - name: Lint with flake8
-      run: |
-        flake8 mitre_mcp/ tests/ --count --statistics --show-source
+      - name: Lint with flake8
+        run: |
+          flake8 mitre_mcp/ tests/ --count --statistics --show-source
 
-    - name: Type check with mypy
-      run: |
-        mypy mitre_mcp/
+      - name: Type check with mypy
+        run: |
+          mypy mitre_mcp/
 
-    - name: Check docstrings with pydocstyle
-      run: |
-        pydocstyle mitre_mcp/
-      continue-on-error: true
+      - name: Check docstrings with pydocstyle
+        run: |
+          pydocstyle mitre_mcp/
+        continue-on-error: true
 
   complexity:
     name: Code Complexity Analysis
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install radon
-      run: |
-        pip install radon
+      - name: Install radon
+        run: |
+          pip install radon
 
-    - name: Check cyclomatic complexity
-      run: |
-        radon cc mitre_mcp/ -a -nb
+      - name: Check cyclomatic complexity
+        run: |
+          radon cc mitre_mcp/ -a -nb
 
-    - name: Check maintainability index
-      run: |
-        radon mi mitre_mcp/ -nb
+      - name: Check maintainability index
+        run: |
+          radon mi mitre_mcp/ -nb

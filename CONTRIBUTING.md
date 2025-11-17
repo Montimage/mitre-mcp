@@ -52,6 +52,7 @@ This project maintains high code quality standards through automated checks:
 ### Code Formatting
 
 - **Black**: Code formatter with 100-character line length
+
   ```bash
   black mitre_mcp/ tests/
   ```
@@ -78,6 +79,7 @@ This project maintains high code quality standards through automated checks:
 ### Security Scanning
 
 - **bandit**: Security issue detection
+
   ```bash
   bandit -r mitre_mcp/ -c pyproject.toml
   ```
@@ -169,6 +171,7 @@ pre-commit run black --all-files
 ### Bypassing Hooks
 
 Only in exceptional cases:
+
 ```bash
 git commit --no-verify
 ```
@@ -181,28 +184,32 @@ The project uses three main workflows:
 
 #### 1. Tests (`test.yml`)
 
-**Triggers**: Push to main/develop/claude/*, pull requests
+**Triggers**: Push to main/develop/claude/\*, pull requests
 
 **Matrix Testing**:
+
 - Python versions: 3.9, 3.10, 3.11, 3.12
 - Operating systems: Ubuntu, macOS, Windows
 
 **Steps**:
+
 1. Set up Python environment
 2. Install dependencies
 3. Run pytest with coverage
 4. Upload coverage to Codecov (Ubuntu + Python 3.11 only)
 
 **Local Equivalent**:
+
 ```bash
 pytest --cov=mitre_mcp --cov-report=xml
 ```
 
 #### 2. Lint (`lint.yml`)
 
-**Triggers**: Push to main/develop/claude/*, pull requests
+**Triggers**: Push to main/develop/claude/\*, pull requests
 
 **Checks**:
+
 1. Black formatting
 2. isort import sorting
 3. flake8 linting
@@ -211,6 +218,7 @@ pytest --cov=mitre_mcp --cov-report=xml
 6. Radon code complexity
 
 **Local Equivalent**:
+
 ```bash
 black --check mitre_mcp/ tests/
 isort --check-only mitre_mcp/ tests/
@@ -223,18 +231,21 @@ radon cc mitre_mcp/ -a -nb
 #### 3. Security (`security.yml`)
 
 **Triggers**:
-- Push to main/develop/claude/*
+
+- Push to main/develop/claude/\*
 - Pull requests
 - Daily at 2 AM UTC
 - Manual workflow dispatch
 
 **Scans**:
+
 1. **Bandit**: Python security linter
 2. **Safety**: Dependency vulnerability checker
 3. **CodeQL**: GitHub's code analysis
 4. **Dependency Review**: PR dependency changes
 
 **Local Equivalent**:
+
 ```bash
 bandit -r mitre_mcp/ -c pyproject.toml
 safety check
@@ -256,6 +267,7 @@ Add these to your fork's README:
 ### Before Submitting
 
 1. **Run all quality checks**:
+
    ```bash
    # Run pre-commit hooks
    pre-commit run --all-files
@@ -289,18 +301,22 @@ Add these to your fork's README:
 
 ```markdown
 ## Description
+
 Brief description of changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
+
 Describe testing performed
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Comments added for complex code
@@ -446,6 +462,7 @@ git push origin fix/bug-description
 ## Questions?
 
 If you have questions about contributing, please:
+
 1. Check existing documentation
 2. Search closed issues and PRs
 3. Open a discussion on GitHub

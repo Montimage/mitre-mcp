@@ -1,7 +1,8 @@
 """Tests for download and caching functionality."""
+
 import json
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -9,12 +10,12 @@ import pytest
 
 from mitre_mcp.mitre_mcp_server import (
     check_disk_space,
+    download_and_save_attack_data_async,
+    download_domain,
+    load_metadata,
     parse_timestamp,
     validate_metadata,
-    load_metadata,
     validate_stix_bundle,
-    download_domain,
-    download_and_save_attack_data_async
 )
 
 
@@ -88,18 +89,12 @@ class TestValidateMetadata:
     def test_invalid_domains_type(self):
         """Test metadata with non-list domains."""
         with pytest.raises(ValueError, match="'domains' must be list"):
-            validate_metadata({
-                "last_update": "2025-11-17T12:00:00+00:00",
-                "domains": "not a list"
-            })
+            validate_metadata({"last_update": "2025-11-17T12:00:00+00:00", "domains": "not a list"})
 
     def test_invalid_timestamp_format(self):
         """Test metadata with invalid timestamp format."""
         with pytest.raises(ValueError, match="Invalid last_update format"):
-            validate_metadata({
-                "last_update": "invalid date",
-                "domains": []
-            })
+            validate_metadata({"last_update": "invalid date", "domains": []})
 
 
 class TestLoadMetadata:
@@ -109,7 +104,7 @@ class TestLoadMetadata:
         """Test loading valid metadata."""
         metadata_path = os.path.join(temp_data_dir, "metadata.json")
 
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump(sample_metadata, f)
 
         result = load_metadata(metadata_path)
@@ -129,7 +124,7 @@ class TestLoadMetadata:
         """Test loading invalid JSON."""
         metadata_path = os.path.join(temp_data_dir, "metadata.json")
 
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             f.write("invalid json{")
 
         result = load_metadata(metadata_path)
@@ -140,7 +135,7 @@ class TestLoadMetadata:
         """Test loading metadata with invalid structure."""
         metadata_path = os.path.join(temp_data_dir, "metadata.json")
 
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump({"wrong": "structure"}, f)
 
         result = load_metadata(metadata_path)
@@ -230,9 +225,7 @@ class TestDownloadDomain:
         output_path = os.path.join(temp_data_dir, "test.json")
 
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPError("HTTP Error")
-        )
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("HTTP Error"))
 
         with pytest.raises(httpx.HTTPError):
             await download_domain(mock_client, "test", "http://example.com", output_path)
@@ -246,13 +239,13 @@ class TestDownloadAndSaveAttackDataAsync:
         """Test using cached data when fresh."""
         # Create metadata indicating recent update
         metadata_path = os.path.join(temp_data_dir, "metadata.json")
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump(sample_metadata, f)
 
         # Create dummy data files
         for domain in ["enterprise", "mobile", "ics"]:
             path = os.path.join(temp_data_dir, f"{domain}-attack.json")
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(sample_stix_bundle, f)
 
         # Should not download (use cache)
@@ -264,7 +257,7 @@ class TestDownloadAndSaveAttackDataAsync:
 
     async def test_force_download(self, temp_data_dir, sample_stix_bundle):
         """Test force download."""
-        with patch('mitre_mcp.mitre_mcp_server.httpx.AsyncClient') as mock_client_class:
+        with patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient") as mock_client_class:
             # Mock the async client
             mock_response = MagicMock()
             mock_response.text = json.dumps(sample_stix_bundle)
@@ -287,15 +280,12 @@ class TestDownloadAndSaveAttackDataAsync:
         """Test downloading when cache is expired."""
         # Create old metadata
         old_date = datetime.now(timezone.utc) - timedelta(days=7)
-        metadata = {
-            "last_update": old_date.isoformat(),
-            "domains": ["enterprise", "mobile", "ics"]
-        }
+        metadata = {"last_update": old_date.isoformat(), "domains": ["enterprise", "mobile", "ics"]}
         metadata_path = os.path.join(temp_data_dir, "metadata.json")
-        with open(metadata_path, 'w') as f:
+        with open(metadata_path, "w") as f:
             json.dump(metadata, f)
 
-        with patch('mitre_mcp.mitre_mcp_server.httpx.AsyncClient') as mock_client_class:
+        with patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient") as mock_client_class:
             mock_response = MagicMock()
             mock_response.text = json.dumps(sample_stix_bundle)
             mock_response.raise_for_status = MagicMock()

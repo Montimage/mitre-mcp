@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-MITRE ATT&CK MCP Server
+MITRE ATT&CK MCP Server.
 
-This server provides MCP tools for working with the MITRE ATT&CK framework using the mitreattack-python library.
-Implemented using the official MCP Python SDK.
+This server provides MCP tools for working with the MITRE ATT&CK framework
+using the mitreattack-python library. Implemented using the official MCP Python SDK.
 """
 
 # Standard library imports
@@ -12,23 +12,24 @@ import json
 import logging
 import os
 import shutil
+import signal
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 # Third-party imports
 import httpx
 
-from mitreattack.stix20 import MitreAttackData
-
 # MCP SDK imports
 from mcp.server.fastmcp import Context, FastMCP
+from mitreattack.stix20 import MitreAttackData
+from starlette.middleware.cors import CORSMiddleware
 
 # Local imports
+from . import __version__
 from .config import Config
 from .validators import (
     ValidationError,
@@ -50,10 +51,8 @@ def setup_logging() -> logging.Logger:
     """
     logging.basicConfig(
         level=getattr(logging, Config.LOG_LEVEL.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stderr)  # Log to stderr, keep stdout for MCP
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stderr)],  # Log to stderr, keep stdout for MCP
     )
     return logging.getLogger(__name__)
 
@@ -65,18 +64,20 @@ logger = setup_logging()
 @dataclass
 class AttackContext:
     """Context for the MITRE ATT&CK MCP server with optimized lookups."""
+
     enterprise_attack: MitreAttackData
     mobile_attack: MitreAttackData
     ics_attack: MitreAttackData
     # Lookup indices for O(1) searches
-    groups_index: Dict[str, Dict[str, Any]]
-    mitigations_index: Dict[str, Dict[str, Any]]
-    techniques_by_mitre_id: Dict[str, Dict[str, Any]]
+    groups_index: dict[str, dict[str, Any]]
+    mitigations_index: dict[str, dict[str, Any]]
+    techniques_by_mitre_id: dict[str, dict[str, Any]]
 
 
 # Metadata type definition
 class Metadata(dict):
     """Type for metadata.json structure."""
+
     pass
 
 
@@ -96,22 +97,23 @@ def check_disk_space(directory: str, required_mb: int = None) -> None:
 
     try:
         usage = shutil.disk_usage(directory)
-        required_bytes = required_mb * 1024 * 1024
-        available_mb = usage.free / (1024 * 1024)
-
-        if usage.free < required_bytes:
-            raise RuntimeError(
-                f"Insufficient disk space in {directory}. "
-                f"Required: {required_mb}MB, Available: {available_mb:.1f}MB"
-            )
-
-        logger.info(
-            "Disk space check passed: %.1fMB available (%dMB required)",
-            available_mb, required_mb
-        )
     except Exception as e:
         logger.warning("Could not check disk space: %s", e)
         # Don't fail if we can't check, but warn
+        return
+
+    required_bytes = required_mb * 1024 * 1024
+    available_mb = usage.free / (1024 * 1024)
+
+    if usage.free < required_bytes:
+        raise RuntimeError(
+            f"Insufficient disk space in {directory}. "
+            f"Required: {required_mb}MB, Available: {available_mb:.1f}MB"
+        )
+
+    logger.info(
+        "Disk space check passed: %.1fMB available (%dMB required)", available_mb, required_mb
+    )
 
 
 def parse_timestamp(timestamp_str: str) -> datetime:
@@ -176,7 +178,7 @@ def load_metadata(metadata_path: str) -> Optional[Metadata]:
         Validated metadata or None if invalid
     """
     try:
-        with open(metadata_path, 'r', encoding='utf-8') as f:
+        with open(metadata_path, encoding="utf-8") as f:
             # Limit file size to prevent memory exhaustion
             # Read max 1MB for metadata file
             content = f.read(1024 * 1024)
@@ -215,15 +217,12 @@ def validate_stix_bundle(content: str, domain: str) -> dict:
     if "objects" not in data or not isinstance(data["objects"], list):
         raise ValueError(f"{domain} data missing 'objects' array")
 
-    logger.info("Validated %s STIX bundle: %d objects", domain, len(data['objects']))
+    logger.info("Validated %s STIX bundle: %d objects", domain, len(data["objects"]))
     return data
 
 
 async def download_domain(
-    client: httpx.AsyncClient,
-    domain: str,
-    url: str,
-    output_path: str
+    client: httpx.AsyncClient, domain: str, url: str, output_path: str
 ) -> None:
     """
     Download a single MITRE ATT&CK domain asynchronously.
@@ -238,9 +237,7 @@ async def download_domain(
 
     try:
         response = await client.get(
-            url,
-            timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
-            follow_redirects=True
+            url, timeout=Config.DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=True
         )
         response.raise_for_status()
 
@@ -248,10 +245,10 @@ async def download_domain(
         validated_data = validate_stix_bundle(response.text, domain)
 
         # Save to file
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(validated_data, f, indent=2)
 
-        logger.info("Downloaded %s: %d objects", domain, len(validated_data['objects']))
+        logger.info("Downloaded %s: %d objects", domain, len(validated_data["objects"]))
 
     except httpx.TimeoutException:
         logger.error("Timeout downloading %s data from %s", domain, url)
@@ -283,7 +280,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
         "enterprise": os.path.join(data_dir, "enterprise-attack.json"),
         "mobile": os.path.join(data_dir, "mobile-attack.json"),
         "ics": os.path.join(data_dir, "ics-attack.json"),
-        "metadata": os.path.join(data_dir, "metadata.json")
+        "metadata": os.path.join(data_dir, "metadata.json"),
     }
 
     # Check if we need to download new data
@@ -300,15 +297,9 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
             # Download if data is more than configured days old
             if age_days >= Config.CACHE_EXPIRY_DAYS:
                 need_download = True
-                logger.info(
-                    "MITRE ATT&CK data is %d days old. Downloading new data...",
-                    age_days
-                )
+                logger.info("MITRE ATT&CK data is %d days old. Downloading new data...", age_days)
             else:
-                logger.info(
-                    "Using cached MITRE ATT&CK data from %s",
-                    last_update.isoformat()
-                )
+                logger.info("Using cached MITRE ATT&CK data from %s", last_update.isoformat())
 
     if need_download:
         # Check disk space before downloading
@@ -318,13 +309,11 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
         # Create async HTTP client
         async with httpx.AsyncClient(
-            headers={'User-Agent': 'mitre-mcp/0.2.0'},
-            verify=True
+            headers={"User-Agent": f"mitre-mcp/{__version__}"}, verify=True
         ) as client:
             # Download all domains in parallel
             download_tasks = [
-                download_domain(client, domain, url, paths[domain])
-                for domain, url in urls.items()
+                download_domain(client, domain, url, paths[domain]) for domain, url in urls.items()
             ]
 
             # Wait for all downloads to complete
@@ -333,9 +322,9 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
         # Save metadata
         metadata = {
             "last_update": datetime.now(timezone.utc).isoformat(),
-            "domains": list(urls.keys())
+            "domains": list(urls.keys()),
         }
-        with open(paths["metadata"], 'w', encoding='utf-8') as f:
+        with open(paths["metadata"], "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
         logger.info("MITRE ATT&CK data downloaded successfully.")
@@ -343,7 +332,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
     return paths
 
 
-def build_group_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
+def build_group_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
     """
     Build case-insensitive group name index.
 
@@ -371,7 +360,7 @@ def build_group_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
     return index
 
 
-def build_mitigation_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
+def build_mitigation_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
     """Build case-insensitive mitigation name index."""
     index = {}
     mitigations = data.get_mitigations()
@@ -382,13 +371,12 @@ def build_mitigation_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
             index[name] = mitigation
 
     logger.info(
-        "Built mitigation index: %d entries for %d mitigations",
-        len(index), len(mitigations)
+        "Built mitigation index: %d entries for %d mitigations", len(index), len(mitigations)
     )
     return index
 
 
-def build_technique_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
+def build_technique_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
     """Build MITRE ID to technique index."""
     by_id = {}
     techniques = data.get_techniques()
@@ -402,10 +390,7 @@ def build_technique_index(data: MitreAttackData) -> Dict[str, Dict[str, Any]]:
                     by_id[mitre_id] = technique
                     break
 
-    logger.info(
-        "Built technique index: %d entries for %d techniques",
-        len(by_id), len(techniques)
-    )
+    logger.info("Built technique index: %d entries for %d techniques", len(by_id), len(techniques))
     return by_id
 
 
@@ -437,18 +422,70 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
         mitigations_index = build_mitigation_index(enterprise_attack)
         techniques_index = build_technique_index(enterprise_attack)
         logger.info("Lookup indices built successfully.")
-        config_snippet = {
-            "mcpServers": {
-                "mitreattack": {
-                    "command": sys.executable,
-                    "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+
+        # Show appropriate configuration based on transport mode
+        if "--http" in sys.argv:
+            # Parse host and port from command line
+            host = "localhost"
+            port = 8000
+            for i, arg in enumerate(sys.argv):
+                if arg == "--host" and i + 1 < len(sys.argv):
+                    host = sys.argv[i + 1]
+                elif arg == "--port" and i + 1 < len(sys.argv):
+                    try:  # noqa: SIM105
+                        port = int(sys.argv[i + 1])
+                    except ValueError:
+                        pass  # Will use default
+
+            # Streamable HTTP transport configuration
+            server_url = f"http://{host}:{port}"
+            config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
+
+            # Log the configuration
+            config_message = (
+                "\n"
+                + "=" * 70
+                + "\n"
+                + "MITRE ATT&CK MCP Server is ready (Streamable HTTP mode)\n"
+                + f"Server URL: {server_url}\n"
+                + f"MCP Endpoint: {server_url}/mcp\n"
+                + "\n"
+                + "Add this to your MCP client configuration:\n"
+                + json.dumps(config_snippet, indent=2)
+                + "\n"
+                + "=" * 70
+            )
+            logger.info(config_message)
+
+            # Also print directly to stderr with immediate flush to ensure visibility
+            print(config_message, file=sys.stderr, flush=True)
+        else:
+            # stdio transport configuration
+            config_snippet = {
+                "mcpServers": {
+                    "mitreattack": {
+                        "command": sys.executable,
+                        "args": ["-m", "mitre_mcp.mitre_mcp_server"],
+                    }
                 }
             }
-        }
-        logger.info(
-            "MITRE ATT&CK MCP server is ready. Add this to your MCP client configuration:\n%s",
-            json.dumps(config_snippet, indent=2)
-        )
+
+            # Log the configuration
+            config_message = (
+                "\n"
+                + "=" * 70
+                + "\n"
+                + "MITRE ATT&CK MCP Server is ready (stdio mode)\n"
+                + "\n"
+                + "Add this to your MCP client configuration:\n"
+                + json.dumps(config_snippet, indent=2)
+                + "\n"
+                + "=" * 70
+            )
+            logger.info(config_message)
+
+            # Also print directly to stderr with immediate flush to ensure visibility
+            print(config_message, file=sys.stderr, flush=True)
 
         yield AttackContext(
             enterprise_attack=enterprise_attack,
@@ -456,7 +493,7 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
             ics_attack=ics_attack,
             groups_index=groups_index,
             mitigations_index=mitigations_index,
-            techniques_by_mitre_id=techniques_index
+            techniques_by_mitre_id=techniques_index,
         )
     except Exception as e:
         logger.error("Failed to initialize MITRE ATT&CK data: %s", e)
@@ -480,9 +517,11 @@ def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
         raise ValueError(f"Invalid domain: {domain}")
 
 
-def format_technique(technique: Dict[str, Any], include_description: bool = False) -> Dict[str, Any]:
+def format_technique(
+    technique: dict[str, Any], include_description: bool = False
+) -> dict[str, Any]:
     """Format a technique object for output with token optimization."""
-    if not technique:
+    if technique is None:
         return {}
 
     # Start with minimal information
@@ -497,7 +536,7 @@ def format_technique(technique: Dict[str, Any], include_description: bool = Fals
         description = technique.get("description", "")
         # Truncate long descriptions to save tokens
         if len(description) > Config.MAX_DESCRIPTION_LENGTH:
-            result["description"] = description[:Config.MAX_DESCRIPTION_LENGTH - 3] + "..."
+            result["description"] = description[: Config.MAX_DESCRIPTION_LENGTH - 3] + "..."
         else:
             result["description"] = description
 
@@ -510,7 +549,9 @@ def format_technique(technique: Dict[str, Any], include_description: bool = Fals
     return result
 
 
-def format_relationship_map(relationship_map: List[Dict[str, Any]], include_description: bool = False, limit: int = None) -> List[Dict[str, Any]]:
+def format_relationship_map(
+    relationship_map: list[dict[str, Any]], include_description: bool = False, limit: int = None
+) -> list[dict[str, Any]]:
     """Format a relationship map for output with token optimization."""
     if not relationship_map:
         return []
@@ -537,8 +578,8 @@ def get_techniques(
     remove_revoked_deprecated: bool = False,
     include_descriptions: bool = False,
     limit: int = None,
-    offset: int = 0
-) -> Dict[str, Any]:
+    offset: int = 0,
+) -> dict[str, Any]:
     """
     Get techniques from the MITRE ATT&CK framework with token-optimized responses.
 
@@ -566,7 +607,7 @@ def get_techniques(
     data = get_attack_data(domain, ctx)
     techniques = data.get_techniques(
         include_subtechniques=include_subtechniques,
-        remove_revoked_deprecated=remove_revoked_deprecated
+        remove_revoked_deprecated=remove_revoked_deprecated,
     )
 
     # Apply pagination
@@ -587,17 +628,15 @@ def get_techniques(
             "total": total_count,
             "offset": offset,
             "limit": limit,
-            "has_more": end_idx < total_count
-        }
+            "has_more": end_idx < total_count,
+        },
     }
 
 
 @mcp.tool()
 def get_tactics(
-    ctx: Context,
-    domain: str = "enterprise-attack",
-    remove_revoked_deprecated: bool = False
-) -> Dict[str, Any]:
+    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+) -> dict[str, Any]:
     """
     Get all tactics from the MITRE ATT&CK framework.
 
@@ -623,7 +662,7 @@ def get_tactics(
                 "id": tactic.get("id", ""),
                 "name": tactic.get("name", ""),
                 "shortname": tactic.get("x_mitre_shortname", ""),
-                "description": tactic.get("description", "")
+                "description": tactic.get("description", ""),
             }
             for tactic in tactics
         ]
@@ -632,10 +671,8 @@ def get_tactics(
 
 @mcp.tool()
 def get_groups(
-    ctx: Context,
-    domain: str = "enterprise-attack",
-    remove_revoked_deprecated: bool = False
-) -> Dict[str, Any]:
+    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+) -> dict[str, Any]:
     """
     Get all groups from the MITRE ATT&CK framework.
 
@@ -661,7 +698,7 @@ def get_groups(
                 "id": group.get("id", ""),
                 "name": group.get("name", ""),
                 "description": group.get("description", ""),
-                "aliases": group.get("aliases", [])
+                "aliases": group.get("aliases", []),
             }
             for group in groups
         ]
@@ -673,8 +710,8 @@ def get_software(
     ctx: Context,
     domain: str = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-    software_types: Optional[List[str]] = None
-) -> Dict[str, Any]:
+    software_types: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """
     Get all software from the MITRE ATT&CK framework.
 
@@ -697,10 +734,7 @@ def get_software(
 
     if software_types:
         allowed = {stype.lower() for stype in software_types}
-        software = [
-            s for s in software
-            if s.get("type", "").lower() in allowed
-        ]
+        software = [s for s in software if s.get("type", "").lower() in allowed]
 
     return {
         "software": [
@@ -708,7 +742,7 @@ def get_software(
                 "id": s.get("id", ""),
                 "name": s.get("name", ""),
                 "type": s.get("type", ""),
-                "description": s.get("description", "")
+                "description": s.get("description", ""),
             }
             for s in software
         ]
@@ -720,8 +754,8 @@ def get_techniques_by_tactic(
     ctx: Context,
     tactic_shortname: str,
     domain: str = "enterprise-attack",
-    remove_revoked_deprecated: bool = False
-) -> Dict[str, Any]:
+    remove_revoked_deprecated: bool = False,
+) -> dict[str, Any]:
     """
     Get techniques by tactic.
 
@@ -744,20 +778,16 @@ def get_techniques_by_tactic(
     techniques = data.get_techniques_by_tactic(
         tactic_shortname=tactic_shortname,
         domain=domain,
-        remove_revoked_deprecated=remove_revoked_deprecated
+        remove_revoked_deprecated=remove_revoked_deprecated,
     )
 
-    return {
-        "techniques": [format_technique(technique) for technique in techniques]
-    }
+    return {"techniques": [format_technique(technique) for technique in techniques]}
 
 
 @mcp.tool()
 def get_techniques_used_by_group(
-    ctx: Context,
-    group_name: str,
-    domain: str = "enterprise-attack"
-) -> Dict[str, Any]:
+    ctx: Context, group_name: str, domain: str = "enterprise-attack"
+) -> dict[str, Any]:
     """
     Get techniques used by a group.
 
@@ -779,9 +809,7 @@ def get_techniques_used_by_group(
 
     # Use index for O(1) lookup (enterprise domain only)
     if domain == "enterprise-attack":
-        group = ctx.request_context.lifespan_context.groups_index.get(
-            group_name.lower()
-        )
+        group = ctx.request_context.lifespan_context.groups_index.get(group_name.lower())
     else:
         # Fallback to linear search for other domains
         groups = data.get_groups()
@@ -797,20 +825,15 @@ def get_techniques_used_by_group(
     techniques = data.get_techniques_used_by_group(group["id"])
 
     return {
-        "group": {
-            "id": group.get("id", ""),
-            "name": group.get("name", "")
-        },
-        "techniques": format_relationship_map(techniques)
+        "group": {"id": group.get("id", ""), "name": group.get("name", "")},
+        "techniques": format_relationship_map(techniques),
     }
 
 
 @mcp.tool()
 def get_mitigations(
-    ctx: Context,
-    domain: str = "enterprise-attack",
-    remove_revoked_deprecated: bool = False
-) -> Dict[str, Any]:
+    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+) -> dict[str, Any]:
     """
     Get all mitigations from the MITRE ATT&CK framework.
 
@@ -835,7 +858,7 @@ def get_mitigations(
             {
                 "id": mitigation.get("id", ""),
                 "name": mitigation.get("name", ""),
-                "description": mitigation.get("description", "")
+                "description": mitigation.get("description", ""),
             }
             for mitigation in mitigations
         ]
@@ -844,10 +867,8 @@ def get_mitigations(
 
 @mcp.tool()
 def get_techniques_mitigated_by_mitigation(
-    ctx: Context,
-    mitigation_name: str,
-    domain: str = "enterprise-attack"
-) -> Dict[str, Any]:
+    ctx: Context, mitigation_name: str, domain: str = "enterprise-attack"
+) -> dict[str, Any]:
     """
     Get techniques mitigated by a mitigation.
 
@@ -887,20 +908,15 @@ def get_techniques_mitigated_by_mitigation(
     techniques = data.get_techniques_mitigated_by_mitigation(mitigation["id"])
 
     return {
-        "mitigation": {
-            "id": mitigation.get("id", ""),
-            "name": mitigation.get("name", "")
-        },
-        "techniques": format_relationship_map(techniques)
+        "mitigation": {"id": mitigation.get("id", ""), "name": mitigation.get("name", "")},
+        "techniques": format_relationship_map(techniques),
     }
 
 
 @mcp.tool()
 def get_technique_by_id(
-    ctx: Context,
-    technique_id: str,
-    domain: str = "enterprise-attack"
-) -> Dict[str, Any]:
+    ctx: Context, technique_id: str, domain: str = "enterprise-attack"
+) -> dict[str, Any]:
     """
     Get a technique by its MITRE ATT&CK ID.
 
@@ -920,9 +936,7 @@ def get_technique_by_id(
 
     # Use index for O(1) lookup (enterprise domain)
     if domain == "enterprise-attack":
-        technique = ctx.request_context.lifespan_context.techniques_by_mitre_id.get(
-            technique_id
-        )
+        technique = ctx.request_context.lifespan_context.techniques_by_mitre_id.get(technique_id)
     else:
         # Fallback to linear search for other domains
         data = get_attack_data(domain, ctx)
@@ -930,8 +944,10 @@ def get_technique_by_id(
         technique = None
         for t in techniques:
             for ref in t.get("external_references", []):
-                if (ref.get("source_name") == "mitre-attack" and
-                    ref.get("external_id") == technique_id):
+                if (
+                    ref.get("source_name") == "mitre-attack"
+                    and ref.get("external_id") == technique_id
+                ):
                     technique = t
                     break
             if technique:
@@ -940,9 +956,7 @@ def get_technique_by_id(
     if not technique:
         return {"error": f"Technique '{technique_id}' not found"}
 
-    return {
-        "technique": format_technique(technique, include_description=True)
-    }
+    return {"technique": format_technique(technique, include_description=True)}
 
 
 # Define a resource to get information about the server
@@ -952,7 +966,8 @@ def get_server_info() -> str:
     return """
     MITRE ATT&CK MCP Server
 
-    This server provides tools for working with the MITRE ATT&CK framework using the mitreattack-python library.
+    This server provides tools for working with the MITRE ATT&CK framework
+    using the mitreattack-python library.
 
     Available domains:
     - enterprise-attack: Enterprise ATT&CK
@@ -967,9 +982,16 @@ def get_server_info() -> str:
     - get_techniques_by_tactic: Get techniques by tactic
     - get_techniques_used_by_group: Get techniques used by a group
     - get_mitigations: Get all mitigations
-    - get_techniques_mitigated_by_mitigation: Get techniques mitigated by a mitigation
+    - get_techniques_mitigated_by_mitigation: Get mitigations for a technique
     - get_technique_by_id: Get a technique by its MITRE ATT&CK ID
     """
+
+
+def signal_handler(signum: int, frame: Any) -> None:
+    """Handle shutdown signals gracefully."""
+    sig_name = signal.Signals(signum).name
+    logger.info("\n%s received. Shutting down gracefully...", sig_name)
+    sys.exit(0)
 
 
 def main():
@@ -980,16 +1002,86 @@ def main():
         print("Usage: mitre-mcp [options]")
         print("\nOptions:")
         print("  --http               Run as HTTP server with streamable HTTP transport")
+        print("  --host HOST          Host to bind to (default: localhost, only with --http)")
+        print("  --port PORT          Port to bind to (default: 8000, only with --http)")
         print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
         print("  -h, --help           Show this help message and exit")
         sys.exit(0)
 
-    if "--http" in sys.argv:
-        # Run as HTTP server with streamable HTTP transport
-        mcp.run(transport="streamable-http")
-    else:
-        # Run with default transport (stdio)
-        mcp.run()
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        if "--http" in sys.argv:
+            # Parse host and port from command line or use defaults
+            host = os.getenv("FASTMCP_SERVER_HOST", "localhost")
+            port = int(os.getenv("FASTMCP_SERVER_PORT", "8000"))
+
+            for i, arg in enumerate(sys.argv):
+                if arg == "--host" and i + 1 < len(sys.argv):
+                    host = sys.argv[i + 1]
+                elif arg == "--port" and i + 1 < len(sys.argv):
+                    try:
+                        port = int(sys.argv[i + 1])
+                    except ValueError:
+                        logger.error("Invalid port number: %s", sys.argv[i + 1])
+                        sys.exit(1)
+
+            logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
+            logger.info("Press Ctrl+C to stop the server")
+
+            # Configure FastMCP settings for HTTP mode
+            mcp.settings.host = host
+            mcp.settings.port = port
+
+            # Show configuration for HTTP mode
+            server_url = f"http://{host}:{port}"
+            config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
+            config_message = (
+                "\n"
+                + "=" * 70
+                + "\n"
+                + "MCP Client Configuration (Streamable HTTP Transport)\n"
+                + f"Server URL: {server_url}\n"
+                + f"MCP Endpoint: {server_url}/mcp\n"
+                + "\n"
+                + "Add this to your MCP client configuration:\n"
+                + json.dumps(config_snippet, indent=2)
+                + "\n"
+                + "=" * 70
+                + "\n"
+            )
+            # Print to stderr with immediate flush
+            print(config_message, file=sys.stderr, flush=True)
+
+            # Add CORS middleware to support async notifications from MCP clients
+            # Get the streamable HTTP app and add CORS middleware
+            app = mcp.streamable_http_app()
+            if app:
+                app.add_middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],  # Allow all origins for development
+                    allow_credentials=True,
+                    allow_methods=["*"],
+                    allow_headers=["*"],
+                )
+                logger.info("CORS middleware enabled for async notifications")
+
+            # Run as HTTP server with streamable HTTP transport
+            mcp.run(transport="streamable-http", mount_path="/mcp")
+        else:
+            logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
+            logger.info("Press Ctrl+C to stop the server")
+
+            # Run with default transport (stdio)
+            mcp.run()
+    except KeyboardInterrupt:
+        logger.info("\nKeyboard interrupt received. Shutting down gracefully...")
+        sys.exit(0)
+    except Exception as e:
+        logger.error("Server error: %s", e, exc_info=True)
+        sys.exit(1)
 
 
 # Run the server if executed directly

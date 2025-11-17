@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mitre-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for MITRE ATT&CK framework"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -24,10 +24,13 @@ classifiers = [
 ]
 dependencies = [
     "mitreattack-python>=4.0.2,<5.0.0",
-    "mcp[cli]>=0.1.0,<1.0.0",
+    "fastmcp>=2.0.0",
     "httpx>=0.24.0,<1.0.0",
     "requests>=2.25.0,<3.0.0",
 ]
+
+[project.scripts]
+mitre-mcp = "mitre_mcp.mitre_mcp_server:main"
 
 [project.optional-dependencies]
 dev = [

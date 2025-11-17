@@ -49,3 +49,5 @@ docs/_build/
 
 # Environment variables
 .env
+
+dev-docs/

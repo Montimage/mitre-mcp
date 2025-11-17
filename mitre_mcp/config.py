@@ -1,6 +1,6 @@
 """Configuration for MITRE MCP Server."""
+
 import os
-from typing import Dict
 
 
 class Config:
@@ -9,17 +9,18 @@ class Config:
     # Data source URLs
     ENTERPRISE_ATTACK_URL = os.getenv(
         "MITRE_ENTERPRISE_URL",
-        "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+        "https://raw.githubusercontent.com/mitre/cti/master/"
+        "enterprise-attack/enterprise-attack.json",
     )
 
     MOBILE_ATTACK_URL = os.getenv(
         "MITRE_MOBILE_URL",
-        "https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json"
+        "https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
     )
 
     ICS_ATTACK_URL = os.getenv(
         "MITRE_ICS_URL",
-        "https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json"
+        "https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json",
     )
 
     # Timeouts and limits
@@ -41,12 +42,12 @@ class Config:
     LOG_LEVEL = os.getenv("MITRE_LOG_LEVEL", "INFO")
 
     @classmethod
-    def get_data_urls(cls) -> Dict[str, str]:
+    def get_data_urls(cls) -> dict[str, str]:
         """Get all data source URLs."""
         return {
             "enterprise": cls.ENTERPRISE_ATTACK_URL,
             "mobile": cls.MOBILE_ATTACK_URL,
-            "ics": cls.ICS_ATTACK_URL
+            "ics": cls.ICS_ATTACK_URL,
         }
 
     @classmethod
@@ -56,10 +57,7 @@ class Config:
             return cls.DATA_DIR
 
         # Default: relative to package
-        return os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "data"
-        )
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
     @classmethod
     def validate(cls) -> None:
@@ -71,9 +69,7 @@ class Config:
             raise ValueError("CACHE_EXPIRY_DAYS must be non-negative")
 
         if cls.DEFAULT_PAGE_SIZE < 1 or cls.DEFAULT_PAGE_SIZE > cls.MAX_PAGE_SIZE:
-            raise ValueError(
-                f"DEFAULT_PAGE_SIZE must be between 1 and {cls.MAX_PAGE_SIZE}"
-            )
+            raise ValueError(f"DEFAULT_PAGE_SIZE must be between 1 and {cls.MAX_PAGE_SIZE}")
 
 
 # Validate on import

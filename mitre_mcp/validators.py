@@ -1,10 +1,11 @@
 """Input validation for MITRE MCP Server."""
+
 import re
-from typing import Optional
 
 
 class ValidationError(ValueError):
     """Raised when input validation fails."""
+
     pass
 
 
@@ -28,11 +29,10 @@ def validate_technique_id(technique_id: str) -> str:
         raise ValidationError(f"Technique ID too long: {len(technique_id)} chars (max 10)")
 
     # Match T#### or T####.###
-    pattern = r'^T\d{4}(\.\d{3})?$'
+    pattern = r"^T\d{4}(\.\d{3})?$"
     if not re.match(pattern, technique_id.upper()):
         raise ValidationError(
-            f"Invalid technique ID format: '{technique_id}'. "
-            "Expected format: T#### or T####.###"
+            f"Invalid technique ID format: '{technique_id}'. " "Expected format: T#### or T####.###"
         )
 
     return technique_id.upper()
@@ -58,13 +58,14 @@ def validate_name(name: str, field_name: str = "name", max_length: int = 100) ->
 
     name = name.strip()
 
+    if not name:
+        raise ValidationError(f"{field_name} cannot be empty")
+
     if len(name) > max_length:
-        raise ValidationError(
-            f"{field_name} too long: {len(name)} chars (max {max_length})"
-        )
+        raise ValidationError(f"{field_name} too long: {len(name)} chars (max {max_length})")
 
     # Check for suspicious characters that might indicate injection attempts
-    suspicious_chars = ['\x00', '\n', '\r', '\t']
+    suspicious_chars = ["\x00", "\n", "\r", "\t"]
     if any(char in name for char in suspicious_chars):
         raise ValidationError(f"{field_name} contains invalid characters")
 
@@ -88,8 +89,7 @@ def validate_domain(domain: str) -> str:
 
     if domain not in valid_domains:
         raise ValidationError(
-            f"Invalid domain: '{domain}'. "
-            f"Valid domains: {', '.join(sorted(valid_domains))}"
+            f"Invalid domain: '{domain}'. " f"Valid domains: {', '.join(sorted(valid_domains))}"
         )
 
     return domain

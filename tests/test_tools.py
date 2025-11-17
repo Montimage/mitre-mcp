@@ -1,15 +1,17 @@
 """Tests for MCP tools."""
+
 import pytest
+
 from mitre_mcp.mitre_mcp_server import (
-    get_techniques,
-    get_technique_by_id,
-    get_tactics,
     get_groups,
-    get_software,
-    get_techniques_by_tactic,
-    get_techniques_used_by_group,
     get_mitigations,
-    get_techniques_mitigated_by_mitigation
+    get_software,
+    get_tactics,
+    get_technique_by_id,
+    get_techniques,
+    get_techniques_by_tactic,
+    get_techniques_mitigated_by_mitigation,
+    get_techniques_used_by_group,
 )
 
 
@@ -18,12 +20,7 @@ class TestGetTechniques:
 
     def test_get_techniques_basic(self, mock_context):
         """Test basic technique retrieval."""
-        result = get_techniques(
-            mock_context,
-            domain="enterprise-attack",
-            limit=20,
-            offset=0
-        )
+        result = get_techniques(mock_context, domain="enterprise-attack", limit=20, offset=0)
 
         assert "techniques" in result
         assert "pagination" in result
@@ -31,12 +28,7 @@ class TestGetTechniques:
 
     def test_pagination_metadata(self, mock_context):
         """Test pagination metadata."""
-        result = get_techniques(
-            mock_context,
-            domain="enterprise-attack",
-            limit=10,
-            offset=0
-        )
+        result = get_techniques(mock_context, domain="enterprise-attack", limit=10, offset=0)
 
         pagination = result["pagination"]
         assert pagination["limit"] == 10
@@ -47,42 +39,28 @@ class TestGetTechniques:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques(
-            mock_context,
-            domain="invalid-attack"
-        )
+        result = get_techniques(mock_context, domain="invalid-attack")
 
         assert "error" in result
         assert "Invalid domain" in result["error"]
 
     def test_invalid_limit(self, mock_context):
         """Test invalid limit."""
-        result = get_techniques(
-            mock_context,
-            domain="enterprise-attack",
-            limit=0
-        )
+        result = get_techniques(mock_context, domain="enterprise-attack", limit=0)
 
         assert "error" in result
         assert "must be positive" in result["error"]
 
     def test_invalid_offset(self, mock_context):
         """Test invalid offset."""
-        result = get_techniques(
-            mock_context,
-            domain="enterprise-attack",
-            offset=-1
-        )
+        result = get_techniques(mock_context, domain="enterprise-attack", offset=-1)
 
         assert "error" in result
         assert "must be non-negative" in result["error"]
 
     def test_default_limit(self, mock_context):
         """Test default limit is applied."""
-        result = get_techniques(
-            mock_context,
-            domain="enterprise-attack"
-        )
+        result = get_techniques(mock_context, domain="enterprise-attack")
 
         # Default should be 20
         assert result["pagination"]["limit"] == 20
@@ -194,20 +172,14 @@ class TestGetTechniquesByTactic:
 
     def test_valid_tactic(self, mock_context):
         """Test retrieving techniques by tactic."""
-        result = get_techniques_by_tactic(
-            mock_context,
-            tactic_shortname="defense-evasion"
-        )
+        result = get_techniques_by_tactic(mock_context, tactic_shortname="defense-evasion")
 
         assert "techniques" in result
         assert isinstance(result["techniques"], list)
 
     def test_invalid_tactic_name(self, mock_context):
         """Test invalid tactic name (too long)."""
-        result = get_techniques_by_tactic(
-            mock_context,
-            tactic_shortname="x" * 100
-        )
+        result = get_techniques_by_tactic(mock_context, tactic_shortname="x" * 100)
 
         assert "error" in result
         assert "too long" in result["error"]
@@ -215,9 +187,7 @@ class TestGetTechniquesByTactic:
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
         result = get_techniques_by_tactic(
-            mock_context,
-            tactic_shortname="defense-evasion",
-            domain="invalid"
+            mock_context, tactic_shortname="defense-evasion", domain="invalid"
         )
 
         assert "error" in result
@@ -228,10 +198,7 @@ class TestGetTechniquesUsedByGroup:
 
     def test_valid_group(self, mock_context):
         """Test retrieving techniques used by group."""
-        result = get_techniques_used_by_group(
-            mock_context,
-            group_name="APT28"
-        )
+        result = get_techniques_used_by_group(mock_context, group_name="APT28")
 
         assert "group" in result
         assert "techniques" in result
@@ -239,10 +206,7 @@ class TestGetTechniquesUsedByGroup:
 
     def test_case_insensitive_group_name(self, mock_context):
         """Test case insensitive group name lookup."""
-        result = get_techniques_used_by_group(
-            mock_context,
-            group_name="apt28"
-        )
+        result = get_techniques_used_by_group(mock_context, group_name="apt28")
 
         # Should find group (index is lowercase)
         assert "group" in result
@@ -251,31 +215,21 @@ class TestGetTechniquesUsedByGroup:
     def test_group_not_found(self, mock_context):
         """Test group not found."""
         # Use mock that doesn't have this group in index
-        result = get_techniques_used_by_group(
-            mock_context,
-            group_name="NonexistentGroup"
-        )
+        result = get_techniques_used_by_group(mock_context, group_name="NonexistentGroup")
 
         assert "error" in result
         assert "not found" in result["error"]
 
     def test_invalid_group_name(self, mock_context):
         """Test invalid group name."""
-        result = get_techniques_used_by_group(
-            mock_context,
-            group_name=""
-        )
+        result = get_techniques_used_by_group(mock_context, group_name="")
 
         assert "error" in result
         assert "cannot be empty" in result["error"]
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques_used_by_group(
-            mock_context,
-            group_name="APT28",
-            domain="invalid"
-        )
+        result = get_techniques_used_by_group(mock_context, group_name="APT28", domain="invalid")
 
         assert "error" in result
 
@@ -313,8 +267,7 @@ class TestGetTechniquesMitigatedByMitigation:
     def test_valid_mitigation(self, mock_context):
         """Test retrieving techniques mitigated by mitigation."""
         result = get_techniques_mitigated_by_mitigation(
-            mock_context,
-            mitigation_name="Application Isolation and Sandboxing"
+            mock_context, mitigation_name="Application Isolation and Sandboxing"
         )
 
         assert "mitigation" in result
@@ -323,8 +276,7 @@ class TestGetTechniquesMitigatedByMitigation:
     def test_case_insensitive_mitigation_name(self, mock_context):
         """Test case insensitive mitigation name lookup."""
         result = get_techniques_mitigated_by_mitigation(
-            mock_context,
-            mitigation_name="application isolation and sandboxing"
+            mock_context, mitigation_name="application isolation and sandboxing"
         )
 
         # Should find mitigation (index is lowercase)
@@ -333,8 +285,7 @@ class TestGetTechniquesMitigatedByMitigation:
     def test_mitigation_not_found(self, mock_context):
         """Test mitigation not found."""
         result = get_techniques_mitigated_by_mitigation(
-            mock_context,
-            mitigation_name="Nonexistent Mitigation"
+            mock_context, mitigation_name="Nonexistent Mitigation"
         )
 
         assert "error" in result
@@ -342,10 +293,7 @@ class TestGetTechniquesMitigatedByMitigation:
 
     def test_invalid_mitigation_name(self, mock_context):
         """Test invalid mitigation name."""
-        result = get_techniques_mitigated_by_mitigation(
-            mock_context,
-            mitigation_name=""
-        )
+        result = get_techniques_mitigated_by_mitigation(mock_context, mitigation_name="")
 
         assert "error" in result
         assert "cannot be empty" in result["error"]
@@ -353,9 +301,7 @@ class TestGetTechniquesMitigatedByMitigation:
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
         result = get_techniques_mitigated_by_mitigation(
-            mock_context,
-            mitigation_name="Application Isolation and Sandboxing",
-            domain="invalid"
+            mock_context, mitigation_name="Application Isolation and Sandboxing", domain="invalid"
         )
 
         assert "error" in result

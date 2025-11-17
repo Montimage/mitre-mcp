@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
-
 DEFAULT_VENV = Path.home() / ".mitre-mcp-claude"
 CLAUDE_CONFIG = Path.home() / "Library/Application Support/Claude/claude_desktop_config.json"
 SERVER_NAME = "mitreattack"
@@ -51,7 +50,13 @@ def install_package(python_bin: Path, repo_root: Path) -> None:
     # Ensure MCP SDK is available even if editable install was already satisfied
     run([str(python_bin), "-m", "pip", "install", "mcp[cli]>=0.1.0,<1.0.0"])
     # Quick sanity check to fail fast if the module cannot be imported later
-    run([str(python_bin), "-c", "from mcp.server.fastmcp import FastMCP; print('Verified mcp.server.fastmcp')"])
+    run(
+        [
+            str(python_bin),
+            "-c",
+            "from mcp.server.fastmcp import FastMCP; print('Verified mcp.server.fastmcp')",
+        ]
+    )
 
 
 def ensure_config_directory(config_path: Path) -> None:
@@ -59,7 +64,7 @@ def ensure_config_directory(config_path: Path) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def load_config(config_path: Path) -> Dict[str, Any]:
+def load_config(config_path: Path) -> dict[str, Any]:
     """Load Claude config JSON if present, otherwise return minimal structure."""
     if config_path.exists():
         with config_path.open("r", encoding="utf-8") as handle:
@@ -73,7 +78,7 @@ def load_config(config_path: Path) -> Dict[str, Any]:
     return {}
 
 
-def write_config(config_path: Path, config: Dict[str, Any]) -> None:
+def write_config(config_path: Path, config: dict[str, Any]) -> None:
     """Write Claude configuration to disk with indentation."""
     ensure_config_directory(config_path)
     with config_path.open("w", encoding="utf-8") as handle:
@@ -91,7 +96,7 @@ def update_claude_config(config_path: Path, python_bin: Path) -> None:
 
     servers[SERVER_NAME] = {
         "command": str(python_bin),
-        "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+        "args": ["-m", "mitre_mcp.mitre_mcp_server"],
     }
 
     write_config(config_path, config)
@@ -105,13 +110,13 @@ def parse_args() -> argparse.Namespace:
         "--venv",
         type=Path,
         default=DEFAULT_VENV,
-        help=f"Path to virtual environment (default: {DEFAULT_VENV})"
+        help=f"Path to virtual environment (default: {DEFAULT_VENV})",
     )
     parser.add_argument(
         "--config",
         type=Path,
         default=CLAUDE_CONFIG,
-        help=f"Claude Desktop config.json path (default: {CLAUDE_CONFIG})"
+        help=f"Claude Desktop config.json path (default: {CLAUDE_CONFIG})",
     )
     return parser.parse_args()
 

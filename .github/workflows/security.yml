@@ -2,12 +2,12 @@ name: Security
 
 on:
   push:
-    branches: [ main, develop, claude/* ]
+    branches: [main, develop, claude/*]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   schedule:
     # Run security checks daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,59 +16,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install bandit
-      run: |
-        pip install bandit[toml]
+      - name: Install bandit
+        run: |
+          pip install bandit[toml]
 
-    - name: Run Bandit security scan
-      run: |
-        bandit -r mitre_mcp/ -c pyproject.toml -f json -o bandit-report.json
-        bandit -r mitre_mcp/ -c pyproject.toml
+      - name: Run Bandit security scan
+        run: |
+          bandit -r mitre_mcp/ -c pyproject.toml -f json -o bandit-report.json
+          bandit -r mitre_mcp/ -c pyproject.toml
 
-    - name: Upload Bandit results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: bandit-security-report
-        path: bandit-report.json
+      - name: Upload Bandit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
 
   safety:
     name: Safety Dependency Check
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        pip install safety
+      - name: Install dependencies
+        run: |
+          pip install safety
 
-    - name: Run Safety check
-      run: |
-        pip install -e .
-        safety check --json --output safety-report.json || true
-        safety check
+      - name: Run Safety check
+        run: |
+          pip install -e .
+          safety check --json --output safety-report.json || true
+          safety check
 
-    - name: Upload Safety results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: safety-dependency-report
-        path: safety-report.json
+      - name: Upload Safety results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-dependency-report
+          path: safety-report.json
 
   codeql:
     name: CodeQL Analysis
@@ -79,17 +79,17 @@ jobs:
       security-events: write
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: python
-        queries: security-and-quality
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
 
   dependency-review:
     name: Dependency Review
@@ -97,10 +97,10 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Dependency Review
-      uses: actions/dependency-review-action@v4
-      with:
-        fail-on-severity: moderate
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate

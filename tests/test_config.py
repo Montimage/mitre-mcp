@@ -1,6 +1,9 @@
 """Tests for configuration module."""
+
 import os
+
 import pytest
+
 from mitre_mcp.config import Config
 
 
@@ -24,7 +27,7 @@ class TestConfig:
         assert "mobile" in urls
         assert "ics" in urls
         assert all(url.startswith("https://") for url in urls.values())
-        assert all("github.com/mitre/cti" in url for url in urls.values())
+        assert all("mitre/cti" in url for url in urls.values())
 
     def test_get_data_dir_default(self, monkeypatch):
         """Test default data directory."""
@@ -42,7 +45,9 @@ class TestConfig:
 
         # Need to reload config to pick up new env var
         from importlib import reload
+
         from mitre_mcp import config as config_module
+
         reload(config_module)
 
         assert config_module.Config.get_data_dir() == custom_dir
@@ -57,7 +62,9 @@ class TestConfig:
         monkeypatch.setenv("MITRE_DOWNLOAD_TIMEOUT", "60")
 
         from importlib import reload
+
         from mitre_mcp import config as config_module
+
         reload(config_module)
 
         assert config_module.Config.DOWNLOAD_TIMEOUT_SECONDS == 60
@@ -67,7 +74,9 @@ class TestConfig:
         monkeypatch.setenv("MITRE_CACHE_EXPIRY_DAYS", "7")
 
         from importlib import reload
+
         from mitre_mcp import config as config_module
+
         reload(config_module)
 
         assert config_module.Config.CACHE_EXPIRY_DAYS == 7
@@ -77,7 +86,9 @@ class TestConfig:
         monkeypatch.setenv("MITRE_DEFAULT_PAGE_SIZE", "50")
 
         from importlib import reload
+
         from mitre_mcp import config as config_module
+
         reload(config_module)
 
         assert config_module.Config.DEFAULT_PAGE_SIZE == 50

@@ -1,6 +1,8 @@
 """Tests for formatting functions."""
+
 import pytest
-from mitre_mcp.mitre_mcp_server import format_technique, format_relationship_map
+
+from mitre_mcp.mitre_mcp_server import format_relationship_map, format_technique
 
 
 class TestFormatTechnique:
@@ -55,7 +57,7 @@ class TestFormatTechnique:
             "id": "test",
             "name": "Test",
             "type": "attack-pattern",
-            "external_references": []
+            "external_references": [],
         }
 
         result = format_technique(technique)
@@ -72,8 +74,8 @@ class TestFormatTechnique:
             "external_references": [
                 {"source_name": "other", "external_id": "OTHER-1"},
                 {"source_name": "mitre-attack", "external_id": "T9999"},
-                {"source_name": "capec", "external_id": "CAPEC-1"}
-            ]
+                {"source_name": "capec", "external_id": "CAPEC-1"},
+            ],
         }
 
         result = format_technique(technique)
@@ -89,7 +91,7 @@ class TestFormatRelationshipMap:
         """Test formatting relationship map."""
         relationship_map = [
             {"object": sample_technique},
-            {"object": {**sample_technique, "id": "test2"}}
+            {"object": {**sample_technique, "id": "test2"}},
         ]
 
         result = format_relationship_map(relationship_map)
@@ -103,7 +105,7 @@ class TestFormatRelationshipMap:
         relationship_map = [
             {"object": sample_technique},
             {"object": {**sample_technique, "id": "test2"}},
-            {"object": {**sample_technique, "id": "test3"}}
+            {"object": {**sample_technique, "id": "test3"}},
         ]
 
         result = format_relationship_map(relationship_map, limit=2)
@@ -124,9 +126,7 @@ class TestFormatRelationshipMap:
 
     def test_relationships_with_description(self, sample_technique):
         """Test relationships with descriptions."""
-        relationship_map = [
-            {"object": sample_technique}
-        ]
+        relationship_map = [{"object": sample_technique}]
 
         result = format_relationship_map(relationship_map, include_description=True)
 
@@ -135,11 +135,7 @@ class TestFormatRelationshipMap:
 
     def test_relationships_with_empty_objects(self):
         """Test relationships with empty objects."""
-        relationship_map = [
-            {"object": {}},
-            {"object": None},
-            {"object": {"id": "test"}}
-        ]
+        relationship_map = [{"object": {}}, {"object": None}, {"object": {"id": "test"}}]
 
         result = format_relationship_map(relationship_map)
 
