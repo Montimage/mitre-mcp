@@ -119,10 +119,112 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate.bat
 pip install mitre-mcp
 ```
 
+After installing `mitre-mcp`, you should be able to execute the following command:
+
+```bash
+mitre-mcp --help
+```
+
+_Expected output_
+
+```bash
+(.venv) root@5ded11443fe0:/test_mitre_mcp# mitre-mcp --help
+MITRE ATT&CK MCP Server
+Usage: mitre-mcp [options]
+
+Options:
+  --http               Run as HTTP server with streamable HTTP transport
+  --host HOST          Host to bind to (default: localhost, only with --http)
+  --port PORT          Port to bind to (default: 8000, only with --http)
+  --force-download     Force download of MITRE ATT&CK data even if it's recent
+  -h, --help           Show this help message and exit
+```
+
 3. Start the MCP server with stdio transport (for direct integration with clients):
 
 ```bash
 mitre-mcp
+```
+
+_Expected result_
+
+```bash
+(.venv) root@5ded11443fe0:/test_mitre_mcp# mitre-mcp
+2025-11-17 22:37:37,087 - mitre_mcp.mitre_mcp_server - INFO - Starting MITRE ATT&CK MCP Server (stdio mode)
+2025-11-17 22:37:37,087 - mitre_mcp.mitre_mcp_server - INFO - Press Ctrl+C to stop the server
+2025-11-17 22:37:37,091 - mitre_mcp.mitre_mcp_server - INFO - Using data directory: /test_mitre_mcp/.venv/lib/python3.10/site-packages/mitre_mcp/data
+2025-11-17 22:37:37,091 - mitre_mcp.mitre_mcp_server - WARNING - Invalid or missing metadata file: [Errno 2] No such file or directory: '/test_mitre_mcp/.venv/lib/python3.10/site-packages/mitre_mcp/data/metadata.json'
+2025-11-17 22:37:37,091 - mitre_mcp.mitre_mcp_server - INFO - Disk space check passed: 16458.0MB available (200MB required)
+2025-11-17 22:37:37,091 - mitre_mcp.mitre_mcp_server - INFO - Downloading MITRE ATT&CK data in parallel...
+2025-11-17 22:37:37,131 - mitre_mcp.mitre_mcp_server - INFO - Downloading Enterprise ATT&CK data...
+2025-11-17 22:37:37,132 - mitre_mcp.mitre_mcp_server - INFO - Downloading Mobile ATT&CK data...
+2025-11-17 22:37:37,132 - mitre_mcp.mitre_mcp_server - INFO - Downloading Ics ATT&CK data...
+2025-11-17 22:37:37,272 - httpx - INFO - HTTP Request: GET https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json "HTTP/1.1 200 OK"
+2025-11-17 22:37:37,279 - httpx - INFO - HTTP Request: GET https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json "HTTP/1.1 200 OK"
+2025-11-17 22:37:37,281 - httpx - INFO - HTTP Request: GET https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json "HTTP/1.1 200 OK"
+2025-11-17 22:37:37,348 - mitre_mcp.mitre_mcp_server - INFO - Validated ics STIX bundle: 1825 objects
+2025-11-17 22:37:37,381 - mitre_mcp.mitre_mcp_server - INFO - Downloaded ics: 1825 objects
+2025-11-17 22:37:37,401 - mitre_mcp.mitre_mcp_server - INFO - Validated mobile STIX bundle: 2535 objects
+2025-11-17 22:37:37,447 - mitre_mcp.mitre_mcp_server - INFO - Downloaded mobile: 2535 objects
+2025-11-17 22:37:37,853 - mitre_mcp.mitre_mcp_server - INFO - Validated enterprise STIX bundle: 24771 objects
+2025-11-17 22:37:38,291 - mitre_mcp.mitre_mcp_server - INFO - Downloaded enterprise: 24771 objects
+2025-11-17 22:37:38,302 - mitre_mcp.mitre_mcp_server - INFO - MITRE ATT&CK data downloaded successfully.
+2025-11-17 22:37:38,302 - mitre_mcp.mitre_mcp_server - INFO - Initializing MITRE ATT&CK data...
+2025-11-17 22:37:41,898 - mitre_mcp.mitre_mcp_server - INFO - MITRE ATT&CK data initialized successfully.
+2025-11-17 22:37:41,898 - mitre_mcp.mitre_mcp_server - INFO - Building lookup indices...
+2025-11-17 22:37:41,924 - mitre_mcp.mitre_mcp_server - INFO - Built group index: 580 entries for 187 groups
+2025-11-17 22:37:41,949 - mitre_mcp.mitre_mcp_server - INFO - Built mitigation index: 268 entries for 268 mitigations
+2025-11-17 22:37:41,975 - mitre_mcp.mitre_mcp_server - INFO - Built technique index: 835 entries for 835 techniques
+2025-11-17 22:37:41,976 - mitre_mcp.mitre_mcp_server - INFO - Lookup indices built successfully.
+2025-11-17 22:37:41,976 - mitre_mcp.mitre_mcp_server - INFO -
+======================================================================
+MITRE ATT&CK MCP Server is ready (stdio mode)
+
+Add this to your MCP client configuration:
+{
+  "mcpServers": {
+    "mitreattack": {
+      "command": "/test_mitre_mcp/.venv/bin/python3",
+      "args": [
+        "-m",
+        "mitre_mcp.mitre_mcp_server"
+      ]
+    }
+  }
+}
+======================================================================
+
+======================================================================
+MITRE ATT&CK MCP Server is ready (stdio mode)
+
+Add this to your MCP client configuration:
+{
+  "mcpServers": {
+    "mitreattack": {
+      "command": "/test_mitre_mcp/.venv/bin/python3",
+      "args": [
+        "-m",
+        "mitre_mcp.mitre_mcp_server"
+      ]
+    }
+  }
+}
+======================================================================
+```
+
+_Add to a MCP Client_
+
+At the end of the log, you should see the real configuration, just copy - paste into your favorite mcp client. For example for the above server:
+
+```json
+{
+  "mcpServers": {
+    "mitreattack": {
+      "command": "/test_mitre_mcp/.venv/bin/python3",
+      "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+    }
+  }
+}
 ```
 
 4. Or start the MCP server as an HTTP server:
@@ -130,6 +232,62 @@ mitre-mcp
 ```bash
 mitre-mcp --http
 ```
+
+_Expected result_
+
+```bash
+(.venv) root@5ded11443fe0:/test_mitre_mcp# mitre-mcp --http --host 0.0.0.0 --port 8088
+2025-11-17 22:40:10,991 - mitre_mcp.mitre_mcp_server - INFO - Starting MITRE ATT&CK MCP Server (HTTP mode on 0.0.0.0:8088)
+2025-11-17 22:40:10,991 - mitre_mcp.mitre_mcp_server - INFO - Press Ctrl+C to stop the server
+
+======================================================================
+MCP Client Configuration (Streamable HTTP Transport)
+Server URL: http://0.0.0.0:8088
+MCP Endpoint: http://0.0.0.0:8088/mcp
+
+Add this to your MCP client configuration:
+{
+  "mcpServers": {
+    "mitreattack": {
+      "url": "http://0.0.0.0:8088/mcp"
+    }
+  }
+}
+======================================================================
+
+2025-11-17 22:40:10,992 - mitre_mcp.mitre_mcp_server - INFO - CORS middleware enabled for async notifications
+INFO:     Started server process [3172]
+INFO:     Waiting for application startup.
+2025-11-17 22:40:11,005 - mcp.server.streamable_http_manager - INFO - StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8088 (Press CTRL+C to quit)
+```
+
+_Add to a MCP Client_
+
+At the end of the log, you should see the real configuration, just copy - paste into your favorite mcp client. For example for the above server:
+
+```json
+"mitreattack": {
+      "url": "http://0.0.0.0:8088/mcp"
+    }
+```
+
+Note that the address `0.0.0.0` should be the public address of the machine in which you start the server.
+
+_Screenshots of adding `mitre-mcp` in VSCode_
+
+Configure mcp server
+
+![Configure](screenshot-01.png)
+
+Make a query and see the Github Copilot request to call tools from `mitre-mcp`
+
+![Tool call](screenshot-02.png)
+
+The LLM show the final result with the information collected from `mitre-mcp`
+
+![Result](screenshot-03.png)
 
 5. Use the `--force-download` option to force a fresh download of MITRE ATT&CK data:
 
