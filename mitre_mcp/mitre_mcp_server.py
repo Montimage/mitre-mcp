@@ -994,19 +994,94 @@ def signal_handler(signum: int, frame: Any) -> None:
     sys.exit(0)
 
 
+def print_help() -> None:
+    """Print help message and exit."""
+    print("MITRE ATT&CK MCP Server")
+    print("Usage: mitre-mcp [options]")
+    print("\nOptions:")
+    print("  --http               Run as HTTP server with streamable HTTP transport")
+    print("  --host HOST          Host to bind to (default: localhost, only with --http)")
+    print("  --port PORT          Port to bind to (default: 8000, only with --http)")
+    print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
+    print("  -h, --help           Show this help message and exit")
+    sys.exit(0)
+
+
+def parse_http_args() -> tuple[str, int]:
+    """Parse HTTP host and port from command line arguments.
+
+    Returns:
+        Tuple of (host, port)
+    """
+    host = os.getenv("FASTMCP_SERVER_HOST", "localhost")
+    port = int(os.getenv("FASTMCP_SERVER_PORT", "8000"))
+
+    for i, arg in enumerate(sys.argv):
+        if arg == "--host" and i + 1 < len(sys.argv):
+            host = sys.argv[i + 1]
+        elif arg == "--port" and i + 1 < len(sys.argv):
+            try:
+                port = int(sys.argv[i + 1])
+            except ValueError:
+                logger.error("Invalid port number: %s", sys.argv[i + 1])
+                sys.exit(1)
+
+    return host, port
+
+
+def setup_http_server(host: str, port: int) -> None:
+    """Configure and display HTTP server information.
+
+    Args:
+        host: Server host address
+        port: Server port number
+    """
+    logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
+    logger.info("Press Ctrl+C to stop the server")
+
+    # Configure FastMCP settings for HTTP mode
+    mcp.settings.host = host
+    mcp.settings.port = port
+
+    # Show configuration for HTTP mode
+    server_url = f"http://{host}:{port}"
+    config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
+    config_message = (
+        "\n"
+        + "=" * 70
+        + "\n"
+        + "MCP Client Configuration (Streamable HTTP Transport)\n"
+        + f"Server URL: {server_url}\n"
+        + f"MCP Endpoint: {server_url}/mcp\n"
+        + "\n"
+        + "Add this to your MCP client configuration:\n"
+        + json.dumps(config_snippet, indent=2)
+        + "\n"
+        + "=" * 70
+        + "\n"
+    )
+    # Print to stderr with immediate flush
+    print(config_message, file=sys.stderr, flush=True)
+
+    # Add CORS middleware to support async notifications from MCP clients
+    # Get the streamable HTTP app and add CORS middleware
+    app = mcp.streamable_http_app()
+    if app:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allow all origins for development
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        logger.info("CORS middleware enabled for async notifications")
+
+
 def main():
     """Entry point for the package when installed."""
     # Print help message if requested
     if "--help" in sys.argv or "-h" in sys.argv:
-        print("MITRE ATT&CK MCP Server")
-        print("Usage: mitre-mcp [options]")
-        print("\nOptions:")
-        print("  --http               Run as HTTP server with streamable HTTP transport")
-        print("  --host HOST          Host to bind to (default: localhost, only with --http)")
-        print("  --port PORT          Port to bind to (default: 8000, only with --http)")
-        print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
-        print("  -h, --help           Show this help message and exit")
-        sys.exit(0)
+        print_help()
 
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -1014,66 +1089,13 @@ def main():
 
     try:
         if "--http" in sys.argv:
-            # Parse host and port from command line or use defaults
-            host = os.getenv("FASTMCP_SERVER_HOST", "localhost")
-            port = int(os.getenv("FASTMCP_SERVER_PORT", "8000"))
-
-            for i, arg in enumerate(sys.argv):
-                if arg == "--host" and i + 1 < len(sys.argv):
-                    host = sys.argv[i + 1]
-                elif arg == "--port" and i + 1 < len(sys.argv):
-                    try:
-                        port = int(sys.argv[i + 1])
-                    except ValueError:
-                        logger.error("Invalid port number: %s", sys.argv[i + 1])
-                        sys.exit(1)
-
-            logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
-            logger.info("Press Ctrl+C to stop the server")
-
-            # Configure FastMCP settings for HTTP mode
-            mcp.settings.host = host
-            mcp.settings.port = port
-
-            # Show configuration for HTTP mode
-            server_url = f"http://{host}:{port}"
-            config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
-            config_message = (
-                "\n"
-                + "=" * 70
-                + "\n"
-                + "MCP Client Configuration (Streamable HTTP Transport)\n"
-                + f"Server URL: {server_url}\n"
-                + f"MCP Endpoint: {server_url}/mcp\n"
-                + "\n"
-                + "Add this to your MCP client configuration:\n"
-                + json.dumps(config_snippet, indent=2)
-                + "\n"
-                + "=" * 70
-                + "\n"
-            )
-            # Print to stderr with immediate flush
-            print(config_message, file=sys.stderr, flush=True)
-
-            # Add CORS middleware to support async notifications from MCP clients
-            # Get the streamable HTTP app and add CORS middleware
-            app = mcp.streamable_http_app()
-            if app:
-                app.add_middleware(
-                    CORSMiddleware,
-                    allow_origins=["*"],  # Allow all origins for development
-                    allow_credentials=True,
-                    allow_methods=["*"],
-                    allow_headers=["*"],
-                )
-                logger.info("CORS middleware enabled for async notifications")
-
+            host, port = parse_http_args()
+            setup_http_server(host, port)
             # Run as HTTP server with streamable HTTP transport
             mcp.run(transport="streamable-http", mount_path="/mcp")
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
             logger.info("Press Ctrl+C to stop the server")
-
             # Run with default transport (stdio)
             mcp.run()
     except KeyboardInterrupt:

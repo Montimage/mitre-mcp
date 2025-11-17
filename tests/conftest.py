@@ -18,7 +18,10 @@ def sample_technique() -> dict[str, Any]:
         "id": "attack-pattern--abc123",
         "type": "attack-pattern",
         "name": "Process Injection",
-        "description": "Adversaries may inject code into processes in order to evade process-based defenses.",
+        "description": (
+            "Adversaries may inject code into processes in order to "
+            "evade process-based defenses."
+        ),
         "external_references": [
             {
                 "source_name": "mitre-attack",
@@ -49,7 +52,10 @@ def sample_group() -> dict[str, Any]:
         "id": "intrusion-set--abc123",
         "type": "intrusion-set",
         "name": "APT28",
-        "description": "APT28 is a threat group that has been attributed to Russia's General Staff Main Intelligence Directorate.",
+        "description": (
+            "APT28 is a threat group that has been attributed to "
+            "Russia's General Staff Main Intelligence Directorate."
+        ),
         "aliases": ["Fancy Bear", "Sofacy", "Sednit"],
         "external_references": [{"source_name": "mitre-attack", "external_id": "G0007"}],
     }
@@ -62,7 +68,10 @@ def sample_mitigation() -> dict[str, Any]:
         "id": "course-of-action--abc123",
         "type": "course-of-action",
         "name": "Application Isolation and Sandboxing",
-        "description": "Restrict execution of code to a virtual environment on or in transit to an endpoint system.",
+        "description": (
+            "Restrict execution of code to a virtual environment on or "
+            "in transit to an endpoint system."
+        ),
     }
 
 
