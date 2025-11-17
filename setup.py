@@ -29,7 +29,6 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/montimage/mitre-mcp",
     packages=find_packages(),
-    py_modules=["mitre_mcp_server"],
     include_package_data=True,
     classifiers=[
         "Development Status :: 4 - Beta",
