@@ -51,4 +51,4 @@ docs/_build/
 .env
 
 dev-docs/
-node_modules/
+node_modules/*

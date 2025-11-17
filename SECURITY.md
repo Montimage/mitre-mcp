@@ -4,11 +4,11 @@
 
 The following versions of `mitre-mcp` are currently supported with security updates:
 
-| Version | Supported          | Notes                                    |
-| ------- | ------------------ | ---------------------------------------- |
+| Version | Supported          | Notes                                       |
+| ------- | ------------------ | ------------------------------------------- |
 | 0.2.x   | :white_check_mark: | Current stable release - actively supported |
-| 0.1.x   | :x:                | End of life - please upgrade to 0.2.x    |
-| < 0.1.0 | :x:                | Not supported                            |
+| 0.1.x   | :x:                | End of life - please upgrade to 0.2.x       |
+| < 0.1.0 | :x:                | Not supported                               |
 
 **Recommendation:** Always use the latest 0.2.x release to ensure you have the most recent security patches and features.
 
@@ -55,7 +55,7 @@ We take security vulnerabilities seriously. If you discover a security issue in 
    - Click "Report a vulnerability"
    - Provide detailed information about the vulnerability
 
-2. **Email**: Send details to **security@montimage.com**
+2. **Email**: Send details to **luong.nguyen@montimage.eu**
    - Use subject line: `[SECURITY] mitre-mcp: [Brief Description]`
    - Include version affected, steps to reproduce, and potential impact
 
@@ -81,6 +81,7 @@ Please provide the following information:
 ### 🎯 What to Expect
 
 **If Accepted:**
+
 - We'll work with you to understand and reproduce the issue
 - A security advisory will be drafted (privately)
 - A patch will be developed and tested
@@ -90,6 +91,7 @@ Please provide the following information:
 - Public disclosure after patch is available
 
 **If Declined:**
+
 - We'll explain why we don't consider it a security vulnerability
 - You'll receive guidance on proper usage if it's a misconfiguration
 - We may create a regular issue if it's a non-security bug
@@ -125,16 +127,19 @@ pip install mitre-mcp --trusted-host pypi.org
 ### Configuration
 
 1. **File Permissions**: Restrict access to data directory
+
    ```bash
    chmod 700 ~/.local/share/mitre-mcp/data
    ```
 
 2. **Environment Variables**: Use environment files with proper permissions
+
    ```bash
    chmod 600 .env
    ```
 
 3. **HTTP Server**: If exposing via HTTP, use a reverse proxy with authentication
+
    ```nginx
    # Example: Nginx with basic auth
    location /mcp {
@@ -173,7 +178,7 @@ We welcome security researchers to audit our code and report findings responsibl
 
 ## Security Contacts
 
-- **Primary**: security@montimage.com
+- **Primary**: luong.nguyen@montimage.eu
 - **GitHub Security**: https://github.com/Montimage/mitre-mcp/security/advisories
 - **General Issues**: https://github.com/Montimage/mitre-mcp/issues (for non-security bugs)
 
