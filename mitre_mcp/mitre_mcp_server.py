@@ -437,6 +437,18 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
         mitigations_index = build_mitigation_index(enterprise_attack)
         techniques_index = build_technique_index(enterprise_attack)
         logger.info("Lookup indices built successfully.")
+        config_snippet = {
+            "mcpServers": {
+                "mitreattack": {
+                    "command": sys.executable,
+                    "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+                }
+            }
+        }
+        logger.info(
+            "MITRE ATT&CK MCP server is ready. Add this to your MCP client configuration:\n%s",
+            json.dumps(config_snippet, indent=2)
+        )
 
         yield AttackContext(
             enterprise_attack=enterprise_attack,
@@ -660,16 +672,16 @@ def get_groups(
 def get_software(
     ctx: Context,
     domain: str = "enterprise-attack",
-    software_type: Optional[str] = None,
-    remove_revoked_deprecated: bool = False
+    remove_revoked_deprecated: bool = False,
+    software_types: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Get all software from the MITRE ATT&CK framework.
 
     Args:
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
-        software_type: Type of software to query (malware, tool, or None for both)
         remove_revoked_deprecated: Remove revoked or deprecated objects
+        software_types: Optional list of ATT&CK object types to include (e.g., ["malware"])
 
     Returns:
         Dictionary containing a list of software
@@ -681,10 +693,14 @@ def get_software(
         return {"error": str(e)}
 
     data = get_attack_data(domain, ctx)
-    software = data.get_software(
-        software_type=software_type,
-        remove_revoked_deprecated=remove_revoked_deprecated
-    )
+    software = data.get_software(remove_revoked_deprecated=remove_revoked_deprecated)
+
+    if software_types:
+        allowed = {stype.lower() for stype in software_types}
+        software = [
+            s for s in software
+            if s.get("type", "").lower() in allowed
+        ]
 
     return {
         "software": [
