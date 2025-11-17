@@ -1,0 +1,41 @@
+[flake8]
+# Flake8 Configuration for MITRE MCP Server
+
+max-line-length = 100
+max-complexity = 10
+
+# Ignore certain errors
+# E203: whitespace before ':' (conflicts with Black)
+# W503: line break before binary operator (conflicts with Black)
+extend-ignore = E203, W503
+
+# Exclude directories
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    build,
+    dist,
+    *.egg-info,
+    data,
+    .mypy_cache,
+    .pytest_cache,
+    htmlcov
+
+# Per-file ignores
+per-file-ignores =
+    __init__.py:F401
+    tests/*:F401,F811
+
+# Enable these plugins
+enable-extensions = G
+
+# Count errors
+count = True
+
+# Show source code for errors
+show-source = True
+
+# Statistics
+statistics = True
