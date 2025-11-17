@@ -627,7 +627,7 @@ pytest tests/              # Run test suite
 ## FAQ
 
 - **Does mitre-mcp work offline?** Yes. Once the bundles are cached locally, the server can answer queries without an internet connection until the cache expires.
-- **Which Python versions are supported?** Python 3.9 through 3.12 (see `pyproject.toml`). Older versions are not tested and might miss async dependencies.
+- **Which Python versions are supported?** Python 3.10 through 3.14 (see `pyproject.toml`). Older versions are not tested and might miss async dependencies.
 - **How often is data refreshed?** By default every 24 hours. Adjust `MITRE_CACHE_EXPIRY_DAYS` or manually refresh with `--force-download`.
 - **Is HTTP mode safe for production?** HTTP mode serves JSON-RPC over localhost:8000 by default. Keep it behind a firewall or reverse proxy if exposing it beyond your workstation.
 

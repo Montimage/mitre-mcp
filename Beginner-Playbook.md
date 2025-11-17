@@ -11,7 +11,7 @@ MITRE MCP Server (mitre-mcp v0.2.1) is a high-quality, well-tested tool that bri
 - **114 comprehensive tests** ensuring reliability
 - **Pre-commit quality checks** for code safety
 - **66% code coverage** with continuous improvement
-- **Support for Python 3.9-3.12** across multiple platforms
+- **Support for Python 3.10-3.14** across multiple platforms
 
 ### What is MITRE ATT&CK?
 

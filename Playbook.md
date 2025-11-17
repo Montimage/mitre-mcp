@@ -4,7 +4,7 @@ Practical workflows for analysts, hunters, and engineers who pair `mitre-mcp` wi
 
 ## Prerequisites
 
-- Python 3.9–3.12 with `pip`.
+- Python 3.10–3.14 with `pip`.
 - `mitre-mcp>=0.2.1` installed in a virtual environment.
 - ATT&CK data cached locally (run `mitre-mcp --force-download` once if needed).
 - The [`mcp` CLI](https://pypi.org/project/mcp/) available (installed automatically via `pip install "mitre-mcp[dev]"` or `pip install mcp[cli]`).
