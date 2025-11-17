@@ -75,13 +75,13 @@ class AttackContext:
 
 
 # Metadata type definition
-class Metadata(dict):
+class Metadata(dict[str, Any]):
     """Type for metadata.json structure."""
 
     pass
 
 
-def check_disk_space(directory: str, required_mb: int = None) -> None:
+def check_disk_space(directory: str, required_mb: int | None = None) -> None:
     """
     Check if sufficient disk space is available.
 
@@ -164,10 +164,10 @@ def validate_metadata(metadata: dict) -> Metadata:
     except ValueError as e:
         raise ValueError(f"Invalid last_update format: {e}")
 
-    return metadata
+    return Metadata(metadata)
 
 
-def load_metadata(metadata_path: str) -> Optional[Metadata]:
+def load_metadata(metadata_path: str) -> Metadata | None:
     """
     Safely load and validate metadata.
 
@@ -309,7 +309,9 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
         # Create async HTTP client
         async with httpx.AsyncClient(
-            headers={"User-Agent": f"mitre-mcp/{__version__}"}, verify=True
+            headers={"User-Agent": f"mitre-mcp/{__version__}"},
+            verify=True,
+            timeout=Config.TIMEOUT_SECONDS,
         ) as client:
             # Download all domains in parallel
             download_tasks = [
@@ -320,10 +322,12 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
             await asyncio.gather(*download_tasks)
 
         # Save metadata
-        metadata = {
-            "last_update": datetime.now(timezone.utc).isoformat(),
-            "domains": list(urls.keys()),
-        }
+        metadata = Metadata(
+            {
+                "last_update": datetime.now(timezone.utc).isoformat(),
+                "domains": list(urls.keys()),
+            }
+        )
         with open(paths["metadata"], "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
@@ -439,7 +443,9 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
 
             # Streamable HTTP transport configuration
             server_url = f"http://{host}:{port}"
-            config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
+            config_snippet: dict[str, Any] = {
+                "mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}
+            }
 
             # Log the configuration
             config_message = (
@@ -550,7 +556,9 @@ def format_technique(
 
 
 def format_relationship_map(
-    relationship_map: list[dict[str, Any]], include_description: bool = False, limit: int = None
+    relationship_map: list[dict[str, Any]],
+    include_description: bool = False,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Format a relationship map for output with token optimization."""
     if not relationship_map:
@@ -577,7 +585,7 @@ def get_techniques(
     include_subtechniques: bool = True,
     remove_revoked_deprecated: bool = False,
     include_descriptions: bool = False,
-    limit: int = None,
+    limit: int | None = None,
     offset: int = 0,
 ) -> dict[str, Any]:
     """
@@ -710,7 +718,7 @@ def get_software(
     ctx: Context,
     domain: str = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-    software_types: Optional[list[str]] = None,
+    software_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Get all software from the MITRE ATT&CK framework.
@@ -1077,7 +1085,7 @@ def setup_http_server(host: str, port: int) -> None:
         logger.info("CORS middleware enabled for async notifications")
 
 
-def main():
+def main() -> None:
     """Entry point for the package when installed."""
     # Print help message if requested
     if "--help" in sys.argv or "-h" in sys.argv:
