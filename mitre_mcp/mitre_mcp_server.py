@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 # Third-party imports
 import httpx
@@ -311,7 +311,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
         async with httpx.AsyncClient(
             headers={"User-Agent": f"mitre-mcp/{__version__}"},
             verify=True,
-            timeout=Config.TIMEOUT_SECONDS,
+            timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
         ) as client:
             # Download all domains in parallel
             download_tasks = [
