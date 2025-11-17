@@ -7,6 +7,7 @@ Implemented using the official MCP Python SDK.
 """
 
 # Standard library imports
+import asyncio
 import json
 import logging
 import os
@@ -20,8 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # Third-party imports
-import requests
-from requests.exceptions import RequestException, Timeout
+import httpx
 
 from mitreattack.stix20 import MitreAttackData
 
@@ -219,8 +219,54 @@ def validate_stix_bundle(content: str, domain: str) -> dict:
     return data
 
 
-def download_and_save_attack_data(data_dir: str, force: bool = False) -> dict:
-    """Download and save MITRE ATT&CK data to the specified directory.
+async def download_domain(
+    client: httpx.AsyncClient,
+    domain: str,
+    url: str,
+    output_path: str
+) -> None:
+    """
+    Download a single MITRE ATT&CK domain asynchronously.
+
+    Args:
+        client: HTTP client
+        domain: Domain name
+        url: Download URL
+        output_path: Where to save
+    """
+    logger.info("Downloading %s ATT&CK data...", domain.capitalize())
+
+    try:
+        response = await client.get(
+            url,
+            timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
+            follow_redirects=True
+        )
+        response.raise_for_status()
+
+        # Validate content
+        validated_data = validate_stix_bundle(response.text, domain)
+
+        # Save to file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(validated_data, f, indent=2)
+
+        logger.info("Downloaded %s: %d objects", domain, len(validated_data['objects']))
+
+    except httpx.TimeoutException:
+        logger.error("Timeout downloading %s data from %s", domain, url)
+        raise
+    except httpx.HTTPError as e:
+        logger.error("HTTP error downloading %s: %s", domain, e)
+        raise
+    except Exception as e:
+        logger.error("Failed to download %s: %s", domain, e)
+        raise
+
+
+async def download_and_save_attack_data_async(data_dir: str, force: bool = False) -> dict:
+    """
+    Download and save MITRE ATT&CK data asynchronously with parallel downloads.
 
     Args:
         data_dir: Directory to save the data
@@ -268,37 +314,21 @@ def download_and_save_attack_data(data_dir: str, force: bool = False) -> dict:
         # Check disk space before downloading
         check_disk_space(data_dir)
 
-        logger.info("Downloading MITRE ATT&CK data...")
+        logger.info("Downloading MITRE ATT&CK data in parallel...")
 
-        # Create a session for connection reuse
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'mitre-mcp/0.2.0'})
+        # Create async HTTP client
+        async with httpx.AsyncClient(
+            headers={'User-Agent': 'mitre-mcp/0.2.0'},
+            verify=True
+        ) as client:
+            # Download all domains in parallel
+            download_tasks = [
+                download_domain(client, domain, url, paths[domain])
+                for domain, url in urls.items()
+            ]
 
-        for domain, url in urls.items():
-            logger.info("Downloading %s ATT&CK data...", domain.capitalize())
-
-            try:
-                response = session.get(
-                    url,
-                    timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
-                    verify=True
-                )
-                response.raise_for_status()
-
-                # Validate before saving
-                validated_data = validate_stix_bundle(response.text, domain)
-
-                with open(paths[domain], 'w', encoding='utf-8') as f:
-                    json.dump(validated_data, f, indent=2)
-
-            except Timeout:
-                logger.error("Timeout downloading %s data from %s", domain, url)
-                raise
-            except RequestException as e:
-                logger.error("Failed to download %s data: %s", domain, e)
-                raise
-
-        session.close()
+            # Wait for all downloads to complete
+            await asyncio.gather(*download_tasks)
 
         # Save metadata
         metadata = {
@@ -391,8 +421,8 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
         # Get command line arguments
         force_download = "--force-download" in sys.argv
 
-        # Download and save MITRE ATT&CK data
-        paths = download_and_save_attack_data(data_dir, force=force_download)
+        # Download and save MITRE ATT&CK data asynchronously with parallel downloads
+        paths = await download_and_save_attack_data_async(data_dir, force=force_download)
 
         # Initialize on startup
         logger.info("Initializing MITRE ATT&CK data...")
