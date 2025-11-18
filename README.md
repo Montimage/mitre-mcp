@@ -1,6 +1,7 @@
 <!-- mcp-name: io.github.luongnv89/mitre-mcp -->
 # mitre-mcp: MITRE ATT&CK MCP Server
 
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue.svg?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMiA3TDEyIDEyTDIyIDdMMTIgMloiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0yIDEyTDEyIDE3TDIyIDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8cGF0aCBkPSJNMiAxN0wxMiAyMkwyMiAxNyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cg==)](https://registry.modelcontextprotocol.io)
 <a href="https://pepy.tech/projects/mitre-mcp"><img src="https://static.pepy.tech/badge/mitre-mcp" alt="PyPI Downloads"></a>
 
 [![PyPI version](https://img.shields.io/pypi/v/mitre-mcp.svg?label=PyPI&logo=pypi)](https://pypi.org/project/mitre-mcp/)
@@ -12,6 +13,8 @@
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
 Production-ready Model Context Protocol (MCP) server that exposes the MITRE ATT&CK framework to LLMs, MCP clients, and automation workflows using the mitreattack-python library and the official MCP Python SDK.
+
+**Available in the [MCP Registry](https://registry.modelcontextprotocol.io)** (search for `io.github.luongnv89/mitre-mcp`) for easy discoverability. Install via PyPI (see [Quick Start](#quick-start)).
 
 ## Highlights
 
@@ -104,6 +107,8 @@ mitre-mcp is designed for seamless integration with Model Context Protocol (MCP)
 - **CLI Interface** - Command-line tool for direct usage
 
 ## Quick Start
+
+### Installation
 
 Install from PyPI and bring the MCP server online in minutes:
 
@@ -486,7 +491,15 @@ Get information about the MITRE ATT&CK MCP server, including available domains a
 
 ## MCP Server Configuration
 
-You can add this MCP server to any MCP client by including it in the client's configuration:
+You can add this MCP server to any MCP client by including it in the client's configuration.
+
+First, install the package from PyPI:
+
+```bash
+pip install mitre-mcp
+```
+
+Then add to your MCP client configuration:
 
 ```json
 {

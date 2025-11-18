@@ -50,5 +50,10 @@ docs/_build/
 # Environment variables
 .env
 
-dev-docs/
+# MCP Registry tokens
+.mcpregistry_github_token
+.mcpregistry_registry_token
+
+devdocs/
 node_modules/*
+blogs/
