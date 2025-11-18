@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.luongnv89/mitre-mcp",
+  "title": "MITRE ATT&CK",
+  "description": "Production-ready MCP server that exposes the MITRE ATT&CK framework via the official MCP Python SDK and mitreattack-python.",
+  "version": "0.3.0",
+  "repository": {
+    "url": "https://github.com/Montimage/mitre-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mitre-mcp",
+      "version": "0.3.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
+
