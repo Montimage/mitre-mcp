@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.luongnv89/mitre-mcp -->
 # mitre-mcp: MITRE ATT&CK MCP Server
 
 <a href="https://pepy.tech/projects/mitre-mcp"><img src="https://static.pepy.tech/badge/mitre-mcp" alt="PyPI Downloads"></a>
