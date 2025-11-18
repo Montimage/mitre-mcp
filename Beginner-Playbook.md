@@ -4,15 +4,6 @@ Welcome to the MITRE MCP Beginner's Guide! This guide is designed to help you ge
 
 ## 🌟 Getting Started
 
-### What is MITRE MCP Server?
-
-MITRE MCP Server (mitre-mcp v0.2.1) is a high-quality, well-tested tool that brings the MITRE ATT&CK knowledge base to your AI assistant. It's built with:
-
-- **114 comprehensive tests** ensuring reliability
-- **Pre-commit quality checks** for code safety
-- **66% code coverage** with continuous improvement
-- **Support for Python 3.10-3.14** across multiple platforms
-
 ### What is MITRE ATT&CK?
 
 MITRE ATT&CK is a knowledge base of cyber adversary behavior that helps security teams understand and defend against cyber threats.
@@ -32,18 +23,30 @@ mitre-mcp --help
 
 ### Configuring with Claude Desktop
 
-Add this to your Claude Desktop configuration file:
+**Step 1:** Start the mitre-mcp server in HTTP mode:
+
+```bash
+mitre-mcp --http
+```
+
+**Step 2:** Add this to your Claude Desktop configuration file:
+
+**Configuration file locations:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "mitreattack": {
-      "command": "/path/to/your/venv/bin/python",
-      "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
+
+**Step 3:** Restart Claude Desktop
 
 ### How to Use This Guide
 

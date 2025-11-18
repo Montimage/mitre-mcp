@@ -55,5 +55,5 @@ docs/_build/
 .mcpregistry_registry_token
 
 devdocs/
-node_modules/*
+node_modules/
 blogs/

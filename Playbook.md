@@ -5,399 +5,446 @@ Practical workflows for analysts, hunters, and engineers who pair `mitre-mcp` wi
 ## Prerequisites
 
 - Python 3.10–3.14 with `pip`.
-- `mitre-mcp>=0.2.1` installed in a virtual environment.
+- `mitre-mcp>=0.3.1` installed in a virtual environment.
 - ATT&CK data cached locally (run `mitre-mcp --force-download` once if needed).
-- The [`mcp` CLI](https://pypi.org/project/mcp/) available (installed automatically via `pip install "mitre-mcp[dev]"` or `pip install mcp[cli]`).
-- A minimal MCP client config such as:
-  ```json
-  {
-    "mcpServers": {
-      "mitreattack": {
-        "command": "/absolute/path/to/.venv/bin/python",
-        "args": ["-m", "mitre_mcp.mitre_mcp_server"]
-      }
-    }
-  }
-  ```
-  Save it to `~/.config/mcp/config.json` (or the equivalent path on your OS).
+- An MCP client to interact with the server:
+  - **Claude Desktop** ([Download](https://claude.ai/download)) for conversational access
+  - **or any MCP Client** such as: VSCode Studio, Cursor, Windsurf, etc.
 
-## Quality Assurance
 
-This MCP server is built with rigorous quality standards:
+### Configuration
 
-- **114 comprehensive tests** (66% code coverage)
-- **Pre-commit hooks** ensuring code quality before every commit
-- **Automated CI/CD** with linting, type checking, and security scanning
-- **Cross-platform support** tested on Ubuntu, macOS, and Windows
-- **Performance optimized** with O(1) lookups using pre-built indices (80-95% faster)
-
-## Transport Modes
-
-### Standard Mode (stdio)
-
-The default mode for local MCP clients like Claude Desktop:
+**Step 1:** Start the mitre-mcp server in HTTP mode (recommended):
 
 ```bash
-mitre-mcp
-```
-
-### HTTP Mode
-
-For web-based integrations and async notifications:
-
-```bash
-# Start HTTP server (default port 8000)
 mitre-mcp --http
-
-# Custom port and host
-mitre-mcp --http --host 0.0.0.0 --port 8080
 ```
 
-**Features:**
+**Step 2:** Add `mitre-mcp` to your MCP client configuration:
 
-- CORS-enabled for cross-origin requests
-- Streamable HTTP transport for async updates
-- Environment variables: `MITRE_HTTP_HOST`, `MITRE_HTTP_PORT`, `MITRE_ENABLE_CORS`
-
-**MCP Client Configuration (HTTP):**
-
+**Claude Desktop / VSCode** (`claude_desktop_config.json` or MCP settings):
 ```json
 {
   "mcpServers": {
     "mitreattack": {
-      "url": "http://0.0.0.0:8080/mcp"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
 ```
 
-## Command Pattern
+**Configuration file locations:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
-1. **Start the server** (Terminal A) and leave it running:
-   ```bash
-   mitre-mcp               # optional: --http or --force-download
-   ```
-2. **Issue tool calls** from another terminal using the `mcp` CLI:
-   ```bash
-   mcp tools call mitreattack <tool_name> '<json payload>'
-   ```
-   Replace `<tool_name>` with values like `get_techniques_by_tactic`, and pass only the parameters accepted by that tool (see `mitre_mcp/mitre_mcp_server.py` or `mitre-attack://info`).
-3. **Feed responses into your LLM** or automation pipeline. Because the server stays up, each call returns immediately without re-downloading data.
+**Step 3:** Restart your MCP client to load the configuration
 
-The CLI snippets below all follow this pattern (`mcp` commands assume the server is running and registered under the name `mitreattack`).
+## Transport Modes
+
+### HTTP Mode (Recommended)
+
+The recommended mode for all MCP clients, offering better concurrency and easier debugging:
+
+```bash
+# Start HTTP server (default: localhost:8000)
+mitre-mcp --http
+
+# Custom host and port
+mitre-mcp --http --host 0.0.0.0 --port 8080
+```
+
+**Benefits:**
+
+- Better concurrency - multiple clients can connect simultaneously
+- Easier debugging - inspect requests with standard HTTP tools
+- CORS-enabled for cross-origin requests
+- Streamable HTTP transport for async updates
+- No path configuration needed - just a URL
+
+**MCP Client Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "mitreattack": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+**Environment variables:**
+- `MITRE_HTTP_HOST` - Override default host
+- `MITRE_HTTP_PORT` - Override default port (8000)
+- `MITRE_ENABLE_CORS` - Enable/disable CORS (default: enabled)
+
+### stdio Mode (Alternative)
+
+For local-only clients that require stdio transport:
+
+```bash
+mitre-mcp
+```
+
+**MCP Client Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "mitreattack": {
+      "command": "/absolute/path/to/.venv/bin/python",
+      "args": ["-m", "mitre_mcp.mitre_mcp_server"]
+    }
+  }
+}
+```
+
+**Note:** stdio mode is limited to single client connections and requires absolute path configuration.
+
+## How to Use This Playbook
+
+### Step 1: Install and Configure mitre-mcp
+
+Choose your preferred MCP client and configure `mitre-mcp`:
+
+#### Claude Desktop
+
+**Best for:** Interactive analysis, threat intelligence, and ad-hoc queries.
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "mitreattack": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+Then start the server:
+```bash
+mitre-mcp --http
+```
+
+#### VSCode (with Cline/Roo-Cline/Continue)
+
+**Best for:** Development workflows and embedded security analysis.
+
+1. Install an MCP-compatible VSCode extension (Cline, Roo-Cline, or Continue)
+2. Configure the extension with the mitre-mcp server URL
+3. Start the server: `mitre-mcp --http`
+
+#### Other MCP Clients
+
+**mitre-mcp** works with any MCP-compatible client:
+- **Cursor** - AI-powered code editor
+- **Windsurf** - Collaborative development environment
+- **Zed** - High-performance code editor
+- Any other MCP-compatible tool
+
+See [README.md](README.md) for detailed configuration instructions.
+
+### Step 2: Use the Chatbox for Your Scenario
+
+Once configured, simply open your MCP client's chatbox and ask natural language questions. The client will automatically invoke the appropriate mitre-mcp tools to answer your queries.
+
+**Example interaction:**
+```
+You: What techniques does APT29 use? Highlight the most critical ones for defense.
+
+AI: [Automatically calls get_techniques_used_by_group and presents the results]
+```
+
+**Available MCP Tools:**
+The following tools are automatically available to your AI assistant:
+- `get_tactics` - List all tactics
+- `get_techniques` - List techniques with filtering
+- `get_technique_by_id` - Get specific technique details
+- `get_techniques_by_tactic` - Filter by tactic
+- `get_groups` - List threat actor groups
+- `get_techniques_used_by_group` - Map groups to techniques
+- `get_software` - List malware and tools
+- `get_mitigations` - List mitigations
+- `get_techniques_mitigated_by_mitigation` - Map mitigations to techniques
+
+You don't need to memorize these tools - just ask questions naturally, and your AI assistant will use the right tools automatically.
+
+---
+
+**For programmatic API integration (automation, custom scripts, batch processing):**
+See [API-INTEGRATION.md](API-INTEGRATION.md) for complete guide with Python and Node.js examples.
+
+---
 
 ## Scenario Catalog
+
+The following scenarios provide ready-to-use prompts for common security workflows. Simply copy the prompts into your MCP client's chatbox and execute them step-by-step.
 
 ### 1. Threat Intelligence
 
 **Goal:** Map real-world groups to techniques/tactics for reporting and briefings.
-**Ideal for:** CTI analysts, exec updates.
+**Ideal for:** CTI analysts, executive updates, threat reports.
 
-**LLM prompt starter:** `Summarize the dominant ATT&CK techniques for APT29 using the mitre-mcp responses above and highlight defensive gaps.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Enumerate all named groups (filter revoked items later)
-mcp tools call mitreattack get_groups '{
-  "domain": "enterprise-attack",
-  "remove_revoked_deprecated": true
-}'
-
-# Pull the ATT&CK techniques attributed to APT29
-mcp tools call mitreattack get_techniques_used_by_group '{
-  "group_name": "APT29",
-  "domain": "enterprise-attack"
-}'
-
-# Deep dive on a specific sub-technique for narrative context
-mcp tools call mitreattack get_technique_by_id '{
-  "technique_id": "T1059.001",
-  "domain": "enterprise-attack"
-}'
+**Step 1:** Ask about a threat group's techniques
+```
+What techniques does APT29 use? Highlight the most critical ones for defense.
 ```
 
-**Capture:** actor-to-technique mappings, aliases, mitigation angles.
+**Step 2:** Compare multiple threat actors
+```
+Compare APT29 and APT28 techniques - what overlaps exist?
+```
+
+**Step 3:** Get detailed technique information
+```
+Give me details on T1059.001 including detection guidance.
+```
+
+**Capture:** Actor-to-technique mappings, aliases, mitigation angles, defensive gaps.
 
 ### 2. Detection Engineering
 
 **Goal:** Translate high-value techniques into detections and mitigations.
 **Ideal for:** Detection engineers, SOC engineers, purple teams.
 
-**LLM prompt starter:** `Use the mitre-mcp outputs to recommend log sources, analytic logic, and mitigations for T1003.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Inspect technique metadata, platforms, and detection notes
-mcp tools call mitreattack get_technique_by_id '{
-  "technique_id": "T1003",
-  "domain": "enterprise-attack"
-}'
-
-# List all published mitigations (triage which ones you already cover)
-mcp tools call mitreattack get_mitigations '{
-  "domain": "enterprise-attack",
-  "remove_revoked_deprecated": true
-}'
-
-# Pivot from a mitigation name to see all covered techniques
-mcp tools call mitreattack get_techniques_mitigated_by_mitigation '{
-  "mitigation_name": "Account Use Policies",
-  "domain": "enterprise-attack"
-}'
+**Step 1:** Analyze a specific technique for detection
+```
+Analyze T1003 (Credential Dumping) - what log sources and detection logic should I implement?
 ```
 
-**Capture:** telemetry priorities, policy changes, backlog candidates.
+**Step 2:** Find mitigations for a tactic
+```
+What mitigations address the most common persistence techniques?
+```
+
+**Step 3:** Explore mitigation coverage
+```
+Show me all techniques that 'Network Segmentation' mitigates.
+```
+
+**Capture:** Telemetry priorities, log sources, analytic logic, policy changes, mitigation backlog.
 
 ### 3. Threat Hunting
 
 **Goal:** Build proactive hunt packages tied to ATT&CK hypotheses.
 **Ideal for:** Threat hunters, DFIR engineers.
 
-**LLM prompt starter:** `Generate hunting hypotheses, log sources, and pivot queries for the Initial Access techniques returned by mitre-mcp.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Techniques associated with the Initial Access tactic
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "initial-access",
-  "domain": "enterprise-attack"
-}'
-
-# Persistence techniques (excluding revoked items)
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "persistence",
-  "domain": "enterprise-attack",
-  "remove_revoked_deprecated": true
-}'
-
-# Pull a broader set of enterprise techniques with descriptions included
-mcp tools call mitreattack get_techniques '{
-  "domain": "enterprise-attack",
-  "include_subtechniques": true,
-  "include_descriptions": true,
-  "limit": 50
-}'
+**Step 1:** Create a hunt plan for a tactic
+```
+Build a threat hunt plan for Initial Access techniques - include hypotheses and log sources.
 ```
 
-**Capture:** prioritized hunts, telemetry to collect, follow-up pivots.
+**Step 2:** Prioritize techniques for an environment
+```
+What persistence techniques should I prioritize for a Windows environment?
+```
+
+**Step 3:** Generate hunting queries for threat actors
+```
+Generate hunting queries for lateral movement techniques used by APT groups.
+```
+
+**Capture:** Prioritized hunts, hypotheses, telemetry sources, pivot queries, detection gaps.
 
 ### 4. Red Teaming
 
 **Goal:** Craft adversary emulation plans aligned to credible threat activity.
-**Ideal for:** Red/purple teams, adversary simulation vendors.
+**Ideal for:** Red/purple teams, adversary simulation, emulation planning.
 
-**LLM prompt starter:** `Use these mitre-mcp outputs to assemble a FIN7-themed exercise with lateral-movement focus.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Profile an adversary's preferred techniques
-mcp tools call mitreattack get_techniques_used_by_group '{
-  "group_name": "FIN7",
-  "domain": "enterprise-attack"
-}'
-
-# Focus on lateral movement stages for chaining exercises
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "lateral-movement",
-  "domain": "enterprise-attack"
-}'
-
-# Inventory available tools (vs. malware) to emulate behavior
-mcp tools call mitreattack get_software '{
-  "domain": "enterprise-attack",
-  "software_types": ["tool"]
-}'
+**Step 1:** Build an emulation plan for a threat group
+```
+Build a FIN7 emulation plan focused on lateral movement techniques.
 ```
 
-**Capture:** phase ordering, emulation commands, validation checkpoints.
+**Step 2:** Identify tools and malware for emulation
+```
+What tools and malware should I use to emulate APT41 behavior?
+```
+
+**Step 3:** Create an attack chain for a tactic
+```
+Create a multi-stage attack chain using techniques from the Privilege Escalation tactic.
+```
+
+**Capture:** Phase ordering, emulation commands, validation checkpoints, tool selection.
 
 ### 5. Security Assessment
 
 **Goal:** Evaluate defenses and mitigations against ATT&CK coverage.
-**Ideal for:** Security architects, GRC teams.
+**Ideal for:** Security architects, GRC teams, control mapping.
 
-**LLM prompt starter:** `Summarize which mitigations address the retrieved techniques and highlight uncovered areas.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Export the mitigation catalog for enterprise domain
-mcp tools call mitreattack get_mitigations '{
-  "domain": "enterprise-attack"
-}'
-
-# Determine which techniques a key mitigation defends
-mcp tools call mitreattack get_techniques_mitigated_by_mitigation '{
-  "mitigation_name": "Network Segmentation",
-  "domain": "enterprise-attack"
-}'
-
-# Pull descriptions for the first 30 techniques (great for control mapping)
-mcp tools call mitreattack get_techniques '{
-  "domain": "enterprise-attack",
-  "include_descriptions": true,
-  "limit": 30
-}'
+**Step 1:** Assess control coverage for a mitigation
+```
+Assess my control coverage - what techniques does 'Network Segmentation' mitigate?
 ```
 
-**Capture:** control coverage matrix, remediation backlog, policy gaps.
+**Step 2:** Generate a coverage heat map
+```
+Generate a coverage heat map showing which mitigations address the most critical techniques.
+```
+
+**Step 3:** Identify coverage gaps
+```
+What techniques are under-covered by standard enterprise mitigations?
+```
+
+**Capture:** Control coverage matrix, remediation backlog, policy gaps, compliance mappings.
 
 ### 6. Incident Response
 
 **Goal:** Map observed behaviors to ATT&CK and document cases quickly.
-**Ideal for:** DFIR responders, incident commanders.
+**Ideal for:** DFIR responders, incident commanders, SOC analysts.
 
-**LLM prompt starter:** `Combine the mitre-mcp responses to draft an incident summary, likely attribution, and next investigative steps.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Lookup a specific sub-technique seen during triage
-mcp tools call mitreattack get_technique_by_id '{
-  "technique_id": "T1053.005",
-  "domain": "enterprise-attack"
-}'
-
-# Identify groups known to employ the same TTPs for attribution hints
-mcp tools call mitreattack get_techniques_used_by_group '{
-  "group_name": "APT41",
-  "domain": "enterprise-attack"
-}'
-
-# List malware families tied to the enterprise domain
-mcp tools call mitreattack get_software '{
-  "domain": "enterprise-attack",
-  "software_types": ["malware"]
-}'
+**Step 1:** Get detection details for observed technique
+```
+We observed scheduled task creation (T1053.005) - provide detection details and likely threat actors.
 ```
 
-**Capture:** narrative timeline, impacted stages, candidate threat actors.
+**Step 2:** Perform attribution with multiple techniques
+```
+What groups use these techniques: T1053.005, T1059.001, T1003? Help with attribution.
+```
+
+**Step 3:** Generate incident report
+```
+Generate an incident report template mapping these IOCs to ATT&CK techniques.
+```
+
+**Capture:** Narrative timeline, impacted stages, candidate threat actors, IOC mappings.
 
 ### 7. Security Operations
 
 **Goal:** Align SOC monitoring and runbooks with ATT&CK coverage.
 **Ideal for:** SOC leads, Tier 2 analysts, automation engineers.
 
-**LLM prompt starter:** `Use the mitre-mcp outputs to propose detection tuning and runbook updates for Defense Evasion.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Quick view of tactics available in the enterprise matrix
-mcp tools call mitreattack get_tactics '{
-  "domain": "enterprise-attack"
-}'
-
-# Pull techniques for Defense Evasion to enrich alerting guidelines
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "defense-evasion",
-  "domain": "enterprise-attack"
-}'
-
-# Paginate through the enterprise technique list to avoid large payloads
-mcp tools call mitreattack get_techniques '{
-  "domain": "enterprise-attack",
-  "limit": 25,
-  "offset": 25
-}'
+**Step 1:** Prioritize techniques for alert tuning
+```
+What Defense Evasion techniques should I prioritize for alert tuning?
 ```
 
-**Capture:** alert priorities, log coverage, SOP improvements.
+**Step 2:** Build runbook templates
+```
+Build a SOC runbook template for responding to Credential Access alerts.
+```
+
+**Step 3:** Map SIEM coverage to ATT&CK
+```
+Map my current SIEM use cases to ATT&CK tactics - identify gaps.
+```
+
+**Capture:** Alert priorities, log coverage, SOP improvements, runbook templates.
 
 ### 8. Security Training
 
 **Goal:** Build educational content that mirrors adversary behaviors.
-**Ideal for:** Enablement teams, security champions.
+**Ideal for:** Enablement teams, security champions, trainers.
 
-**LLM prompt starter:** `Convert these mitre-mcp responses into a hands-on lab outline and quiz questions.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Pick a technique/sub-technique to anchor a workshop
-mcp tools call mitreattack get_technique_by_id '{
-  "technique_id": "T1059.001",
-  "domain": "enterprise-attack"
-}'
-
-# Show students which adversary groups leverage the same tactic
-mcp tools call mitreattack get_techniques_used_by_group '{
-  "group_name": "Lazarus Group",
-  "domain": "enterprise-attack"
-}'
-
-# Surface tools participants should recognize during tabletop exercises
-mcp tools call mitreattack get_software '{
-  "domain": "enterprise-attack",
-  "software_types": ["tool"]
-}'
+**Step 1:** Create hands-on lab content
+```
+Create a hands-on lab for teaching T1059.001 (PowerShell) - include learning objectives and exercises.
 ```
 
-**Capture:** lesson plans, quiz items, scenario prompts.
+**Step 2:** Build tabletop exercise scenarios
+```
+Build a tabletop exercise scenario using Lazarus Group techniques.
+```
+
+**Step 3:** Generate quiz questions
+```
+Generate quiz questions covering Initial Access and Persistence tactics.
+```
+
+**Capture:** Lesson plans, quiz items, scenario prompts, lab exercises, assessment criteria.
 
 ### 9. Vendor Evaluation
 
 **Goal:** Compare tooling claims against the ATT&CK landscape.
-**Ideal for:** Procurement teams, platform owners.
+**Ideal for:** Procurement teams, platform owners, security architects.
 
-**LLM prompt starter:** `Using the mitre-mcp datasets, outline validation scenarios to verify a vendor’s coverage claims for privilege escalation.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Baseline the full set of enterprise techniques to understand scope
-mcp tools call mitreattack get_techniques '{
-  "domain": "enterprise-attack",
-  "include_subtechniques": false,
-  "limit": 100
-}'
-
-# Focus on a specific tactic that a vendor claims to cover
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "privilege-escalation",
-  "domain": "enterprise-attack"
-}'
-
-# Examine relevant groups to build evaluation scenarios
-mcp tools call mitreattack get_groups '{
-  "domain": "enterprise-attack",
-  "remove_revoked_deprecated": true
-}'
+**Step 1:** Validate vendor coverage claims
+```
+A vendor claims 80% coverage of Privilege Escalation techniques - build test scenarios to validate this.
 ```
 
-**Capture:** evaluation matrices, must-have detections, scenario seeds.
+**Step 2:** Compare detection capabilities
+```
+Compare vendor detection coverage against the top 20 most common enterprise techniques.
+```
+
+**Step 3:** Prioritize evaluation criteria
+```
+What techniques should I prioritize when evaluating EDR solutions?
+```
+
+**Capture:** Evaluation matrices, must-have detections, test scenarios, coverage benchmarks.
 
 ### 10. Risk Management
 
 **Goal:** Prioritize investments against the most relevant techniques.
 **Ideal for:** CISOs, risk committees, roadmap planners.
 
-**LLM prompt starter:** `Turn these mitre-mcp outputs into a risk register with top investments and owners.`
-**CLI workflow**
+**Claude Desktop workflow:**
 
-```bash
-# Pull the first 50 techniques (include descriptions for rich context)
-mcp tools call mitreattack get_techniques '{
-  "domain": "enterprise-attack",
-  "include_descriptions": true,
-  "limit": 50
-}'
-
-# Focus on Discovery tactics impacting asset inventories
-mcp tools call mitreattack get_techniques_by_tactic '{
-  "tactic_shortname": "discovery",
-  "domain": "enterprise-attack"
-}'
-
-# Review mitigations to align with investment themes
-mcp tools call mitreattack get_mitigations '{
-  "domain": "enterprise-attack"
-}'
+**Step 1:** Create a risk register
+```
+Create a risk register prioritizing the top 50 enterprise techniques by severity and prevalence.
 ```
 
-**Capture:** prioritized threats, recommended mitigations, roadmap actions.
+**Step 2:** Identify mitigation investments
+```
+What mitigations should we invest in to address Discovery and Collection tactics?
+```
+
+**Step 3:** Build a security roadmap
+```
+Build a security roadmap addressing gaps in our coverage of APT-commonly-used techniques.
+```
+
+**Capture:** Prioritized threats, recommended mitigations, roadmap actions, investment themes.
 
 ## Operational Tips
 
-- Customize JSON payloads with your own limits, offsets, and domains to control token usage.
-- `include_descriptions` dramatically increases the response size—enable it only when the downstream LLM needs narrative context.
-- Cache warms automatically each day; set `MITRE_CACHE_EXPIRY_DAYS` if you need longer retention or call `mitre-mcp --force-download` to refresh before major reviews.
-- Use `MITRE_LOG_LEVEL=DEBUG mitre-mcp` when troubleshooting to see transport- and cache-level logs.
+### Best Practices for MCP Clients
+
+- **Start simple**: Ask natural questions and let your AI assistant invoke the right tools automatically
+- **Be specific**: Include technique IDs, group names, or tactic names when you know them
+- **Iterate**: Build on previous responses to drill deeper into the data
+- **Context matters**: Your AI can combine multiple tool calls to answer complex questions
+- **Use the scenarios**: The Scenario Catalog provides proven prompts for common workflows
+
+### Server Performance
+
+- **HTTP mode**: Use `--http` for better concurrency and easier debugging
+- **Debug logging**: Set `MITRE_LOG_LEVEL=DEBUG` for troubleshooting
+- **Force refresh**: Run `mitre-mcp --force-download` before critical analyses to ensure latest data
+- **Cache settings**: Data refreshes automatically based on `MITRE_CACHE_EXPIRY_DAYS` (default: 1 day)
+
+### Integration Tips
+
+- **Claude Desktop**: Best for interactive analysis and threat intelligence
+- **VSCode/IDE**: Ideal for embedding ATT&CK context in code reviews and threat modeling
+- **Programmatic API**: See [API-INTEGRATION.md](API-INTEGRATION.md) for automation and custom integrations
 
 ## Contributing
 
