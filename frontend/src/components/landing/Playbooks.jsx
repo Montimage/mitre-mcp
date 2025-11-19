@@ -22,9 +22,8 @@ export default function Playbooks() {
   const scenarios = [
     {
       id: 'beginner',
-      title: '🌟 Beginner Guide',
+      title: 'Beginner Guide',
       description: 'New to MITRE ATT&CK? Start here with simple queries',
-      icon: '🎯',
       queries: [
         {
           category: 'Basic Information',
@@ -55,9 +54,8 @@ export default function Playbooks() {
     },
     {
       id: 'threat-intel',
-      title: '🔍 Threat Intelligence',
+      title: 'Threat Intelligence',
       description: 'Map threat actors to techniques and tactics',
-      icon: '🎯',
       queries: [
         {
           category: 'Threat Actor Analysis',
@@ -71,9 +69,8 @@ export default function Playbooks() {
     },
     {
       id: 'detection',
-      title: '🛡️ Detection Engineering',
+      title: 'Detection Engineering',
       description: 'Build detections and mitigations for techniques',
-      icon: '⚙️',
       queries: [
         {
           category: 'Detection Strategy',
@@ -87,9 +84,8 @@ export default function Playbooks() {
     },
     {
       id: 'hunting',
-      title: '🔎 Threat Hunting',
+      title: 'Threat Hunting',
       description: 'Build proactive hunt packages',
-      icon: '🎯',
       queries: [
         {
           category: 'Hunt Planning',
@@ -103,9 +99,8 @@ export default function Playbooks() {
     },
     {
       id: 'red-team',
-      title: '🔴 Red Teaming',
+      title: 'Red Teaming',
       description: 'Adversary emulation planning',
-      icon: '⚔️',
       queries: [
         {
           category: 'Emulation Plans',
@@ -119,9 +114,8 @@ export default function Playbooks() {
     },
     {
       id: 'incident-response',
-      title: '🚨 Incident Response',
+      title: 'Incident Response',
       description: 'Map behaviors to ATT&CK for investigations',
-      icon: '📋',
       queries: [
         {
           category: 'Investigation',
@@ -135,9 +129,8 @@ export default function Playbooks() {
     },
     {
       id: 'assessment',
-      title: '📊 Security Assessment',
+      title: 'Security Assessment',
       description: 'Evaluate defenses and coverage',
-      icon: '✅',
       queries: [
         {
           category: 'Coverage Analysis',
@@ -151,9 +144,8 @@ export default function Playbooks() {
     },
     {
       id: 'soc-ops',
-      title: '🖥️ Security Operations',
+      title: 'Security Operations',
       description: 'SOC monitoring and runbooks',
-      icon: '🎚️',
       queries: [
         {
           category: 'SOC Workflows',
@@ -168,16 +160,17 @@ export default function Playbooks() {
   ];
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 to-blue-50">
+    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50 border-b border-gray-200">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+        <div className="mb-16">
+          <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
             Interactive Playbooks
           </h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+          <div className="h-1 w-20 bg-black mb-6"></div>
+          <p className="text-lg text-gray-700 max-w-3xl">
             Try these pre-built scenarios and queries. Click on any scenario to explore example questions,
-            then copy them to test with the chatbox below.
+            then copy them to test with the chatbox above.
           </p>
         </div>
 
@@ -187,20 +180,19 @@ export default function Playbooks() {
             <button
               key={scenario.id}
               onClick={() => setSelectedScenario(selectedScenario === scenario.id ? null : scenario.id)}
-              className={`p-6 rounded-xl text-left transition-all duration-200 ${
+              className={`p-6 text-left transition-all duration-200 border-2 shadow-md ${
                 selectedScenario === scenario.id
-                  ? 'bg-blue-600 text-white shadow-2xl scale-105'
-                  : 'bg-white hover:bg-blue-50 shadow-lg hover:shadow-xl'
+                  ? 'bg-black text-white border-black shadow-xl scale-105'
+                  : 'bg-white border-gray-300 hover:border-black hover:shadow-lg'
               }`}
             >
-              <div className="text-4xl mb-3">{scenario.icon}</div>
-              <h3 className={`text-lg font-bold mb-2 ${
-                selectedScenario === scenario.id ? 'text-white' : 'text-gray-900'
+              <h3 className={`text-base font-bold mb-2 ${
+                selectedScenario === scenario.id ? 'text-white' : 'text-black'
               }`}>
                 {scenario.title}
               </h3>
               <p className={`text-sm ${
-                selectedScenario === scenario.id ? 'text-blue-100' : 'text-gray-600'
+                selectedScenario === scenario.id ? 'text-gray-300' : 'text-gray-600'
               }`}>
                 {scenario.description}
               </p>
@@ -210,42 +202,39 @@ export default function Playbooks() {
 
         {/* Selected Scenario Details */}
         {selectedScenario && (
-          <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 animate-fadeIn">
+          <div className="bg-white border-2 border-gray-300 shadow-xl p-6 md:p-8 animate-fadeIn">
             {scenarios
               .filter(s => s.id === selectedScenario)
               .map((scenario) => (
                 <div key={scenario.id}>
-                  <div className="flex items-center mb-6">
-                    <span className="text-5xl mr-4">{scenario.icon}</span>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-900">
-                        {scenario.title}
-                      </h3>
-                      <p className="text-gray-600 mt-1">
-                        {scenario.description}
-                      </p>
-                    </div>
+                  <div className="mb-6 pb-4 border-b-2 border-gray-300">
+                    <h3 className="text-2xl font-bold text-black">
+                      {scenario.title}
+                    </h3>
+                    <p className="text-gray-600 mt-2 text-sm">
+                      {scenario.description}
+                    </p>
                   </div>
 
                   {scenario.queries.map((category, catIdx) => (
                     <div key={catIdx} className="mb-6 last:mb-0">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h4 className="text-sm font-bold text-black mb-3 uppercase tracking-wide">
                         {category.category}
                       </h4>
                       <div className="space-y-2">
                         {category.examples.map((query, queryIdx) => (
                           <div
                             key={queryIdx}
-                            className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group"
+                            className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 transition-colors group"
                           >
                             <p className="text-sm text-gray-700 flex-1 pr-4">
-                              💬 {query}
+                              {query}
                             </p>
                             <button
                               onClick={() => copyToClipboard(query, `${catIdx}-${queryIdx}`)}
-                              className="flex-shrink-0 px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
+                              className="flex-shrink-0 px-3 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors opacity-0 group-hover:opacity-100"
                             >
-                              {copiedQuery === `${catIdx}-${queryIdx}` ? '✓ Copied!' : '📋 Copy'}
+                              {copiedQuery === `${catIdx}-${queryIdx}` ? 'Copied' : 'Copy'}
                             </button>
                           </div>
                         ))}
@@ -253,9 +242,9 @@ export default function Playbooks() {
                     </div>
                   ))}
 
-                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-900">
-                      <strong>💡 Tip:</strong> Copy any query above and paste it into the chatbox below to see it in action!
+                  <div className="mt-6 p-4 bg-gray-100 border border-gray-300">
+                    <p className="text-xs text-gray-700">
+                      <strong>Tip:</strong> Copy any query above and paste it into the chatbox to see it in action!
                       Make sure your mitre-mcp server is running on localhost:8000.
                     </p>
                   </div>
@@ -266,11 +255,11 @@ export default function Playbooks() {
 
         {/* Quick Start Queries */}
         {!selectedScenario && (
-          <div className="mt-12 bg-white rounded-xl shadow-lg p-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              🚀 Quick Start Queries
+          <div className="mt-12 bg-white border-2 border-gray-300 shadow-lg p-8">
+            <h3 className="text-xl font-bold text-black mb-4">
+              Quick Start Queries
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-6 text-sm">
               Not sure where to start? Try these popular queries:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -284,14 +273,14 @@ export default function Playbooks() {
               ].map((query, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 group hover:shadow-md transition-all"
+                  className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 group hover:border-black hover:shadow-md transition-all"
                 >
-                  <span className="text-sm text-gray-700">💬 {query}</span>
+                  <span className="text-sm text-gray-700">{query}</span>
                   <button
                     onClick={() => copyToClipboard(query, `quick-${idx}`)}
-                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
+                    className="px-2 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors opacity-0 group-hover:opacity-100"
                   >
-                    {copiedQuery === `quick-${idx}` ? '✓' : '📋'}
+                    {copiedQuery === `quick-${idx}` ? 'OK' : 'Copy'}
                   </button>
                 </div>
               ))}

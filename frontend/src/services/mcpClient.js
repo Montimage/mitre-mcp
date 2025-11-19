@@ -17,10 +17,21 @@ export default class MitreMCPClient {
    * @param {number} port - Server port (default: 8000)
    */
   constructor(host = 'localhost', port = 8000) {
-    this.baseUrl = `http://${host}:${port}/mcp`;
+    // Use relative URL in development to go through Vite proxy (avoids CORS)
+    // In production, you can set VITE_MCP_URL environment variable
+    const portNum = typeof port === 'string' ? parseInt(port) : port;
+    const isDefaultConfig = host === 'localhost' && portNum === 8000;
+
+    if (import.meta.env.DEV && isDefaultConfig) {
+      this.baseUrl = '/mcp';
+      console.log('[MCP Client] Using proxy URL: /mcp');
+    } else {
+      this.baseUrl = `http://${host}:${portNum}/mcp`;
+      console.log(`[MCP Client] Using direct URL: ${this.baseUrl}`);
+    }
     this.sessionId = null;
     this.requestId = 0;
-    this.debug = false;
+    this.debug = true; // Enable debug by default in dev mode
   }
 
   /**

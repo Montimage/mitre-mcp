@@ -125,14 +125,14 @@ export default function ChatBox() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div className="w-full bg-white border-2 border-gray-300 shadow-xl">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
+      <div className="border-b-2 border-gray-300 bg-black text-white p-4">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold">MITRE ATT&CK Assistant</h2>
-            <p className="text-sm text-blue-100 mt-1">
-              Powered by AI and Model Context Protocol
+            <h2 className="text-lg font-bold">Ask a Question</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              AI-Powered MITRE ATT&CK Assistant
             </p>
           </div>
 
@@ -140,19 +140,19 @@ export default function ChatBox() {
             {/* Clear Chat Button */}
             <button
               onClick={handleClearChat}
-              className="px-3 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
               title="Clear chat history"
             >
-              🗑️ Clear
+              Clear
             </button>
 
             {/* Config Button */}
             <button
               onClick={() => setShowConfig(!showConfig)}
-              className="px-3 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
               title="Configure server"
             >
-              ⚙️ {showConfig ? 'Hide Config' : 'Configure'}
+              {showConfig ? 'Hide' : 'Config'}
             </button>
           </div>
         </div>
@@ -168,12 +168,12 @@ export default function ChatBox() {
 
       {/* Messages Container */}
       <div
-        className="h-[500px] overflow-y-auto p-4 bg-gray-50"
+        className="h-[500px] overflow-y-auto p-4 bg-gray-50 border-b-2 border-gray-300"
         style={{ scrollBehavior: 'smooth' }}
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400">
-            <p>No messages yet. Start a conversation!</p>
+            <p className="text-sm">Start a conversation...</p>
           </div>
         ) : (
           <>
@@ -186,9 +186,9 @@ export default function ChatBox() {
               />
             ))}
             {isLoading && (
-              <div className="flex items-center space-x-2 text-gray-500 p-4">
+              <div className="flex items-center space-x-2 text-gray-600 p-4 text-sm">
                 <svg
-                  className="animate-spin h-5 w-5"
+                  className="animate-spin h-4 w-4"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -207,7 +207,7 @@ export default function ChatBox() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                <span>Assistant is thinking...</span>
+                <span>Thinking...</span>
               </div>
             )}
             <div ref={messagesEndRef} />

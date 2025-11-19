@@ -7,15 +7,15 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-gray-300">
+    <footer className="bg-black text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">
+            <h3 className="text-white font-bold text-sm mb-4 uppercase tracking-wide">
               MITRE ATT&CK Intelligence Assistant
             </h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-xs text-gray-400 leading-relaxed">
               An AI-powered interface for querying the MITRE ATT&CK framework using natural language.
               Built with React, LangGraphJS, and the Model Context Protocol.
             </p>
@@ -23,14 +23,14 @@ export default function Footer() {
 
           {/* Links Section */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">Resources</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="text-white font-bold text-sm mb-4 uppercase tracking-wide">Resources</h3>
+            <ul className="space-y-2 text-xs">
               <li>
                 <a
                   href="https://github.com/montimage/mitre-mcp"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors border-b border-transparent hover:border-white inline-block"
                 >
                   GitHub Repository
                 </a>
@@ -40,7 +40,7 @@ export default function Footer() {
                   href="https://github.com/montimage/mitre-mcp#readme"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors border-b border-transparent hover:border-white inline-block"
                 >
                   Documentation
                 </a>
@@ -50,7 +50,7 @@ export default function Footer() {
                   href="https://attack.mitre.org/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors border-b border-transparent hover:border-white inline-block"
                 >
                   MITRE ATT&CK Framework
                 </a>
@@ -60,7 +60,7 @@ export default function Footer() {
                   href="https://pypi.org/project/mitre-mcp/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors border-b border-transparent hover:border-white inline-block"
                 >
                   PyPI Package
                 </a>
@@ -70,24 +70,24 @@ export default function Footer() {
 
           {/* Contact Section */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">Developed By</h3>
-            <p className="text-sm text-gray-400 mb-2">
+            <h3 className="text-white font-bold text-sm mb-4 uppercase tracking-wide">Developed By</h3>
+            <p className="text-xs text-gray-400 mb-2">
               <a
                 href="https://www.montimage.eu"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 transition-colors font-semibold"
+                className="text-white hover:text-gray-300 transition-colors font-bold border-b border-white hover:border-gray-300"
               >
                 Montimage
               </a>
             </p>
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-xs text-gray-400 mb-4 leading-relaxed">
               A cybersecurity company specializing in network monitoring, security analysis,
               and AI-driven threat detection.
             </p>
             <a
               href="mailto:luong.nguyen@montimage.eu"
-              className="text-sm text-gray-400 hover:text-blue-400 transition-colors"
+              className="text-xs text-gray-400 hover:text-white transition-colors border-b border-transparent hover:border-white inline-block"
             >
               luong.nguyen@montimage.eu
             </a>
@@ -95,7 +95,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
+        <div className="mt-8 pt-8 border-t border-gray-800 text-center text-xs text-gray-500">
           <p>
             © {currentYear} Montimage. Released under MIT License.
           </p>

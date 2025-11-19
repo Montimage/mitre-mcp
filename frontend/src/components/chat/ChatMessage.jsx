@@ -52,19 +52,19 @@ export default function ChatMessage({ message, type = 'user', timestamp }) {
   // Style variants for different message types
   const styles = {
     user: {
-      container: 'ml-auto bg-blue-600 text-white',
+      container: 'ml-auto bg-black text-white border border-black',
       maxWidth: 'max-w-[80%]'
     },
     assistant: {
-      container: 'mr-auto bg-white border border-gray-200 text-gray-900',
+      container: 'mr-auto bg-white border border-gray-300 text-gray-900',
       maxWidth: 'max-w-[85%]'
     },
     system: {
-      container: 'mx-auto bg-yellow-50 border border-yellow-200 text-yellow-900',
+      container: 'mx-auto bg-gray-100 border border-gray-400 text-gray-900',
       maxWidth: 'max-w-[90%]'
     },
     error: {
-      container: 'mr-auto bg-red-50 border border-red-300 text-red-700',
+      container: 'mr-auto bg-gray-200 border border-gray-400 text-gray-900',
       maxWidth: 'max-w-[85%]'
     }
   };
@@ -72,10 +72,10 @@ export default function ChatMessage({ message, type = 'user', timestamp }) {
   const currentStyle = styles[type] || styles.user;
 
   return (
-    <div className={`${currentStyle.maxWidth} ${currentStyle.container} rounded-lg p-3 mb-3 shadow-sm`}>
+    <div className={`${currentStyle.maxWidth} ${currentStyle.container} p-3 mb-3 shadow-md`}>
       {/* Message Header */}
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold opacity-75">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide opacity-75">
           {type === 'user' ? 'You' : type === 'assistant' ? 'Assistant' : type === 'system' ? 'System' : 'Error'}
         </span>
         <span className="text-xs opacity-60">{formatTime(timestamp)}</span>
@@ -93,13 +93,13 @@ export default function ChatMessage({ message, type = 'user', timestamp }) {
 
       {/* Message Actions */}
       {type === 'assistant' && (
-        <div className="mt-2 pt-2 border-t border-gray-200 flex justify-end">
+        <div className="mt-2 pt-2 border-t border-gray-300 flex justify-end">
           <button
             onClick={handleCopy}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-xs text-gray-600 hover:text-black transition-colors font-medium"
             title="Copy message"
           >
-            {copied ? '✓ Copied!' : '📋 Copy'}
+            {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
       )}

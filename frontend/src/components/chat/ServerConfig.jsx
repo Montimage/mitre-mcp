@@ -54,16 +54,20 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     setTestResult(null);
 
     try {
+      console.log('[ServerConfig] Testing connection with:', config);
+
       // Dynamically import to avoid issues if not yet installed
       const { default: MitreMCPClient } = await import('../../services/mcpClient.js');
 
       const client = new MitreMCPClient(config.host, config.port);
+      console.log('[ServerConfig] Client created, testing connection...');
+
       const success = await client.testConnection();
 
       if (success) {
         setTestResult({
           type: 'success',
-          message: 'Connection successful!'
+          message: 'Connection successful! MCP server is responding.'
         });
       } else {
         setTestResult({
@@ -72,9 +76,10 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
         });
       }
     } catch (error) {
+      console.error('[ServerConfig] Connection test error:', error);
       setTestResult({
         type: 'error',
-        message: `Connection error: ${error.message}`
+        message: `Connection error: ${error.message}\n\nCheck browser console for details.`
       });
     } finally {
       setTesting(false);
@@ -93,17 +98,17 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
   };
 
   return (
-    <div className="border-b border-gray-200 bg-gray-50 p-4">
+    <div className="border-b-2 border-gray-300 bg-gray-50 p-4">
       <div className="max-w-2xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          MCP Server Configuration
+        <h3 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wide">
+          Server Configuration
         </h3>
 
         {/* Input Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           {/* Host Input */}
           <div>
-            <label htmlFor="host" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="host" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
               Host
             </label>
             <input
@@ -111,14 +116,14 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               type="text"
               value={config.host}
               onChange={(e) => handleChange('host', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
               placeholder="localhost"
             />
           </div>
 
           {/* Port Input */}
           <div>
-            <label htmlFor="port" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="port" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
               Port
             </label>
             <input
@@ -126,7 +131,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               type="number"
               value={config.port}
               onChange={(e) => handleChange('port', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
               placeholder="8000"
               min="1"
               max="65535"
@@ -135,24 +140,29 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
         </div>
 
         {/* Connection URL Preview */}
-        <div className="mb-4">
-          <p className="text-sm text-gray-600">
+        <div className="mb-4 space-y-2">
+          <p className="text-xs text-gray-600">
             <span className="font-medium">Server URL:</span>{' '}
-            <code className="bg-gray-200 px-2 py-1 rounded text-xs">
+            <code className="bg-white px-2 py-1 border border-gray-300 text-xs font-mono">
               http://{config.host}:{config.port}/mcp
             </code>
           </p>
+          {config.host === 'localhost' && config.port === 8000 && (
+            <p className="text-xs text-green-700">
+              <span className="font-medium">Note:</span> Using Vite proxy (/mcp) to avoid CORS issues
+            </p>
+          )}
         </div>
 
         {/* Status Message */}
         {testResult && (
           <div
-            className={`mb-4 p-3 rounded-md text-sm ${
+            className={`mb-4 p-3 text-xs border ${
               testResult.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
+                ? 'bg-white text-gray-900 border-gray-400'
                 : testResult.type === 'error'
-                ? 'bg-red-50 text-red-800 border border-red-200'
-                : 'bg-blue-50 text-blue-800 border border-blue-200'
+                ? 'bg-gray-100 text-gray-900 border-gray-400'
+                : 'bg-gray-50 text-gray-900 border-gray-300'
             }`}
           >
             {testResult.message}
@@ -164,31 +174,30 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
           <button
             onClick={handleTestConnection}
             disabled={testing}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
           >
-            {testing ? 'Testing...' : 'Test Connection'}
+            {testing ? 'Testing...' : 'Test'}
           </button>
 
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="px-4 py-2 bg-gray-700 text-white text-xs font-medium hover:bg-gray-600 transition-colors focus:outline-none"
           >
             Save
           </button>
 
           <button
             onClick={handleReset}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="px-4 py-2 bg-gray-300 text-gray-900 text-xs font-medium hover:bg-gray-400 transition-colors focus:outline-none"
           >
             Reset
           </button>
         </div>
 
         {/* Help Text */}
-        <div className="mt-4 text-xs text-gray-500">
+        <div className="mt-4 text-xs text-gray-600">
           <p>
-            Make sure the mitre-mcp server is running before testing the connection.
-            Run: <code className="bg-gray-200 px-1 rounded">mitre-mcp --http --port {config.port}</code>
+            Run: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">mitre-mcp --http --port {config.port}</code>
           </p>
         </div>
       </div>

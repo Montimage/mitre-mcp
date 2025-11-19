@@ -56,8 +56,8 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
   const maxChars = 1000;
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-200 bg-white p-4">
-      <div className="flex flex-col space-y-2">
+    <form onSubmit={handleSubmit} className="bg-white p-4">
+      <div className="flex flex-col space-y-3">
         {/* Textarea */}
         <textarea
           ref={textareaRef}
@@ -68,7 +68,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           disabled={isLoading}
           maxLength={maxChars}
           rows={1}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          className="w-full px-4 py-3 border-2 border-gray-300 resize-none focus:outline-none focus:border-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
           style={{
             minHeight: '52px',
             maxHeight: '200px'
@@ -80,36 +80,20 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           {/* Character Count */}
           <span className="text-xs text-gray-500">
             {charCount} / {maxChars}
-            {charCount > maxChars * 0.9 && (
-              <span className="text-orange-500 ml-1">
-                (approaching limit)
-              </span>
-            )}
           </span>
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
             {/* Keyboard Hint */}
-            <span className="text-xs text-gray-400 hidden sm:inline">
-              Enter to send • Shift+Enter for new line
+            <span className="text-xs text-gray-500 hidden sm:inline">
+              Enter to send
             </span>
-
-            {/* Clear Button */}
-            {input && !isLoading && (
-              <button
-                type="button"
-                onClick={() => setInput('')}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Clear
-              </button>
-            )}
 
             {/* Send Button */}
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
             >
               {isLoading ? (
                 <span className="flex items-center space-x-2">
