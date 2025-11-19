@@ -29,6 +29,17 @@ START → Agent Node → Tool Node → Agent Node → END
    - Agent processes the results and generates a response
 4. Final response is returned to the user
 
+## Browser Compatibility
+
+LangGraph uses Node.js APIs that aren't natively available in browsers. This project uses `vite-plugin-node-polyfills` to provide browser-compatible implementations of:
+
+- `async_hooks` - For async context tracking
+- `events` - Event emitter functionality
+- `stream` - Stream handling
+- `util` - Utility functions
+
+These polyfills are automatically configured in `vite.config.js` and work transparently.
+
 ## Prerequisites
 
 ### 1. Install Ollama
