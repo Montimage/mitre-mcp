@@ -28,6 +28,7 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 - [Features](#features)
 - [Available MCP Tools](#available-mcp-tools)
 - [Quick Start](#quick-start)
+- [Web Frontend](#web-frontend)
 - [Documentation](#documentation)
 - [Configuration](#configuration)
 - [Performance](#performance)
@@ -193,6 +194,32 @@ mitre-mcp --http --force-download
 **Results:**
 
 ![Result](screenshot-03.png)
+
+## Web Frontend
+
+A modern React-based web interface is available in the `frontend/` directory for interactive exploration of MITRE ATT&CK through a chat interface.
+
+**Features:**
+- Clean, minimal design with black/white/gray aesthetic
+- Interactive chatbox powered by LangGraphJS
+- Pre-built scenario playbooks for common security workflows
+- Real-time query processing with the MCP server
+
+**Quick Start:**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173` in your browser.
+
+**Prerequisites:**
+- Node.js 18+ installed
+- MCP server running: `mitre-mcp --http --port 8000`
+
+**For more details**, see the [frontend/README.md](frontend/README.md) documentation.
 
 ## Documentation
 
