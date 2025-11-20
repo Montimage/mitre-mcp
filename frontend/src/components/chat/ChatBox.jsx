@@ -53,14 +53,17 @@ export default function ChatBox() {
   const handleConfigChange = (newConfig) => {
     setServerConfig(newConfig);
 
-    // Recreate agent with new config
-    const newAgent = new LangGraphAgent(newConfig.host, newConfig.port);
+    // Recreate agent with new config including Ollama settings
+    const newAgent = new LangGraphAgent(newConfig.host, newConfig.port, {
+      ollamaBaseUrl: newConfig.ollamaBaseUrl,
+      ollamaModel: newConfig.ollamaModel
+    });
     setAgent(newAgent);
 
     // Add system message
     setMessages(prev => [...prev, {
       type: 'system',
-      message: `Server configuration updated: ${newConfig.host}:${newConfig.port}`,
+      message: `Configuration updated:\n- MCP Server: ${newConfig.host}:${newConfig.port}\n- Ollama: ${newConfig.ollamaBaseUrl}\n- Model: ${newConfig.ollamaModel}`,
       timestamp: new Date().toISOString()
     }]);
   };
