@@ -34,7 +34,7 @@ export default class LangGraphAgent {
 
     // Ollama configuration
     this.ollamaConfig = {
-      model: config.ollamaModel || 'llama3.2',
+      model: config.ollamaModel || 'llama3.1:8b',
       baseUrl: config.ollamaBaseUrl || 'http://localhost:11434',
       temperature: config.temperature || 0.7,
       ...config
