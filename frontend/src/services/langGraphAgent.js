@@ -1,32 +1,29 @@
 /**
- * LangGraph Agent Service
+ * Browser-Compatible Agent with Ollama LLM
  *
- * Real LangGraph implementation using Ollama for local LLM inference.
- * Builds an agent graph that can reason about queries and call MCP tools.
+ * Implements an agent pattern similar to LangGraph but browser-compatible.
+ * Uses Ollama for local LLM inference with tool calling capabilities.
  *
  * Architecture:
- * 1. StateGraph with MessagesAnnotation for state management
- * 2. Agent node: LLM decides which tool to call
- * 3. Tool node: Executes MCP tools
- * 4. Conditional routing based on tool calls
+ * 1. LLM with tool binding (ChatOllama)
+ * 2. Agent loop: Query → LLM → Tool Call → LLM → Response
+ * 3. Maintains conversation history for context
  */
 
 import { ChatOllama } from '@langchain/ollama';
-import { StateGraph, MessagesAnnotation, START, END } from '@langchain/langgraph';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
 import MitreMCPClient, { MCP_TOOLS } from './mcpClient.js';
 
 /**
- * LangGraph Agent with Ollama LLM
+ * Browser-Compatible Agent with Ollama LLM
  *
- * Uses a graph-based architecture for intelligent query routing
- * and tool execution.
+ * Implements intelligent query routing and tool execution
+ * using Ollama for local LLM inference.
  */
 export default class LangGraphAgent {
   /**
-   * Create a new LangGraph agent instance
+   * Create a new agent instance
    *
    * @param {string} host - MCP server host
    * @param {number} port - MCP server port
@@ -46,9 +43,12 @@ export default class LangGraphAgent {
     // Initialize LLM
     this.llm = new ChatOllama(this.ollamaConfig);
 
-    // Build MCP tools and agent graph
+    // Create MCP tools
     this.tools = this.createMCPTools();
-    this.graph = this.buildGraph();
+
+    // Bind tools to LLM
+    this.llmWithTools = this.llm.bindTools(this.tools);
+
     this.conversationHistory = [];
   }
 
@@ -274,58 +274,63 @@ export default class LangGraphAgent {
   }
 
   /**
-   * Build the LangGraph agent graph
+   * Execute tool calls from LLM
    *
-   * Creates a StateGraph with agent and tool nodes
-   *
-   * @returns {CompiledStateGraph} Compiled graph
+   * @param {Array} toolCalls - Tool calls from LLM
+   * @returns {Promise<Array>} Tool results
    */
-  buildGraph() {
-    // Bind tools to LLM
-    const llmWithTools = this.llm.bindTools(this.tools);
+  async executeTools(toolCalls) {
+    const results = [];
 
-    // Agent node: decides what to do
-    const agentNode = async (state) => {
-      const response = await llmWithTools.invoke(state.messages);
-      return { messages: [response] };
-    };
+    for (const toolCall of toolCalls) {
+      try {
+        console.log(`[Agent] Executing tool: ${toolCall.name}`, toolCall.args);
 
-    // Tool node: executes tools
-    const toolNode = new ToolNode(this.tools);
+        // Find the tool
+        const tool = this.tools.find(t => t.name === toolCall.name);
 
-    // Should we continue or end?
-    const shouldContinue = (state) => {
-      const lastMessage = state.messages[state.messages.length - 1];
+        if (!tool) {
+          results.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: toolCall.name,
+            content: JSON.stringify({ error: `Tool ${toolCall.name} not found` })
+          });
+          continue;
+        }
 
-      // If the LLM called tools, continue to tool node
-      if (lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
-        return 'tools';
+        // Execute the tool
+        const result = await tool.invoke(toolCall.args);
+
+        results.push({
+          tool_call_id: toolCall.id,
+          role: 'tool',
+          name: toolCall.name,
+          content: result
+        });
+      } catch (error) {
+        console.error(`[Agent] Error executing tool ${toolCall.name}:`, error);
+        results.push({
+          tool_call_id: toolCall.id,
+          role: 'tool',
+          name: toolCall.name,
+          content: JSON.stringify({ error: error.message })
+        });
       }
+    }
 
-      // Otherwise, end
-      return END;
-    };
-
-    // Build the graph
-    const graph = new StateGraph(MessagesAnnotation)
-      .addNode('agent', agentNode)
-      .addNode('tools', toolNode)
-      .addEdge(START, 'agent')
-      .addConditionalEdges('agent', shouldContinue)
-      .addEdge('tools', 'agent');
-
-    return graph.compile();
+    return results;
   }
 
   /**
-   * Process user query through the agent graph
+   * Process user query through the agent loop
    *
    * @param {string} query - User's natural language query
    * @returns {Promise<string>} Agent response
    */
   async processQuery(query) {
     try {
-      console.log('[LangGraphAgent] Processing query:', query);
+      console.log('[Agent] Processing query:', query);
 
       // Add user message to history
       this.conversationHistory.push({
@@ -355,36 +360,77 @@ When using tools:
 Be helpful, accurate, and security-focused in your responses.`
       };
 
-      // Build messages for graph
+      // Build messages for LLM
       const messages = [
         systemMessage,
         ...this.conversationHistory
           .filter(m => m.role !== 'system')
           .map(m => ({
-            role: m.role === 'assistant' ? 'ai' : 'human',
+            role: m.role === 'assistant' ? 'assistant' : 'user',
             content: m.content
           }))
       ];
 
-      // Invoke graph
-      const result = await this.graph.invoke({ messages });
+      // Agent loop with max iterations
+      const maxIterations = 5;
+      let iteration = 0;
+      let currentMessages = [...messages];
 
-      // Extract final response
-      const lastMessage = result.messages[result.messages.length - 1];
-      const response = lastMessage.content;
+      while (iteration < maxIterations) {
+        iteration++;
+        console.log(`[Agent] Iteration ${iteration}`);
 
-      // Add to history
+        // Invoke LLM
+        const response = await this.llmWithTools.invoke(currentMessages);
+
+        // Check if LLM wants to call tools
+        if (response.tool_calls && response.tool_calls.length > 0) {
+          console.log(`[Agent] LLM requested ${response.tool_calls.length} tool call(s)`);
+
+          // Add AI message with tool calls
+          currentMessages.push({
+            role: 'assistant',
+            content: response.content || '',
+            tool_calls: response.tool_calls
+          });
+
+          // Execute tools
+          const toolResults = await this.executeTools(response.tool_calls);
+
+          // Add tool results to messages
+          currentMessages.push(...toolResults);
+
+          // Continue loop to let LLM process results
+          continue;
+        }
+
+        // No tool calls, we have final response
+        console.log('[Agent] Final response generated');
+
+        const finalResponse = response.content;
+
+        // Add to history
+        this.conversationHistory.push({
+          role: 'assistant',
+          content: finalResponse,
+          timestamp: new Date()
+        });
+
+        return finalResponse;
+      }
+
+      // Max iterations reached
+      const fallbackResponse = 'I apologize, but I reached the maximum number of iterations while processing your query. Please try rephrasing your question or breaking it into smaller parts.';
+
       this.conversationHistory.push({
         role: 'assistant',
-        content: response,
+        content: fallbackResponse,
         timestamp: new Date()
       });
 
-      console.log('[LangGraphAgent] Response generated');
-
-      return response;
+      return fallbackResponse;
     } catch (error) {
-      console.error('[LangGraphAgent] Error:', error);
+      console.error('[Agent] Error:', error);
 
       const errorMessage = `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Ollama is running locally (http://localhost:11434)\n- The ${this.ollamaConfig.model} model is installed (run: ollama pull ${this.ollamaConfig.model})\n- The mitre-mcp server is running\n- Your query is clear and specific`;
 

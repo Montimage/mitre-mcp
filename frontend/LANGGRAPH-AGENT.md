@@ -1,23 +1,27 @@
-# LangGraph Agent with Ollama
+# Browser-Compatible Agent with Ollama
 
-This implementation uses a real LangGraph agent architecture with Ollama for local LLM inference.
+This implementation uses an agent loop pattern with Ollama for local LLM inference, designed for browser compatibility.
 
 ## Architecture
 
-The agent uses a graph-based architecture with the following components:
+The agent uses an iterative loop architecture:
 
 ```
-START → Agent Node → Tool Node → Agent Node → END
-         ↓                ↓
-      (Reasoning)    (Execute Tool)
+Query → System Prompt + History → LLM
+         ↓
+   Tool Calls?
+   Yes ↓        No → Final Response
+   Execute Tools
+         ↓
+   Add Results → Back to LLM
 ```
 
 ### Components
 
-1. **StateGraph**: Manages conversation state using `MessagesAnnotation`
-2. **Agent Node**: LLM reasons and decides which tool to call
-3. **Tool Node**: Executes MCP tools and returns results
-4. **Conditional Edges**: Routes based on whether tools need to be called
+1. **LLM with Tools**: ChatOllama with bound tool definitions
+2. **Agent Loop**: Iterates until LLM returns final response (max 5 iterations)
+3. **Tool Execution**: Invokes MCP tools and formats results
+4. **Message History**: Maintains context across turns
 
 ### Flow
 
@@ -31,14 +35,13 @@ START → Agent Node → Tool Node → Agent Node → END
 
 ## Browser Compatibility
 
-LangGraph uses Node.js APIs that aren't natively available in browsers. This project uses `vite-plugin-node-polyfills` to provide browser-compatible implementations of:
+This agent is fully browser-compatible and uses only browser-safe dependencies:
 
-- `async_hooks` - For async context tracking
-- `events` - Event emitter functionality
-- `stream` - Stream handling
-- `util` - Utility functions
+- **@langchain/ollama** - Ollama LLM integration
+- **@langchain/core** - Tool definitions and utilities
+- **zod** - Schema validation
 
-These polyfills are automatically configured in `vite.config.js` and work transparently.
+Note: The original LangGraph StateGraph implementation was replaced with a simpler agent loop pattern to avoid Node.js-specific dependencies (`async_hooks`, etc.) that don't work in browsers.
 
 ## Prerequisites
 

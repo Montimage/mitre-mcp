@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@langchain/core": "^1.0.6",
-    "@langchain/langgraph": "^1.0.2",
     "@langchain/ollama": "^1.0.1",
     "@langchain/openai": "^1.1.2",
     "langchain": "^1.0.6",
