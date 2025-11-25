@@ -41,6 +41,11 @@ class Config:
     # Logging
     LOG_LEVEL = os.getenv("MITRE_LOG_LEVEL", "INFO")
 
+    # CORS configuration (HTTP mode only)
+    # "*" allows all origins, or specify comma-separated domains
+    # e.g., "https://example.com,http://localhost:3000"
+    CORS_ORIGINS = os.getenv("MITRE_CORS_ORIGINS", "*")
+
     @classmethod
     def get_data_urls(cls) -> dict[str, str]:
         """Get all data source URLs."""

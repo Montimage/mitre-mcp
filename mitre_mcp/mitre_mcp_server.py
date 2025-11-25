@@ -1012,6 +1012,10 @@ def print_help() -> None:
     print("  --port PORT          Port to bind to (default: 8000, only with --http)")
     print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
     print("  -h, --help           Show this help message and exit")
+    print("\nEnvironment Variables (HTTP mode):")
+    print("  MITRE_CORS_ORIGINS   CORS allowed origins (default: '*' for all domains)")
+    print("                       Use comma-separated list for specific domains:")
+    print("                       e.g., 'https://example.com,http://localhost:3000'")
     sys.exit(0)
 
 
@@ -1075,23 +1079,27 @@ def setup_http_server(host: str, port: int) -> None:
     # Get the streamable HTTP app and add CORS middleware
     app = mcp.streamable_http_app()
     if app:
-        # Allow Netlify deployment and localhost for development
-        allowed_origins = [
-            "https://mitre-mcp.netlify.app",
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://localhost:3000",
-        ]
+        # Get CORS origins from config (default: "*" allows all)
+        cors_config = Config.CORS_ORIGINS.strip()
+
+        if cors_config == "*":
+            # Allow all origins
+            allowed_origins = ["*"]
+            allow_credentials = False  # Cannot use credentials with wildcard
+            logger.info("CORS middleware enabled for all origins (*)")
+        else:
+            # Parse comma-separated list of specific origins
+            allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+            allow_credentials = True
+            logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
 
         app.add_middleware(
             CORSMiddleware,
             allow_origins=allowed_origins,
-            allow_credentials=True,
+            allow_credentials=allow_credentials,
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
 
 
 def main() -> None:
