@@ -1075,14 +1075,23 @@ def setup_http_server(host: str, port: int) -> None:
     # Get the streamable HTTP app and add CORS middleware
     app = mcp.streamable_http_app()
     if app:
+        # Allow Netlify deployment and localhost for development
+        allowed_origins = [
+            "https://mitre-mcp.netlify.app",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+            "http://localhost:3000",
+        ]
+
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins for development
+            allow_origins=allowed_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        logger.info("CORS middleware enabled for async notifications")
+        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
 
 
 def main() -> None:

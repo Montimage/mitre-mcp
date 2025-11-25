@@ -5,7 +5,7 @@
  */
 import { useState, useRef, useEffect } from 'react';
 
-export default function ChatInput({ onSendMessage, isLoading = false, placeholder = "Ask about MITRE ATT&CK..." }) {
+export default function ChatInput({ onSendMessage, isLoading = false, placeholder = "Ask about MITRE ATT&CK...", modelInfo = null }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef(null);
 
@@ -77,10 +77,22 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
 
         {/* Bottom Bar */}
         <div className="flex items-center justify-between">
-          {/* Character Count */}
-          <span className="text-xs text-gray-500">
-            {charCount} / {maxChars}
-          </span>
+          {/* Left side: Character Count and Model Info */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">
+              {charCount} / {maxChars}
+            </span>
+
+            {/* Model Badge */}
+            {modelInfo && (
+              <span
+                className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded ${modelInfo.color} text-white`}
+                title={`Provider: ${modelInfo.provider}\nModel: ${modelInfo.model}`}
+              >
+                {modelInfo.provider}: {modelInfo.model.length > 20 ? modelInfo.model.substring(0, 20) + '...' : modelInfo.model}
+              </span>
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
