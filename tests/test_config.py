@@ -92,3 +92,40 @@ class TestConfig:
         reload(config_module)
 
         assert config_module.Config.DEFAULT_PAGE_SIZE == 50
+
+    def test_cors_origins_default(self, monkeypatch):
+        """Test default CORS origins is wildcard (all domains)."""
+        monkeypatch.delenv("MITRE_CORS_ORIGINS", raising=False)
+
+        from importlib import reload
+
+        from mitre_mcp import config as config_module
+
+        reload(config_module)
+
+        assert config_module.Config.CORS_ORIGINS == "*"
+
+    def test_cors_origins_custom_single(self, monkeypatch):
+        """Test custom single CORS origin from environment variable."""
+        monkeypatch.setenv("MITRE_CORS_ORIGINS", "https://example.com")
+
+        from importlib import reload
+
+        from mitre_mcp import config as config_module
+
+        reload(config_module)
+
+        assert config_module.Config.CORS_ORIGINS == "https://example.com"
+
+    def test_cors_origins_custom_multiple(self, monkeypatch):
+        """Test custom multiple CORS origins from environment variable."""
+        origins = "https://example.com,http://localhost:3000,https://app.example.org"
+        monkeypatch.setenv("MITRE_CORS_ORIGINS", origins)
+
+        from importlib import reload
+
+        from mitre_mcp import config as config_module
+
+        reload(config_module)
+
+        assert config_module.Config.CORS_ORIGINS == origins
