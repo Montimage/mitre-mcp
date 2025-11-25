@@ -3,6 +3,8 @@
  *
  * Application footer with links, attribution, and copyright information
  */
+import logo from '../../assets/logo.svg';
+
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
@@ -12,9 +14,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-white font-bold text-sm mb-4 uppercase tracking-wide">
-              MITRE ATT&CK Intelligence Assistant
-            </h3>
+            <div className="flex items-center space-x-3 mb-4">
+              <img src={logo} alt="MITRE MCP Logo" className="h-10 w-auto" />
+              <h3 className="text-white font-bold text-sm uppercase tracking-wide">
+                MITRE MCP
+              </h3>
+            </div>
             <p className="text-xs text-gray-400 leading-relaxed">
               An AI-powered interface for querying the MITRE ATT&CK framework using natural language.
               Built with React, LangGraphJS, and the Model Context Protocol.

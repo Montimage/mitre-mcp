@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 
-export default function ChatMessage({ message, type = 'user', timestamp }) {
+export default function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, decision }) {
   const [copied, setCopied] = useState(false);
 
   // Format timestamp
@@ -48,6 +48,74 @@ export default function ChatMessage({ message, type = 'user', timestamp }) {
       return line;
     });
   };
+
+  // Handle tool-approval type message
+  if (type === 'tool-approval' && toolCalls) {
+    return (
+      <div className="max-w-[90%] mr-auto bg-yellow-50 border-2 border-yellow-400 p-4 mb-3 shadow-md">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="text-sm font-semibold uppercase tracking-wide text-yellow-800">
+              Tool Execution Request
+            </span>
+          </div>
+          <span className="text-xs text-yellow-700">{formatTime(timestamp)}</span>
+        </div>
+
+        {/* Tool Call Details */}
+        <p className="text-sm text-gray-700 mb-3">
+          The agent wants to execute the following tool{toolCalls.length > 1 ? 's' : ''}:
+        </p>
+
+        <div className="space-y-2 mb-4">
+          {toolCalls.map((toolCall, index) => (
+            <div key={index} className="border border-yellow-300 bg-white p-3 rounded">
+              <div className="font-medium text-sm text-black mb-1">
+                📋 {toolCall.name}
+              </div>
+              <div className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded mt-1">
+                {JSON.stringify(toolCall.args || {}, null, 2)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Approval Buttons or Decision */}
+        <div className="pt-3 border-t border-yellow-300">
+          {decision ? (
+            // Show decision
+            <div className={`px-4 py-2 text-sm font-medium text-center ${
+              decision === 'approved'
+                ? 'bg-green-100 text-green-800 border border-green-300'
+                : 'bg-red-100 text-red-800 border border-red-300'
+            }`}>
+              {decision === 'approved' ? '✓ Approved by user' : '✗ Denied by user'}
+            </div>
+          ) : (
+            // Show buttons
+            <div className="flex gap-3">
+              <button
+                onClick={onApprove}
+                className="flex-1 px-4 py-2 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+              >
+                ✓ Approve
+              </button>
+              <button
+                onClick={onDeny}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 text-sm font-medium hover:bg-gray-400 transition-colors"
+              >
+                ✗ Deny
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // Style variants for different message types
   const styles = {

@@ -1,25 +1,36 @@
 /**
- * Browser-Compatible Agent with Ollama LLM
+ * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements an agent pattern similar to LangGraph but browser-compatible.
- * Uses Ollama for local LLM inference with tool calling capabilities.
+ * Supports Ollama for local LLM inference, Google Gemini, and OpenRouter for cloud-based inference.
  *
  * Architecture:
- * 1. LLM with tool binding (ChatOllama)
+ * 1. LLM with tool binding (ChatOllama, ChatGoogleGenerativeAI, or ChatOpenAI)
  * 2. Agent loop: Query → LLM → Tool Call → LLM → Response
  * 3. Maintains conversation history for context
  */
 
 import { ChatOllama } from '@langchain/ollama';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatOpenAI } from '@langchain/openai';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import MitreMCPClient, { MCP_TOOLS } from './mcpClient.js';
 
 /**
- * Browser-Compatible Agent with Ollama LLM
+ * LLM Provider types
+ */
+export const LLM_PROVIDERS = {
+  OLLAMA: 'ollama',
+  GEMINI: 'gemini',
+  OPENROUTER: 'openrouter'
+};
+
+/**
+ * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements intelligent query routing and tool execution
- * using Ollama for local LLM inference.
+ * using Ollama for local LLM inference, Google Gemini, or OpenRouter for cloud-based inference.
  */
 export default class LangGraphAgent {
   /**
@@ -32,16 +43,16 @@ export default class LangGraphAgent {
   constructor(host = 'localhost', port = 8000, config = {}) {
     this.mcpClient = new MitreMCPClient(host, port);
 
-    // Ollama configuration
-    this.ollamaConfig = {
-      model: config.ollamaModel || 'llama3.1:8b',
-      baseUrl: config.ollamaBaseUrl || 'http://localhost:11434',
-      temperature: config.temperature || 0.7,
-      ...config
-    };
+    // Determine LLM provider
+    this.llmProvider = config.llmProvider || LLM_PROVIDERS.OLLAMA;
 
-    // Initialize LLM
-    this.llm = new ChatOllama(this.ollamaConfig);
+    if (this.llmProvider === LLM_PROVIDERS.GEMINI) {
+      this.initGemini(config);
+    } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
+      this.initOpenRouter(config);
+    } else {
+      this.initOllama(config);
+    }
 
     // Create MCP tools
     this.tools = this.createMCPTools();
@@ -50,6 +61,100 @@ export default class LangGraphAgent {
     this.llmWithTools = this.llm.bindTools(this.tools);
 
     this.conversationHistory = [];
+  }
+
+  /**
+   * Initialize Ollama LLM
+   * @param {Object} config - Configuration options
+   */
+  initOllama(config) {
+    const defaultOllamaUrl = 'http://localhost:11434';
+    const ollamaBaseUrl = config.ollamaBaseUrl || defaultOllamaUrl;
+
+    // Use proxy in dev mode for default localhost:11434 to avoid CORS
+    const isDefaultOllama = ollamaBaseUrl === defaultOllamaUrl;
+    const finalOllamaUrl = (import.meta.env.DEV && isDefaultOllama)
+      ? window.location.origin + '/ollama'
+      : ollamaBaseUrl;
+
+    this.ollamaConfig = {
+      model: config.ollamaModel || 'llama3.1:8b',
+      baseUrl: finalOllamaUrl,
+      temperature: config.temperature || 0.7
+    };
+
+    console.log('[LangGraphAgent] Ollama config:', {
+      model: this.ollamaConfig.model,
+      baseUrl: this.ollamaConfig.baseUrl,
+      isDev: import.meta.env.DEV,
+      usingProxy: import.meta.env.DEV && isDefaultOllama
+    });
+
+    this.llm = new ChatOllama(this.ollamaConfig);
+  }
+
+  /**
+   * Initialize Google Gemini LLM
+   * @param {Object} config - Configuration options
+   */
+  initGemini(config) {
+    // Get API key from config or environment variable
+    const apiKey = config.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('Gemini API key is required. Set VITE_GEMINI_API_KEY in .env or provide geminiApiKey in config.');
+    }
+
+    this.geminiConfig = {
+      model: config.geminiModel || 'gemini-2.5-flash',
+      apiKey: apiKey,
+      temperature: config.temperature || 0.7
+    };
+
+    console.log('[LangGraphAgent] Gemini config:', {
+      model: this.geminiConfig.model,
+      hasApiKey: !!apiKey
+    });
+
+    this.llm = new ChatGoogleGenerativeAI(this.geminiConfig);
+  }
+
+  /**
+   * Initialize OpenRouter LLM
+   * @param {Object} config - Configuration options
+   */
+  initOpenRouter(config) {
+    // Get API key from config or environment variable
+    const apiKey = config.openrouterApiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('OpenRouter API key is required. Set VITE_OPENROUTER_API_KEY in .env or provide openrouterApiKey in config.');
+    }
+
+    this.openrouterConfig = {
+      model: config.openrouterModel || 'anthropic/claude-3.5-sonnet',
+      temperature: config.temperature || 0.7
+    };
+
+    console.log('[LangGraphAgent] OpenRouter config:', {
+      model: this.openrouterConfig.model,
+      hasApiKey: !!apiKey
+    });
+
+    // Use ChatOpenAI with OpenRouter's base URL
+    // OpenRouter is OpenAI-compatible, so we use ChatOpenAI with custom baseURL
+    this.llm = new ChatOpenAI({
+      model: this.openrouterConfig.model,
+      temperature: this.openrouterConfig.temperature,
+      apiKey: apiKey,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
+          'X-Title': 'MITRE MCP Chat'
+        }
+      }
+    });
   }
 
   /**
@@ -326,9 +431,10 @@ export default class LangGraphAgent {
    * Process user query through the agent loop
    *
    * @param {string} query - User's natural language query
+   * @param {Function} onToolCallRequest - Optional callback for tool approval (toolCalls) => Promise<boolean>
    * @returns {Promise<string>} Agent response
    */
-  async processQuery(query) {
+  async processQuery(query, onToolCallRequest = null) {
     try {
       console.log('[Agent] Processing query:', query);
 
@@ -343,19 +449,25 @@ export default class LangGraphAgent {
       const systemMessage = {
         role: 'system',
         content: `You are a helpful cybersecurity assistant with access to the MITRE ATT&CK framework.
+You have access to tools that can query the MITRE ATT&CK database. You MUST use these tools to answer questions - do not make up information.
 
-You can help users with:
-- Finding information about tactics, techniques, groups, software, and mitigations
-- Answering questions about specific threat actors and their methods
-- Providing defense recommendations and mitigation strategies
-- Explaining cybersecurity concepts in the context of MITRE ATT&CK
+Available tools:
+- get_technique_by_id: Look up a specific technique by ID (e.g., T1055, T1059.001)
+- get_techniques: List all techniques
+- get_tactics: Get all tactics
+- get_techniques_by_tactic: Get techniques for a specific tactic
+- get_groups: Get all threat actor groups
+- get_techniques_used_by_group: Get techniques used by a specific group
+- get_software: Get malware and tools
+- get_mitigations: Get security mitigations
+- get_techniques_mitigated_by_mitigation: Get techniques addressed by a mitigation
 
-When using tools:
-- Always use get_technique_by_id when the user mentions a specific technique ID (e.g., T1055)
-- Use get_techniques_used_by_group when asked about specific threat actors (e.g., APT29, APT28)
-- Use get_techniques_by_tactic when asked about techniques for a specific tactic
-- Provide clear, concise answers based on the data you receive
-- Format responses in a user-friendly way with proper structure
+IMPORTANT: When the user asks about MITRE ATT&CK data, you MUST call the appropriate tool. Do not describe what tool you would use - actually call it.
+
+Examples:
+- If user asks about "T1055", call get_technique_by_id with technique_id="T1055"
+- If user asks about "APT29", call get_techniques_used_by_group with group_name="APT29"
+- If user asks about "persistence techniques", call get_techniques_by_tactic with tactic_shortname="persistence"
 
 Be helpful, accurate, and security-focused in your responses.`
       };
@@ -383,19 +495,44 @@ Be helpful, accurate, and security-focused in your responses.`
         // Invoke LLM
         const response = await this.llmWithTools.invoke(currentMessages);
 
+        // Debug: log the full response structure
+        console.log('[Agent] LLM response:', {
+          content: typeof response.content === 'string' ? response.content.substring(0, 200) : response.content,
+          contentType: typeof response.content,
+          tool_calls: response.tool_calls,
+          additional_kwargs: response.additional_kwargs
+        });
+
         // Check if LLM wants to call tools
-        if (response.tool_calls && response.tool_calls.length > 0) {
-          console.log(`[Agent] LLM requested ${response.tool_calls.length} tool call(s)`);
+        // Some models put tool_calls in additional_kwargs
+        const toolCalls = response.tool_calls || response.additional_kwargs?.tool_calls || [];
+
+        if (toolCalls.length > 0) {
+          console.log(`[Agent] LLM requested ${toolCalls.length} tool call(s)`, toolCalls);
+
+          // Request user approval if callback provided
+          if (onToolCallRequest) {
+            const approved = await onToolCallRequest(toolCalls);
+            if (!approved) {
+              const cancelledResponse = "Tool execution was cancelled by user.";
+              this.conversationHistory.push({
+                role: 'assistant',
+                content: cancelledResponse,
+                timestamp: new Date()
+              });
+              return cancelledResponse;
+            }
+          }
 
           // Add AI message with tool calls
           currentMessages.push({
             role: 'assistant',
             content: response.content || '',
-            tool_calls: response.tool_calls
+            tool_calls: toolCalls
           });
 
           // Execute tools
-          const toolResults = await this.executeTools(response.tool_calls);
+          const toolResults = await this.executeTools(toolCalls);
 
           // Add tool results to messages
           currentMessages.push(...toolResults);
@@ -432,7 +569,14 @@ Be helpful, accurate, and security-focused in your responses.`
     } catch (error) {
       console.error('[Agent] Error:', error);
 
-      const errorMessage = `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Ollama is running locally (http://localhost:11434)\n- The ${this.ollamaConfig.model} model is installed (run: ollama pull ${this.ollamaConfig.model})\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+      let errorMessage;
+      if (this.llmProvider === LLM_PROVIDERS.GEMINI) {
+        errorMessage = `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Your Gemini API key is valid\n- The ${this.geminiConfig?.model || 'gemini-2.5-flash'} model is available\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+      } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
+        errorMessage = `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Your OpenRouter API key is valid\n- The ${this.openrouterConfig?.model || 'anthropic/claude-3.5-sonnet'} model is available\n- You have sufficient credits on OpenRouter\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+      } else {
+        errorMessage = `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Ollama is running locally (http://localhost:11434)\n- The ${this.ollamaConfig?.model || 'llama3.1:8b'} model is installed (run: ollama pull ${this.ollamaConfig?.model || 'llama3.1:8b'})\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+      }
 
       this.conversationHistory.push({
         role: 'error',
@@ -461,17 +605,41 @@ Be helpful, accurate, and security-focused in your responses.`
   }
 
   /**
+   * Test connection to MCP server
+   *
+   * @returns {Promise<boolean>} True if connection successful
+   */
+  async testConnection() {
+    try {
+      return await this.mcpClient.testConnection();
+    } catch (error) {
+      console.error('[Agent] MCP connection test failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get agent status
    *
    * @returns {Object} Agent status information
    */
   getStatus() {
-    return {
+    const status = {
       mcpStatus: this.mcpClient.getStatus(),
       conversationLength: this.conversationHistory.length,
-      ollamaModel: this.ollamaConfig.model,
-      ollamaBaseUrl: this.ollamaConfig.baseUrl,
+      llmProvider: this.llmProvider,
       toolsCount: this.tools.length
     };
+
+    if (this.llmProvider === LLM_PROVIDERS.GEMINI) {
+      status.geminiModel = this.geminiConfig?.model;
+    } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
+      status.openrouterModel = this.openrouterConfig?.model;
+    } else {
+      status.ollamaModel = this.ollamaConfig?.model;
+      status.ollamaBaseUrl = this.ollamaConfig?.baseUrl;
+    }
+
+    return status;
   }
 }

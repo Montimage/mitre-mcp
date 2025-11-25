@@ -22,15 +22,28 @@ export default function Hero() {
               <div className="h-1 w-20 bg-black"></div>
             </div>
 
+            {/* PyPI & Status Badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <a href="https://pypi.org/project/mitre-mcp/" target="_blank" rel="noopener noreferrer">
+                <img src="https://img.shields.io/pypi/v/mitre-mcp.svg?label=PyPI&logo=pypi" alt="PyPI version" className="h-5" />
+              </a>
+              <a href="https://pepy.tech/projects/mitre-mcp" target="_blank" rel="noopener noreferrer">
+                <img src="https://static.pepy.tech/badge/mitre-mcp" alt="PyPI Downloads" className="h-5" />
+              </a>
+              <a href="https://pypi.org/project/mitre-mcp/" target="_blank" rel="noopener noreferrer">
+                <img src="https://img.shields.io/pypi/pyversions/mitre-mcp.svg?logo=python&logoColor=white" alt="Python versions" className="h-5" />
+              </a>
+              <a href="https://github.com/montimage/mitre-mcp/actions/workflows/test.yml" target="_blank" rel="noopener noreferrer">
+                <img src="https://github.com/montimage/mitre-mcp/actions/workflows/test.yml/badge.svg?branch=main" alt="Test status" className="h-5" />
+              </a>
+              <a href="https://github.com/montimage/mitre-mcp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">
+                <img src="https://img.shields.io/github/license/montimage/mitre-mcp.svg" alt="License" className="h-5" />
+              </a>
+            </div>
+
             {/* Subtitle */}
             <p className="text-xl text-gray-700 leading-relaxed">
               Interact with the MITRE ATT&CK framework using natural language powered by AI
-            </p>
-
-            {/* Description */}
-            <p className="text-base text-gray-600 leading-relaxed max-w-xl">
-              Query tactics, techniques, threat groups, and mitigations from the world's most comprehensive
-              adversary knowledge base. Built with LangGraphJS and the Model Context Protocol.
             </p>
 
             {/* Feature Badges */}
@@ -49,31 +62,40 @@ export default function Hero() {
               </span>
             </div>
 
-            {/* Call-to-Action */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <a
-                href="https://github.com/montimage/mitre-mcp"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 bg-black text-white font-semibold border-2 border-black hover:bg-gray-900 transition-colors shadow-lg"
-              >
-                View Documentation
-              </a>
-            </div>
 
             {/* Getting Started Instructions */}
             <div className="mt-8 p-6 bg-gray-50 border border-gray-200 shadow-sm">
               <h4 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">
                 Getting Started
               </h4>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                <li>Make sure the mitre-mcp server is running on your machine</li>
-                <li>Configure the server address using the gear icon in the chatbox</li>
-                <li>Test the connection and start asking questions</li>
+              <ol className="list-decimal list-inside space-y-3 text-sm text-gray-700">
+                <li>
+                  <span className="font-medium">Install mitre-mcp:</span>
+                  <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
+                    pip install mitre-mcp
+                  </div>
+                </li>
+                <li>
+                  <span className="font-medium">Start the server:</span>
+                  <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
+                    mitre-mcp --http --host 0.0.0.0 --port 8000
+                  </div>
+                </li>
+                <li>
+                  <span className="font-medium">Open the website and ask questions:</span>
+                  <div className="mt-1 ml-5">
+                    <a
+                      href="https://mitre-mcp.montimage.eu"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
+                    >
+                      mitre-mcp.montimage.eu
+                    </a>
+                    <span className="text-xs text-gray-500 ml-2">- Ask questions about MITRE ATT&CK</span>
+                  </div>
+                </li>
               </ol>
-              <div className="mt-4 p-3 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
-                mitre-mcp --http --port 8000
-              </div>
             </div>
           </div>
 
