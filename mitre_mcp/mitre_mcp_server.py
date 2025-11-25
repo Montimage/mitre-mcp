@@ -1107,6 +1107,48 @@ def setup_http_server(host: str, port: int) -> None:
     print(config_message, file=sys.stderr, flush=True)
 
 
+def create_cors_app() -> "Starlette":
+    """Create a Starlette app with CORS middleware wrapping the MCP app.
+
+    Returns:
+        Starlette application with CORS support
+    """
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+
+    # Get the MCP streamable HTTP app
+    mcp_app = mcp.streamable_http_app()
+
+    # Build CORS middleware configuration
+    cors_config = Config.CORS_ORIGINS.strip()
+
+    if cors_config == "*":
+        allowed_origins = ["*"]
+        allow_credentials = False
+        logger.info("CORS middleware enabled for all origins (*)")
+    else:
+        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+        allow_credentials = True
+        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+
+    # Create a new Starlette app that mounts the MCP app
+    # and adds CORS middleware at the top level
+    app = Starlette(
+        routes=[Mount("/", app=mcp_app)],
+    )
+
+    # Add CORS middleware to the wrapper app
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=allow_credentials,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    return app
+
+
 def main() -> None:
     """Entry point for the package when installed."""
     # Print help message if requested
@@ -1122,13 +1164,8 @@ def main() -> None:
             host, port = parse_http_args()
             setup_http_server(host, port)
 
-            # Build CORS middleware and create HTTP app with it
-            cors_middleware = get_cors_middleware()
-            app = mcp.http_app(
-                path="/mcp",
-                middleware=cors_middleware,
-                transport="streamable-http",
-            )
+            # Create app with CORS middleware
+            app = create_cors_app()
 
             # Run with uvicorn
             import uvicorn

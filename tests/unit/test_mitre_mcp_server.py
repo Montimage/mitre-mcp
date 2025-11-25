@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
+    create_cors_app,
     download_and_save_attack_data_async,
     format_relationship_map,
     format_technique,
@@ -288,6 +289,39 @@ class TestCorsConfiguration(unittest.TestCase):
         # Verify settings were updated
         self.assertEqual(mock_mcp.settings.host, "localhost")
         self.assertEqual(mock_mcp.settings.port, 8000)
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_create_cors_app_wildcard(self, mock_config, mock_mcp):
+        """Test create_cors_app with wildcard origins."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_mcp.streamable_http_app.return_value = MagicMock()
+
+        # Create the app
+        app = create_cors_app()
+
+        # Verify it's a Starlette app
+        from starlette.applications import Starlette
+
+        self.assertIsInstance(app, Starlette)
+        # Verify MCP app was retrieved
+        mock_mcp.streamable_http_app.assert_called_once()
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_create_cors_app_specific_origins(self, mock_config, mock_mcp):
+        """Test create_cors_app with specific origins."""
+        mock_config.CORS_ORIGINS = "https://example.com,http://localhost:3000"
+        mock_mcp.streamable_http_app.return_value = MagicMock()
+
+        # Create the app
+        app = create_cors_app()
+
+        # Verify it's a Starlette app
+        from starlette.applications import Starlette
+
+        self.assertIsInstance(app, Starlette)
+        mock_mcp.streamable_http_app.assert_called_once()
 
 
 if __name__ == "__main__":
