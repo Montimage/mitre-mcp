@@ -26,6 +26,7 @@ import httpx
 # MCP SDK imports
 from mcp.server.fastmcp import Context, FastMCP
 from mitreattack.stix20 import MitreAttackData
+from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 # Local imports
@@ -1041,6 +1042,36 @@ def parse_http_args() -> tuple[str, int]:
     return host, port
 
 
+def get_cors_middleware() -> list[Middleware]:
+    """Build CORS middleware configuration.
+
+    Returns:
+        List of Starlette Middleware instances for CORS
+    """
+    cors_config = Config.CORS_ORIGINS.strip()
+
+    if cors_config == "*":
+        # Allow all origins
+        allowed_origins = ["*"]
+        allow_credentials = False  # Cannot use credentials with wildcard
+        logger.info("CORS middleware enabled for all origins (*)")
+    else:
+        # Parse comma-separated list of specific origins
+        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+        allow_credentials = True
+        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+
+    return [
+        Middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=allow_credentials,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    ]
+
+
 def setup_http_server(host: str, port: int) -> None:
     """Configure and display HTTP server information.
 
@@ -1075,32 +1106,6 @@ def setup_http_server(host: str, port: int) -> None:
     # Print to stderr with immediate flush
     print(config_message, file=sys.stderr, flush=True)
 
-    # Add CORS middleware to support async notifications from MCP clients
-    # Get the streamable HTTP app and add CORS middleware
-    app = mcp.streamable_http_app()
-    if app:
-        # Get CORS origins from config (default: "*" allows all)
-        cors_config = Config.CORS_ORIGINS.strip()
-
-        if cors_config == "*":
-            # Allow all origins
-            allowed_origins = ["*"]
-            allow_credentials = False  # Cannot use credentials with wildcard
-            logger.info("CORS middleware enabled for all origins (*)")
-        else:
-            # Parse comma-separated list of specific origins
-            allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
-            allow_credentials = True
-            logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
-
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=allowed_origins,
-            allow_credentials=allow_credentials,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-
 
 def main() -> None:
     """Entry point for the package when installed."""
@@ -1116,8 +1121,19 @@ def main() -> None:
         if "--http" in sys.argv:
             host, port = parse_http_args()
             setup_http_server(host, port)
-            # Run as HTTP server with streamable HTTP transport
-            mcp.run(transport="streamable-http", mount_path="/mcp")
+
+            # Build CORS middleware and create HTTP app with it
+            cors_middleware = get_cors_middleware()
+            app = mcp.http_app(
+                path="/mcp",
+                middleware=cors_middleware,
+                transport="streamable-http",
+            )
+
+            # Run with uvicorn
+            import uvicorn
+
+            uvicorn.run(app, host=host, port=port, log_level="info")
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
             logger.info("Press Ctrl+C to stop the server")

@@ -16,6 +16,7 @@ from mitre_mcp.mitre_mcp_server import (
     format_relationship_map,
     format_technique,
     get_attack_data,
+    get_cors_middleware,
     get_server_info,
     mcp,
     setup_http_server,
@@ -200,124 +201,93 @@ class TestMitreMcpServer(unittest.TestCase):
 class TestCorsConfiguration(unittest.TestCase):
     """Test cases for CORS configuration in HTTP mode."""
 
-    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_wildcard_default(self, mock_config, mock_mcp):
+    def test_cors_wildcard_default(self, mock_config):
         """Test CORS with wildcard origin (default)."""
-        # Mock the app
-        mock_app = MagicMock()
-        mock_mcp.streamable_http_app.return_value = mock_app
-        mock_mcp.settings = MagicMock()
-
         # Set default CORS config (wildcard)
         mock_config.CORS_ORIGINS = "*"
 
-        # Call setup_http_server
-        setup_http_server("localhost", 8000)
+        # Call get_cors_middleware
+        middleware_list = get_cors_middleware()
 
-        # Verify add_middleware was called
-        mock_app.add_middleware.assert_called_once()
-
-        # Get the call arguments
-        call_args = mock_app.add_middleware.call_args
-        kwargs = call_args[1]
+        # Verify middleware was created
+        self.assertEqual(len(middleware_list), 1)
+        middleware = middleware_list[0]
 
         # Verify wildcard origin
-        self.assertEqual(kwargs["allow_origins"], ["*"])
+        self.assertEqual(middleware.kwargs["allow_origins"], ["*"])
         # Credentials must be False with wildcard
-        self.assertEqual(kwargs["allow_credentials"], False)
-        self.assertEqual(kwargs["allow_methods"], ["*"])
-        self.assertEqual(kwargs["allow_headers"], ["*"])
+        self.assertEqual(middleware.kwargs["allow_credentials"], False)
+        self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
+        self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
 
-    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_specific_origins(self, mock_config, mock_mcp):
+    def test_cors_specific_origins(self, mock_config):
         """Test CORS with specific origins."""
-        # Mock the app
-        mock_app = MagicMock()
-        mock_mcp.streamable_http_app.return_value = mock_app
-        mock_mcp.settings = MagicMock()
-
         # Set specific CORS origins
         mock_config.CORS_ORIGINS = "https://example.com,http://localhost:3000"
 
-        # Call setup_http_server
-        setup_http_server("localhost", 8000)
+        # Call get_cors_middleware
+        middleware_list = get_cors_middleware()
 
-        # Verify add_middleware was called
-        mock_app.add_middleware.assert_called_once()
-
-        # Get the call arguments
-        call_args = mock_app.add_middleware.call_args
-        kwargs = call_args[1]
+        # Verify middleware was created
+        self.assertEqual(len(middleware_list), 1)
+        middleware = middleware_list[0]
 
         # Verify specific origins
-        self.assertEqual(kwargs["allow_origins"], ["https://example.com", "http://localhost:3000"])
+        self.assertEqual(
+            middleware.kwargs["allow_origins"],
+            ["https://example.com", "http://localhost:3000"],
+        )
         # Credentials should be True with specific origins
-        self.assertEqual(kwargs["allow_credentials"], True)
-        self.assertEqual(kwargs["allow_methods"], ["*"])
-        self.assertEqual(kwargs["allow_headers"], ["*"])
+        self.assertEqual(middleware.kwargs["allow_credentials"], True)
+        self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
+        self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
 
-    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_single_origin(self, mock_config, mock_mcp):
+    def test_cors_single_origin(self, mock_config):
         """Test CORS with a single specific origin."""
-        # Mock the app
-        mock_app = MagicMock()
-        mock_mcp.streamable_http_app.return_value = mock_app
-        mock_mcp.settings = MagicMock()
-
         # Set single CORS origin
         mock_config.CORS_ORIGINS = "https://myapp.example.com"
 
-        # Call setup_http_server
-        setup_http_server("localhost", 8000)
+        # Call get_cors_middleware
+        middleware_list = get_cors_middleware()
 
-        # Verify add_middleware was called
-        mock_app.add_middleware.assert_called_once()
-
-        # Get the call arguments
-        call_args = mock_app.add_middleware.call_args
-        kwargs = call_args[1]
+        # Verify middleware was created
+        self.assertEqual(len(middleware_list), 1)
+        middleware = middleware_list[0]
 
         # Verify single origin
-        self.assertEqual(kwargs["allow_origins"], ["https://myapp.example.com"])
-        self.assertEqual(kwargs["allow_credentials"], True)
+        self.assertEqual(middleware.kwargs["allow_origins"], ["https://myapp.example.com"])
+        self.assertEqual(middleware.kwargs["allow_credentials"], True)
 
-    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_origins_with_spaces(self, mock_config, mock_mcp):
+    def test_cors_origins_with_spaces(self, mock_config):
         """Test CORS origins parsing handles spaces correctly."""
-        # Mock the app
-        mock_app = MagicMock()
-        mock_mcp.streamable_http_app.return_value = mock_app
-        mock_mcp.settings = MagicMock()
-
         # Set CORS origins with spaces
         mock_config.CORS_ORIGINS = "https://example.com , http://localhost:3000 , https://app.test.com"
 
-        # Call setup_http_server
-        setup_http_server("localhost", 8000)
+        # Call get_cors_middleware
+        middleware_list = get_cors_middleware()
 
-        # Get the call arguments
-        call_args = mock_app.add_middleware.call_args
-        kwargs = call_args[1]
+        # Get middleware kwargs
+        middleware = middleware_list[0]
 
         # Verify origins are trimmed
         expected = ["https://example.com", "http://localhost:3000", "https://app.test.com"]
-        self.assertEqual(kwargs["allow_origins"], expected)
+        self.assertEqual(middleware.kwargs["allow_origins"], expected)
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
-    def test_cors_no_app(self, mock_mcp):
-        """Test CORS setup when app is None (no middleware added)."""
-        # Mock streamable_http_app to return None
-        mock_mcp.streamable_http_app.return_value = None
+    def test_setup_http_server_no_crash(self, mock_mcp):
+        """Test setup_http_server runs without crashing."""
         mock_mcp.settings = MagicMock()
 
         # This should not raise an exception
         setup_http_server("localhost", 8000)
 
-        # No assertions needed - just verify no exception is raised
+        # Verify settings were updated
+        self.assertEqual(mock_mcp.settings.host, "localhost")
+        self.assertEqual(mock_mcp.settings.port, 8000)
 
 
 if __name__ == "__main__":
