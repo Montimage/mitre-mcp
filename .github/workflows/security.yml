@@ -3,8 +3,16 @@ name: Security
 on:
   push:
     branches: [main, develop, claude/*]
+    paths-ignore:
+      - 'frontend/**'
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - 'frontend/**'
+      - '**.md'
+      - 'docs/**'
   schedule:
     # Run security checks daily at 2 AM UTC
     - cron: "0 2 * * *"
