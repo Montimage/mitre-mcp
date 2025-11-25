@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
-    create_cors_app,
+    add_cors_middleware_to_mcp,
     download_and_save_attack_data_async,
     format_relationship_map,
     format_technique,
@@ -292,36 +292,49 @@ class TestCorsConfiguration(unittest.TestCase):
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_create_cors_app_wildcard(self, mock_config, mock_mcp):
-        """Test create_cors_app with wildcard origins."""
+    def test_add_cors_middleware_patches_mcp(self, mock_config, mock_mcp):
+        """Test add_cors_middleware_to_mcp patches the streamable_http_app method."""
         mock_config.CORS_ORIGINS = "*"
-        mock_mcp.streamable_http_app.return_value = MagicMock()
+        mock_app = MagicMock()
+        original_method = MagicMock(return_value=mock_app)
+        mock_mcp.streamable_http_app = original_method
 
-        # Create the app
-        app = create_cors_app()
+        # Call the function to patch
+        add_cors_middleware_to_mcp()
 
-        # Verify it's a Starlette app
-        from starlette.applications import Starlette
+        # The method should be replaced
+        self.assertNotEqual(mock_mcp.streamable_http_app, original_method)
 
-        self.assertIsInstance(app, Starlette)
-        # Verify MCP app was retrieved
-        mock_mcp.streamable_http_app.assert_called_once()
+        # Call the patched method
+        result = mock_mcp.streamable_http_app()
+
+        # The original method should have been called
+        original_method.assert_called_once()
+        # CORS middleware should have been added
+        mock_app.add_middleware.assert_called_once()
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_create_cors_app_specific_origins(self, mock_config, mock_mcp):
-        """Test create_cors_app with specific origins."""
+    def test_add_cors_middleware_with_specific_origins(self, mock_config, mock_mcp):
+        """Test add_cors_middleware_to_mcp with specific origins."""
         mock_config.CORS_ORIGINS = "https://example.com,http://localhost:3000"
-        mock_mcp.streamable_http_app.return_value = MagicMock()
+        mock_app = MagicMock()
+        original_method = MagicMock(return_value=mock_app)
+        mock_mcp.streamable_http_app = original_method
 
-        # Create the app
-        app = create_cors_app()
+        # Call the function to patch
+        add_cors_middleware_to_mcp()
 
-        # Verify it's a Starlette app
-        from starlette.applications import Starlette
+        # Call the patched method
+        mock_mcp.streamable_http_app()
 
-        self.assertIsInstance(app, Starlette)
-        mock_mcp.streamable_http_app.assert_called_once()
+        # Check the middleware was added with correct origins
+        call_args = mock_app.add_middleware.call_args
+        self.assertEqual(
+            call_args[1]["allow_origins"],
+            ["https://example.com", "http://localhost:3000"],
+        )
+        self.assertEqual(call_args[1]["allow_credentials"], True)
 
 
 if __name__ == "__main__":

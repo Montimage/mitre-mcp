@@ -1107,46 +1107,44 @@ def setup_http_server(host: str, port: int) -> None:
     print(config_message, file=sys.stderr, flush=True)
 
 
-def create_cors_app() -> "Starlette":
-    """Create a Starlette app with CORS middleware wrapping the MCP app.
+def add_cors_middleware_to_mcp() -> None:
+    """Add CORS middleware to the MCP server's streamable HTTP app.
 
-    Returns:
-        Starlette application with CORS support
+    This patches the mcp.streamable_http_app method to add CORS middleware
+    after the app is created but before it's used by uvicorn.
     """
-    from starlette.applications import Starlette
-    from starlette.routing import Mount
+    # Store the original method
+    original_streamable_http_app = mcp.streamable_http_app
 
-    # Get the MCP streamable HTTP app
-    mcp_app = mcp.streamable_http_app()
+    def patched_streamable_http_app():
+        # Call the original method to get the app
+        app = original_streamable_http_app()
 
-    # Build CORS middleware configuration
-    cors_config = Config.CORS_ORIGINS.strip()
+        # Build CORS middleware configuration
+        cors_config = Config.CORS_ORIGINS.strip()
 
-    if cors_config == "*":
-        allowed_origins = ["*"]
-        allow_credentials = False
-        logger.info("CORS middleware enabled for all origins (*)")
-    else:
-        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
-        allow_credentials = True
-        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+        if cors_config == "*":
+            allowed_origins = ["*"]
+            allow_credentials = False
+            logger.info("CORS middleware enabled for all origins (*)")
+        else:
+            allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+            allow_credentials = True
+            logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
 
-    # Create a new Starlette app that mounts the MCP app
-    # and adds CORS middleware at the top level
-    app = Starlette(
-        routes=[Mount("/", app=mcp_app)],
-    )
+        # Add CORS middleware to the app
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=allow_credentials,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
-    # Add CORS middleware to the wrapper app
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allowed_origins,
-        allow_credentials=allow_credentials,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+        return app
 
-    return app
+    # Replace the method
+    mcp.streamable_http_app = patched_streamable_http_app
 
 
 def main() -> None:
@@ -1164,13 +1162,11 @@ def main() -> None:
             host, port = parse_http_args()
             setup_http_server(host, port)
 
-            # Create app with CORS middleware
-            app = create_cors_app()
+            # Patch MCP to add CORS middleware
+            add_cors_middleware_to_mcp()
 
-            # Run with uvicorn
-            import uvicorn
-
-            uvicorn.run(app, host=host, port=port, log_level="info")
+            # Run as HTTP server with streamable HTTP transport
+            mcp.run(transport="streamable-http")
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
             logger.info("Press Ctrl+C to stop the server")
