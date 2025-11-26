@@ -289,6 +289,7 @@ Set before starting `mitre-mcp` to customize behavior:
 | `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                            |
 | `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                                       |
 | `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                                |
+| `MITRE_CORS_ORIGINS`                                        | `*`                            | CORS allowed origins for HTTP mode (`*` = all, or comma-separated list of domains)            |
 
 ### Data Caching
 

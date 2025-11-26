@@ -26,6 +26,7 @@ import httpx
 # MCP SDK imports
 from mcp.server.fastmcp import Context, FastMCP
 from mitreattack.stix20 import MitreAttackData
+from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 # Local imports
@@ -1012,6 +1013,10 @@ def print_help() -> None:
     print("  --port PORT          Port to bind to (default: 8000, only with --http)")
     print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
     print("  -h, --help           Show this help message and exit")
+    print("\nEnvironment Variables (HTTP mode):")
+    print("  MITRE_CORS_ORIGINS   CORS allowed origins (default: '*' for all domains)")
+    print("                       Use comma-separated list for specific domains:")
+    print("                       e.g., 'https://example.com,http://localhost:3000'")
     sys.exit(0)
 
 
@@ -1035,6 +1040,42 @@ def parse_http_args() -> tuple[str, int]:
                 sys.exit(1)
 
     return host, port
+
+
+def get_cors_middleware() -> list[Middleware]:
+    """Build CORS middleware configuration.
+
+    Returns:
+        List of Starlette Middleware instances for CORS
+    """
+    cors_config = Config.CORS_ORIGINS.strip()
+
+    if cors_config == "*":
+        # Use allow_origin_regex to match all origins while supporting credentials
+        # This is necessary because MCP clients need credentials for session management
+        logger.info("CORS middleware enabled for all origins (with credentials)")
+        return [
+            Middleware(
+                CORSMiddleware,
+                allow_origin_regex=r".*",
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+        ]
+    else:
+        # Parse comma-separated list of specific origins
+        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+        return [
+            Middleware(
+                CORSMiddleware,
+                allow_origins=allowed_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+        ]
 
 
 def setup_http_server(host: str, port: int) -> None:
@@ -1071,27 +1112,53 @@ def setup_http_server(host: str, port: int) -> None:
     # Print to stderr with immediate flush
     print(config_message, file=sys.stderr, flush=True)
 
-    # Add CORS middleware to support async notifications from MCP clients
-    # Get the streamable HTTP app and add CORS middleware
-    app = mcp.streamable_http_app()
-    if app:
-        # Allow Netlify deployment and localhost for development
-        allowed_origins = [
-            "https://mitre-mcp.netlify.app",
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://localhost:3000",
-        ]
 
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=allowed_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+def add_cors_middleware_to_mcp() -> None:
+    """Add CORS middleware to the MCP server's streamable HTTP app.
+
+    This patches the mcp.streamable_http_app method to add CORS middleware
+    after the app is created but before it's used by uvicorn.
+    """
+    from starlette.applications import Starlette
+
+    # Store the original method
+    original_streamable_http_app = mcp.streamable_http_app
+
+    def patched_streamable_http_app() -> Starlette:
+        # Call the original method to get the app
+        app = original_streamable_http_app()
+
+        # Build CORS middleware configuration
+        cors_config = Config.CORS_ORIGINS.strip()
+
+        if cors_config == "*":
+            # Use allow_origin_regex to match all origins while supporting credentials
+            # This is necessary because MCP clients need credentials for session management
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origin_regex=r".*",  # Match all origins
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+            logger.info("CORS middleware enabled for all origins (with credentials)")
+        else:
+            allowed_origins = [
+                origin.strip() for origin in cors_config.split(",") if origin.strip()
+            ]
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=allowed_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+            logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+
+        return app
+
+    # Replace the method (type: ignore needed for monkey patching)
+    mcp.streamable_http_app = patched_streamable_http_app  # type: ignore[method-assign]
 
 
 def main() -> None:
@@ -1108,8 +1175,12 @@ def main() -> None:
         if "--http" in sys.argv:
             host, port = parse_http_args()
             setup_http_server(host, port)
+
+            # Patch MCP to add CORS middleware
+            add_cors_middleware_to_mcp()
+
             # Run as HTTP server with streamable HTTP transport
-            mcp.run(transport="streamable-http", mount_path="/mcp")
+            mcp.run(transport="streamable-http")
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
             logger.info("Press Ctrl+C to stop the server")
