@@ -215,10 +215,9 @@ class TestCorsConfiguration(unittest.TestCase):
         self.assertEqual(len(middleware_list), 1)
         middleware = middleware_list[0]
 
-        # Verify wildcard origin
-        self.assertEqual(middleware.kwargs["allow_origins"], ["*"])
-        # Credentials must be False with wildcard
-        self.assertEqual(middleware.kwargs["allow_credentials"], False)
+        # Verify regex pattern for all origins (allows credentials)
+        self.assertEqual(middleware.kwargs["allow_origin_regex"], r".*")
+        self.assertEqual(middleware.kwargs["allow_credentials"], True)
         self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
         self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
 

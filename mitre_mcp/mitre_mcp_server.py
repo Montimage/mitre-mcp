@@ -1051,25 +1051,31 @@ def get_cors_middleware() -> list[Middleware]:
     cors_config = Config.CORS_ORIGINS.strip()
 
     if cors_config == "*":
-        # Allow all origins
-        allowed_origins = ["*"]
-        allow_credentials = False  # Cannot use credentials with wildcard
-        logger.info("CORS middleware enabled for all origins (*)")
+        # Use allow_origin_regex to match all origins while supporting credentials
+        # This is necessary because MCP clients need credentials for session management
+        logger.info("CORS middleware enabled for all origins (with credentials)")
+        return [
+            Middleware(
+                CORSMiddleware,
+                allow_origin_regex=r".*",
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+        ]
     else:
         # Parse comma-separated list of specific origins
         allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
-        allow_credentials = True
         logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
-
-    return [
-        Middleware(
-            CORSMiddleware,
-            allow_origins=allowed_origins,
-            allow_credentials=allow_credentials,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    ]
+        return [
+            Middleware(
+                CORSMiddleware,
+                allow_origins=allowed_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+        ]
 
 
 def setup_http_server(host: str, port: int) -> None:
@@ -1124,22 +1130,26 @@ def add_cors_middleware_to_mcp() -> None:
         cors_config = Config.CORS_ORIGINS.strip()
 
         if cors_config == "*":
-            allowed_origins = ["*"]
-            allow_credentials = False
-            logger.info("CORS middleware enabled for all origins (*)")
+            # Use allow_origin_regex to match all origins while supporting credentials
+            # This is necessary because MCP clients need credentials for session management
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origin_regex=r".*",  # Match all origins
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+            logger.info("CORS middleware enabled for all origins (with credentials)")
         else:
             allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
-            allow_credentials = True
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=allowed_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
             logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
-
-        # Add CORS middleware to the app
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=allowed_origins,
-            allow_credentials=allow_credentials,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
 
         return app
 
