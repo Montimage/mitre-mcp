@@ -1119,10 +1119,12 @@ def add_cors_middleware_to_mcp() -> None:
     This patches the mcp.streamable_http_app method to add CORS middleware
     after the app is created but before it's used by uvicorn.
     """
+    from starlette.applications import Starlette
+
     # Store the original method
     original_streamable_http_app = mcp.streamable_http_app
 
-    def patched_streamable_http_app():
+    def patched_streamable_http_app() -> Starlette:
         # Call the original method to get the app
         app = original_streamable_http_app()
 
@@ -1141,7 +1143,9 @@ def add_cors_middleware_to_mcp() -> None:
             )
             logger.info("CORS middleware enabled for all origins (with credentials)")
         else:
-            allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+            allowed_origins = [
+                origin.strip() for origin in cors_config.split(",") if origin.strip()
+            ]
             app.add_middleware(
                 CORSMiddleware,
                 allow_origins=allowed_origins,
@@ -1153,8 +1157,8 @@ def add_cors_middleware_to_mcp() -> None:
 
         return app
 
-    # Replace the method
-    mcp.streamable_http_app = patched_streamable_http_app
+    # Replace the method (type: ignore needed for monkey patching)
+    mcp.streamable_http_app = patched_streamable_http_app  # type: ignore[method-assign]
 
 
 def main() -> None:

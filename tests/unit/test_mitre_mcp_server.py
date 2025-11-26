@@ -265,7 +265,9 @@ class TestCorsConfiguration(unittest.TestCase):
     def test_cors_origins_with_spaces(self, mock_config):
         """Test CORS origins parsing handles spaces correctly."""
         # Set CORS origins with spaces
-        mock_config.CORS_ORIGINS = "https://example.com , http://localhost:3000 , https://app.test.com"
+        mock_config.CORS_ORIGINS = (
+            "https://example.com , http://localhost:3000 , https://app.test.com"
+        )
 
         # Call get_cors_middleware
         middleware_list = get_cors_middleware()
@@ -305,7 +307,7 @@ class TestCorsConfiguration(unittest.TestCase):
         self.assertNotEqual(mock_mcp.streamable_http_app, original_method)
 
         # Call the patched method
-        result = mock_mcp.streamable_http_app()
+        mock_mcp.streamable_http_app()
 
         # The original method should have been called
         original_method.assert_called_once()
