@@ -9,7 +9,6 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/mitre-mcp.svg?logo=python&logoColor=white)](https://pypi.org/project/mitre-mcp/)
 [![Test status](https://github.com/montimage/mitre-mcp/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/montimage/mitre-mcp/actions/workflows/test.yml)
 [![License](https://img.shields.io/github/license/montimage/mitre-mcp.svg)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-66%25-green.svg)](pytest.ini)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
@@ -47,7 +46,7 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 - **Performance Optimized** - O(1) lookups using pre-built indices (80-95% faster)
 - **Dual Transport Modes** - stdio for local clients, HTTP for web integrations
 - **CORS-Enabled HTTP Server** - Async notifications and cross-origin request support
-- **Comprehensive Testing** - 114 tests with 66% code coverage
+- **Comprehensive Testing** - pytest suite with an enforced coverage gate
 - **Pre-commit Quality Checks** - Automated formatting, linting, type checking, and security scanning
 - **Input Validation** - Secure-by-default with validated inputs and sanitized responses
 - **Programmatic API** - Python and Node.js clients (see [API-INTEGRATION.md](API-INTEGRATION.md))
@@ -398,7 +397,7 @@ pre-commit run --all-files  # All quality checks
 
 **Testing:**
 
-- **pytest** - 114 tests before commit
+- **pytest** - test suite with coverage gate before commit
 - **Installation test** - Package verification
 - **Import verification** - Module importability
 - **CLI test** - Entry point validation
