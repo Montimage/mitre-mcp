@@ -368,6 +368,8 @@ Make sure the mitre-mcp server is running:
       console.log(client.formatOutput(result, globalOptions.pretty));
     } catch (error) {
       console.error(`\n❌ Failed to execute command: ${error.message}`);
+      // process.exit() below would skip finally, so close explicitly first
+      await client.close().catch(() => {});
       process.exit(1);
     } finally {
       await client.close();

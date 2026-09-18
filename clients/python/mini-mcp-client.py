@@ -75,8 +75,12 @@ class MitreMCPClient:
         """Drop the current session so the next call re-initializes."""
         if self._client is not None:
             self._client = None
-            await self._exit_stack.aclose()
-            self._exit_stack = AsyncExitStack()
+            try:
+                await self._exit_stack.aclose()
+            except Exception:
+                pass  # session teardown is best-effort
+            finally:
+                self._exit_stack = AsyncExitStack()
 
     async def test_connection(self) -> bool:
         """Test if the server is reachable and answers the MCP handshake."""

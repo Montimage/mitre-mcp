@@ -424,7 +424,7 @@ node mini-mcp-client.js mitigations --name "Multi-factor Authentication"
 
 ```bash
 node mini-mcp-client.js tactics > tactics.json
-node mini-mcp-client.js groups --no-pretty | jq '.result.structuredContent.groups[].name'
+node mini-mcp-client.js --no-pretty groups | jq '.result.structuredContent.groups[].name'
 ```
 
 ## Related Documentation
