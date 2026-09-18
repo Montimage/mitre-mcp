@@ -1,7 +1,6 @@
 """Tests for MCP tools."""
 
 import pytest
-
 from mcp.server.mcpserver.exceptions import ToolError
 
 from mitre_mcp.mitre_mcp_server import (
