@@ -1,6 +1,9 @@
 """Input validation for MITRE MCP Server."""
 
 import re
+from typing import TypeVar
+
+_StrT = TypeVar("_StrT", bound=str)
 
 
 class ValidationError(ValueError):
@@ -72,7 +75,7 @@ def validate_name(name: str, field_name: str = "name", max_length: int = 100) ->
     return name
 
 
-def validate_domain(domain: str) -> str:
+def validate_domain(domain: _StrT) -> _StrT:
     """
     Validate MITRE ATT&CK domain.
 

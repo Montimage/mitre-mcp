@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
 # Third-party imports
@@ -28,6 +28,7 @@ import uvicorn
 # MCP SDK imports
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 from mitreattack.stix20 import MitreAttackData
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -524,8 +525,38 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
         raise
 
 
+# ATT&CK domain selector shared by every tool's input schema — a
+# Literal so the generated inputSchema carries an enum (MCP
+# 2026-07-28 conformance), while validate_domain() keeps the same
+# runtime rejection for direct calls.
+AttackDomain = Literal["enterprise-attack", "mobile-attack", "ics-attack"]
+
+# All tools are pure reads over a static dataset.
+READ_ONLY_TOOL = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
+
 # Create MCP server with lifespan
-mcp = MCPServer("MITRE ATT&CK Server", lifespan=attack_lifespan)
+mcp = MCPServer(
+    "MITRE ATT&CK Server",
+    title="MITRE ATT&CK",
+    description=(
+        "MCP server exposing MITRE ATT&CK data — groups, tactics, "
+        "techniques, software, and mitigations — across the Enterprise, "
+        "Mobile, and ICS domains."
+    ),
+    instructions=(
+        "Query MITRE ATT&CK with the provided tools. Pass the 'domain' "
+        "argument as 'enterprise-attack', 'mobile-attack', or 'ics-attack' "
+        "to select the dataset (default 'enterprise-attack'). Name- and "
+        "ID-indexed lookups are fastest on the enterprise domain."
+    ),
+    version=__version__,
+    lifespan=attack_lifespan,
+)
 
 
 # Helper functions
@@ -597,10 +628,10 @@ def format_relationship_map(
 
 
 # MCP Tools
-@mcp.tool()
+@mcp.tool(title="Get Techniques", annotations=READ_ONLY_TOOL)
 def get_techniques(
     ctx: Context,
-    domain: str = "enterprise-attack",
+    domain: AttackDomain = "enterprise-attack",
     include_subtechniques: bool = True,
     remove_revoked_deprecated: bool = False,
     include_descriptions: bool = False,
@@ -660,9 +691,11 @@ def get_techniques(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Tactics", annotations=READ_ONLY_TOOL)
 def get_tactics(
-    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+    ctx: Context,
+    domain: AttackDomain = "enterprise-attack",
+    remove_revoked_deprecated: bool = False,
 ) -> dict[str, Any]:
     """
     Get all tactics from the MITRE ATT&CK framework.
@@ -696,9 +729,11 @@ def get_tactics(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Groups", annotations=READ_ONLY_TOOL)
 def get_groups(
-    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+    ctx: Context,
+    domain: AttackDomain = "enterprise-attack",
+    remove_revoked_deprecated: bool = False,
 ) -> dict[str, Any]:
     """
     Get all groups from the MITRE ATT&CK framework.
@@ -732,10 +767,10 @@ def get_groups(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Software", annotations=READ_ONLY_TOOL)
 def get_software(
     ctx: Context,
-    domain: str = "enterprise-attack",
+    domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
     software_types: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -776,11 +811,11 @@ def get_software(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Techniques by Tactic", annotations=READ_ONLY_TOOL)
 def get_techniques_by_tactic(
     ctx: Context,
     tactic_shortname: str,
-    domain: str = "enterprise-attack",
+    domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
 ) -> dict[str, Any]:
     """
@@ -811,9 +846,9 @@ def get_techniques_by_tactic(
     return {"techniques": [format_technique(technique) for technique in techniques]}
 
 
-@mcp.tool()
+@mcp.tool(title="Get Techniques Used by Group", annotations=READ_ONLY_TOOL)
 def get_techniques_used_by_group(
-    ctx: Context, group_name: str, domain: str = "enterprise-attack"
+    ctx: Context, group_name: str, domain: AttackDomain = "enterprise-attack"
 ) -> dict[str, Any]:
     """
     Get techniques used by a group.
@@ -859,9 +894,11 @@ def get_techniques_used_by_group(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Mitigations", annotations=READ_ONLY_TOOL)
 def get_mitigations(
-    ctx: Context, domain: str = "enterprise-attack", remove_revoked_deprecated: bool = False
+    ctx: Context,
+    domain: AttackDomain = "enterprise-attack",
+    remove_revoked_deprecated: bool = False,
 ) -> dict[str, Any]:
     """
     Get all mitigations from the MITRE ATT&CK framework.
@@ -894,9 +931,9 @@ def get_mitigations(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Techniques Mitigated by Mitigation", annotations=READ_ONLY_TOOL)
 def get_techniques_mitigated_by_mitigation(
-    ctx: Context, mitigation_name: str, domain: str = "enterprise-attack"
+    ctx: Context, mitigation_name: str, domain: AttackDomain = "enterprise-attack"
 ) -> dict[str, Any]:
     """
     Get techniques mitigated by a mitigation.
@@ -942,9 +979,9 @@ def get_techniques_mitigated_by_mitigation(
     }
 
 
-@mcp.tool()
+@mcp.tool(title="Get Technique by ID", annotations=READ_ONLY_TOOL)
 def get_technique_by_id(
-    ctx: Context, technique_id: str, domain: str = "enterprise-attack"
+    ctx: Context, technique_id: str, domain: AttackDomain = "enterprise-attack"
 ) -> dict[str, Any]:
     """
     Get a technique by its MITRE ATT&CK ID.
@@ -992,9 +1029,11 @@ def get_technique_by_id(
 
 # Define a resource to get information about the server
 @mcp.resource("mitre-attack://info")
-def get_server_info() -> str:
+async def get_server_info() -> str:
     """Get information about the MITRE ATT&CK MCP server."""
-    return """
+    tools = await mcp.list_tools()
+    tool_lines = "\n".join(f"    - {t.name}: {t.description}" for t in tools)
+    return f"""
     MITRE ATT&CK MCP Server
 
     This server provides tools for working with the MITRE ATT&CK framework
@@ -1006,15 +1045,7 @@ def get_server_info() -> str:
     - ics-attack: ICS ATT&CK
 
     Available tools:
-    - get_techniques: Get all techniques
-    - get_tactics: Get all tactics
-    - get_groups: Get all groups
-    - get_software: Get all software
-    - get_techniques_by_tactic: Get techniques by tactic
-    - get_techniques_used_by_group: Get techniques used by a group
-    - get_mitigations: Get all mitigations
-    - get_techniques_mitigated_by_mitigation: Get mitigations for a technique
-    - get_technique_by_id: Get a technique by its MITRE ATT&CK ID
+{tool_lines}
     """
 
 
