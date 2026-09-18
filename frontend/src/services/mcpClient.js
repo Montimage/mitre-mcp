@@ -84,10 +84,13 @@ export default class MitreMCPClient {
       const transport = new StreamableHTTPClientTransport(
         new URL(this.baseUrl, window.location.origin)
       );
-      const client = new Client({ name: 'mitre-mcp-web-client', version: '1.0.0' });
       // 'auto' probes server/discover for the modern era and falls back to
       // the legacy initialize handshake when the server only speaks 2025-era
-      await client.connect(transport, { mode: 'auto' });
+      const client = new Client(
+        { name: 'mitre-mcp-web-client', version: '1.0.0' },
+        { versionNegotiation: { mode: 'auto' } }
+      );
+      await client.connect(transport);
 
       this.client = client;
       // Absent when the server runs stateless — transport handles both cases
