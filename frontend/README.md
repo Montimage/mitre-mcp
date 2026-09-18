@@ -176,10 +176,10 @@ Create a `.env` file:
 # MCP Server
 VITE_MCP_DEFAULT_HOST=localhost
 VITE_MCP_DEFAULT_PORT=8000
-
-# Optional: OpenAI API (future feature)
-# VITE_OPENAI_API_KEY=sk-...
 ```
+
+LLM API keys are entered at runtime via the settings dialog — they are
+never set as build-time environment variables.
 
 ### Runtime Configuration
 

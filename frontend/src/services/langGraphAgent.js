@@ -98,11 +98,10 @@ export default class LangGraphAgent {
    * @param {Object} config - Configuration options
    */
   initGemini(config) {
-    // Get API key from config or environment variable
-    const apiKey = config.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = config.geminiApiKey;
 
     if (!apiKey) {
-      throw new Error('Gemini API key is required. Set VITE_GEMINI_API_KEY in .env or provide geminiApiKey in config.');
+      throw new Error('Gemini API key is required. Provide geminiApiKey in the settings dialog.');
     }
 
     this.geminiConfig = {
@@ -124,11 +123,10 @@ export default class LangGraphAgent {
    * @param {Object} config - Configuration options
    */
   initOpenRouter(config) {
-    // Get API key from config or environment variable
-    const apiKey = config.openrouterApiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
+    const apiKey = config.openrouterApiKey;
 
     if (!apiKey) {
-      throw new Error('OpenRouter API key is required. Set VITE_OPENROUTER_API_KEY in .env or provide openrouterApiKey in config.');
+      throw new Error('OpenRouter API key is required. Provide openrouterApiKey in the settings dialog.');
     }
 
     this.openrouterConfig = {
