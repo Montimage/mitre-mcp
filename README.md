@@ -427,7 +427,7 @@ pre-commit run --all-files  # All quality checks
 
 **Module not found: mcp.server.fastmcp**
 
-- Reinstall the pinned MCP SDK: `pip install "mcp[cli]>=1.28.1,<2"` in your virtual environment (the `fastmcp` distribution does not provide `mcp.server.fastmcp`; the package's declared pin does)
+- Reinstall the pinned MCP SDK: `pip install "mcp>=1.28.1,<2"` (or `mcp[cli]>=1.28.1,<2` if you also want the CLI extra) in your virtual environment — the `fastmcp` distribution does not provide `mcp.server.fastmcp`; the package's declared pin does
 
 ## FAQ
 
