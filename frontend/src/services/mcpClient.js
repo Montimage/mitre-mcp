@@ -157,10 +157,12 @@ export default class MitreMCPClient {
    *
    * @param {string} toolName - Name of the MCP tool to call
    * @param {Object} args - Tool arguments
+   * @param {boolean} isRetry - Internal flag; true when this call is the
+   *   single retry after an expired-session 404
    * @returns {Promise<Object>} Tool call result
    * @throws {Error} If tool call fails
    */
-  async callTool(toolName, args = {}) {
+  async callTool(toolName, args = {}, isRetry = false) {
     // Initialize session if not already done
     if (!this.sessionInitialized) {
       await this.initializeSession();
@@ -196,6 +198,14 @@ export default class MitreMCPClient {
       });
 
       if (!response.ok) {
+        // HTTP 404 means the server forgot our session — clear it,
+        // re-initialise, and retry exactly once
+        if (response.status === 404 && !isRetry) {
+          this.log('Session expired (404), re-initialising and retrying once');
+          this.resetSession();
+          await this.initializeSession();
+          return this.callTool(toolName, args, true);
+        }
         const errorText = await response.text();
         throw new Error(`HTTP Error ${response.status}: ${errorText}`);
       }
