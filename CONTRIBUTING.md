@@ -103,7 +103,7 @@ npm run lint
 | `MITRE_MAX_DESC_LENGTH`   | Maximum description length returned by tools       |
 | `MITRE_DATA_DIR`          | Data directory override (unset means auto-detect)  |
 | `MITRE_LOG_LEVEL`         | Logging level                                      |
-| `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode |
+| `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode (defaults to localhost dev origins; add a hosted UI origin explicitly; credentials never allowed) |
 
 `mitre_mcp/mitre_mcp_server.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port).
 
