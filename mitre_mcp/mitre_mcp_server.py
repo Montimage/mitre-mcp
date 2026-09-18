@@ -1151,12 +1151,18 @@ def get_cors_middleware() -> list[Middleware]:
         ]
 
 
-def setup_http_server(host: str, port: int) -> None:
+def setup_http_server(host: str, port: int) -> str:
     """Configure and display HTTP server information.
+
+    Single access site for ``mcp.settings`` — callers use the return
+    value instead of touching settings themselves.
 
     Args:
         host: Server host address
         port: Server port number
+
+    Returns:
+        The configured FastMCP log level (lowercase) for uvicorn.
     """
     logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
     logger.info("Press Ctrl+C to stop the server")
@@ -1191,6 +1197,8 @@ def setup_http_server(host: str, port: int) -> None:
     # Print to stderr with immediate flush
     print(config_message, file=sys.stderr, flush=True)
 
+    return mcp.settings.log_level.lower()
+
 
 def build_http_app() -> Starlette:
     """Build the streamable-HTTP ASGI app with CORS middleware.
@@ -1219,12 +1227,19 @@ def main() -> None:
     try:
         if "--http" in sys.argv:
             host, port = parse_http_args()
-            setup_http_server(host, port)
+            log_level = setup_http_server(host, port)
 
             # Build the ASGI app explicitly (no SDK monkey-patch) and
             # serve it — mirrors run_streamable_http_async in the SDK:
-            # app construction here, uvicorn binding from parsed args.
-            server = uvicorn.Server(uvicorn.Config(build_http_app(), host=host, port=port))
+            # app construction here, uvicorn bound from the same settings.
+            server = uvicorn.Server(
+                uvicorn.Config(
+                    build_http_app(),
+                    host=host,
+                    port=port,
+                    log_level=log_level,
+                )
+            )
             asyncio.run(server.serve())
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")

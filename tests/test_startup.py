@@ -158,7 +158,9 @@ class TestMain:
 
         setup_mock.assert_called_once_with("h", 1234)
         build_mock.assert_called_once_with()
-        uvicorn_mock.Config.assert_called_once_with("app", host="h", port=1234)
+        uvicorn_mock.Config.assert_called_once_with(
+            "app", host="h", port=1234, log_level=setup_mock.return_value
+        )
         uvicorn_mock.Server.assert_called_once_with(uvicorn_mock.Config.return_value)
         run_mock.assert_called_once_with(server_inst.serve.return_value)
 
