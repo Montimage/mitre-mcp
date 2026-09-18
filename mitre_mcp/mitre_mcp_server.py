@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 # Third-party imports
@@ -531,12 +531,13 @@ mcp = MCPServer("MITRE ATT&CK Server", lifespan=attack_lifespan)
 # Helper functions
 def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
     """Get the appropriate MITRE ATT&CK data based on the domain."""
+    lifespan_context = cast(AttackContext, ctx.request_context.lifespan_context)
     if domain == "enterprise-attack":
-        return ctx.request_context.lifespan_context.enterprise_attack
+        return lifespan_context.enterprise_attack
     elif domain == "mobile-attack":
-        return ctx.request_context.lifespan_context.mobile_attack
+        return lifespan_context.mobile_attack
     elif domain == "ics-attack":
-        return ctx.request_context.lifespan_context.ics_attack
+        return lifespan_context.ics_attack
     else:
         raise ValueError(f"Invalid domain: {domain}")
 
@@ -835,7 +836,9 @@ def get_techniques_used_by_group(
 
     # Use index for O(1) lookup (enterprise domain only)
     if domain == "enterprise-attack":
-        group = ctx.request_context.lifespan_context.groups_index.get(group_name.lower())
+        group = cast(AttackContext, ctx.request_context.lifespan_context).groups_index.get(
+            group_name.lower()
+        )
     else:
         # Fallback to linear search for other domains
         groups = data.get_groups()
@@ -916,9 +919,9 @@ def get_techniques_mitigated_by_mitigation(
 
     # Use index for O(1) lookup (enterprise domain only)
     if domain == "enterprise-attack":
-        mitigation = ctx.request_context.lifespan_context.mitigations_index.get(
-            mitigation_name.lower()
-        )
+        mitigation = cast(
+            AttackContext, ctx.request_context.lifespan_context
+        ).mitigations_index.get(mitigation_name.lower())
     else:
         # Fallback to linear search for other domains
         mitigations = data.get_mitigations()
@@ -962,7 +965,9 @@ def get_technique_by_id(
 
     # Use index for O(1) lookup (enterprise domain)
     if domain == "enterprise-attack":
-        technique = ctx.request_context.lifespan_context.techniques_by_mitre_id.get(technique_id)
+        technique = cast(
+            AttackContext, ctx.request_context.lifespan_context
+        ).techniques_by_mitre_id.get(technique_id)
     else:
         # Fallback to linear search for other domains
         data = get_attack_data(domain, ctx)
