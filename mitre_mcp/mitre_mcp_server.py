@@ -33,7 +33,6 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from mitreattack.stix20 import MitreAttackData
 from starlette.applications import Starlette
-from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from typing_extensions import TypedDict
 
@@ -81,13 +80,6 @@ class AttackContext:
     groups_index: dict[str, dict[str, Any]]
     mitigations_index: dict[str, dict[str, Any]]
     techniques_by_mitre_id: dict[str, dict[str, Any]]
-
-
-# Metadata type definition
-class Metadata(dict[str, Any]):
-    """Type for metadata.json structure."""
-
-    pass
 
 
 def check_disk_space(directory: str, required_mb: int | None = None) -> None:
@@ -142,7 +134,7 @@ def parse_timestamp(timestamp_str: str) -> datetime:
     return dt
 
 
-def validate_metadata(metadata: dict) -> Metadata:
+def validate_metadata(metadata: dict) -> dict[str, Any]:
     """
     Validate metadata structure.
 
@@ -173,10 +165,10 @@ def validate_metadata(metadata: dict) -> Metadata:
     except ValueError as e:
         raise ValueError(f"Invalid last_update format: {e}")
 
-    return Metadata(metadata)
+    return metadata
 
 
-def load_metadata(metadata_path: str) -> Metadata | None:
+def load_metadata(metadata_path: str) -> dict[str, Any] | None:
     """
     Safely load and validate metadata.
 
@@ -333,12 +325,10 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
                 await asyncio.gather(*download_tasks)
 
             # Save metadata
-            metadata = Metadata(
-                {
-                    "last_update": datetime.now(timezone.utc).isoformat(),
-                    "domains": list(urls.keys()),
-                }
-            )
+            metadata = {
+                "last_update": datetime.now(timezone.utc).isoformat(),
+                "domains": list(urls.keys()),
+            }
             with open(paths["metadata"], "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2)
 
@@ -663,7 +653,6 @@ def format_technique(
 def format_relationship_map(
     relationship_map: list[dict[str, Any]],
     include_description: bool = False,
-    limit: int | None = None,
 ) -> list[FormattedTechnique]:
     """Format a relationship map for output with token optimization."""
     if not relationship_map:
@@ -675,9 +664,6 @@ def format_relationship_map(
         formatted_obj = format_technique(obj, include_description=include_description)
         if formatted_obj:
             result.append(formatted_obj)
-            # Limit number of returned items to save tokens
-            if limit and len(result) >= limit:
-                break
 
     return result
 
@@ -1300,43 +1286,6 @@ def build_transport_security(host: str, port: int) -> TransportSecuritySettings:
     )
 
 
-def get_cors_middleware() -> list[Middleware]:
-    """Build CORS middleware configuration.
-
-    Returns:
-        List of Starlette Middleware instances for CORS
-    """
-    cors_config = Config.CORS_ORIGINS.strip()
-
-    if cors_config == "*":
-        # Explicit "*" opt-in: reflect all origins but never with credentials
-        logger.info("CORS middleware enabled for all origins (no credentials)")
-        return [
-            Middleware(
-                CORSMiddleware,
-                allow_origin_regex=r".*",
-                allow_credentials=False,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["Mcp-Session-Id"],
-            )
-        ]
-    else:
-        # Parse comma-separated list of specific origins
-        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
-        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
-        return [
-            Middleware(
-                CORSMiddleware,
-                allow_origins=allowed_origins,
-                allow_credentials=False,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["Mcp-Session-Id"],
-            )
-        ]
-
-
 def setup_http_server(host: str, port: int) -> tuple[str, TransportSecuritySettings]:
     """Configure and display HTTP server information.
 
@@ -1370,14 +1319,33 @@ def build_http_app(host: str, transport_security: TransportSecuritySettings) -> 
     """Build the streamable-HTTP ASGI app with CORS middleware.
 
     Calls the SDK's streamable_http_app() once with the transport
-    parameters that v2 moved off the constructor/settings, then adds the
-    middleware from get_cors_middleware() to the returned app — the same
-    stack the former monkey-patch produced, built explicitly so SDK
-    internals stay untouched.
+    parameters that v2 moved off the constructor/settings, then adds
+    CORSMiddleware configured from ``Config.CORS_ORIGINS`` to the
+    returned app — the same stack the former monkey-patch produced,
+    built explicitly so SDK internals stay untouched. Credentials are
+    never allowed; ``"*"`` is an explicit opt-in that reflects any
+    origin without credentials.
     """
     app = mcp.streamable_http_app(host=host, transport_security=transport_security)
-    for middleware in get_cors_middleware():
-        app.add_middleware(middleware.cls, *middleware.args, **middleware.kwargs)
+
+    cors_config = Config.CORS_ORIGINS.strip()
+    cors_kwargs: dict[str, Any] = {
+        "allow_credentials": False,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+        "expose_headers": ["Mcp-Session-Id"],
+    }
+    if cors_config == "*":
+        # Explicit "*" opt-in: reflect all origins but never with credentials
+        logger.info("CORS middleware enabled for all origins (no credentials)")
+        cors_kwargs["allow_origin_regex"] = r".*"
+    else:
+        # Parse comma-separated list of specific origins
+        allowed_origins = [origin.strip() for origin in cors_config.split(",") if origin.strip()]
+        logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
+        cors_kwargs["allow_origins"] = allowed_origins
+
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
     return app
 
 

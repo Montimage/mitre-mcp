@@ -62,11 +62,17 @@ const getModelDisplayInfo = (config) => {
   }
 };
 
+// Build-time defaults from .env — overridable at runtime via the
+// settings dialog (persisted to localStorage), so these only apply to a
+// first run or after the saved config is cleared.
+const DEFAULT_MCP_HOST = import.meta.env.VITE_MCP_DEFAULT_HOST || 'localhost';
+const DEFAULT_MCP_PORT = Number(import.meta.env.VITE_MCP_DEFAULT_PORT) || 8000;
+
 export default function ChatBox() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [serverConfig, setServerConfig] = useState({ host: 'localhost', port: 8000, llmProvider: 'ollama' });
+  const [serverConfig, setServerConfig] = useState({ host: DEFAULT_MCP_HOST, port: DEFAULT_MCP_PORT, llmProvider: 'ollama' });
   const [agent, setAgent] = useState(null);
   const [pendingToolCalls, setPendingToolCalls] = useState(null);
   const [toolApprovalResolver, setToolApprovalResolver] = useState(null);
@@ -78,7 +84,7 @@ export default function ChatBox() {
     const initAgent = async () => {
       // Load config from localStorage
       const savedConfig = localStorage.getItem('mcp-server-config');
-      let config = { host: 'localhost', port: 8000, llmProvider: 'ollama' };
+      let config = { host: DEFAULT_MCP_HOST, port: DEFAULT_MCP_PORT, llmProvider: 'ollama' };
 
       if (savedConfig) {
         try {

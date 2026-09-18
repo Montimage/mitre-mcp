@@ -20,7 +20,7 @@ export default class MitreMCPClient {
    */
   constructor(host = 'localhost', port = 8000) {
     // Use relative URL in development to go through Vite proxy (avoids CORS)
-    // In production, you can set VITE_MCP_URL environment variable
+    // In production, the full server URL comes from the settings dialog
     const portNum = typeof port === 'string' ? parseInt(port) : port;
     const isDefaultConfig = host === 'localhost' && portNum === 8000;
 

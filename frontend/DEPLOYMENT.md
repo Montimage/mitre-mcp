@@ -271,18 +271,10 @@ Users need access to a running mitre-mcp server. Options:
 
 **C. CORS Configuration** (if server on different domain):
 
-Update mitre-mcp server to allow your frontend domain:
-```python
-# In mitre_mcp_server.py
-from starlette.middleware.cors import CORSMiddleware
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://your-frontend-domain.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+Allow your frontend domain via the server's `MITRE_CORS_ORIGINS`
+environment variable (credentials are never allowed):
+```bash
+MITRE_CORS_ORIGINS="https://your-frontend-domain.com,http://localhost:5173"
 ```
 
 ### 2. Environment Variables

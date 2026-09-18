@@ -9,7 +9,7 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 - Build check: `python -c "import mitre_mcp.mitre_mcp_server"`
 - Test suite of record: `pytest -q -p no:cacheprovider -o addopts=""`
 - Frontend (`frontend/`, Node 24): `npm ci`, `npm run build`, `npm run lint`
-- Environment variables: see `CONTRIBUTING.md` `## Agent-runnable environment` — twelve `MITRE_*` names, `FASTMCP_SERVER_HOST`/`FASTMCP_SERVER_PORT`, five `VITE_*` names
+- Environment variables: see `CONTRIBUTING.md` `## Agent-runnable environment` — twelve `MITRE_*` names, `FASTMCP_SERVER_HOST`/`FASTMCP_SERVER_PORT`, two `VITE_*` names
 
 ## Constraints
 
