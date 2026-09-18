@@ -20,4 +20,4 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 
 - Recorded pass rate: 171 passed / 171 total
 - Failing tests: none
-- Recorded coverage: 80.2 % (committed STIX fixture + protocol smoke test; gate `--cov-fail-under=79` — margin below the 3.11 measure for ~0.3pp Python-version drift)
+- Recorded coverage: 93.8 % (committed STIX fixture + protocol smoke test; gate `--cov-fail-under=79` — measured 93.77% on Python 3.11.15 with pytest-cov 7.1.0)
