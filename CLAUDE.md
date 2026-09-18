@@ -21,3 +21,8 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 - Recorded pass rate: 178 passed / 178 total
 - Failing tests: none
 - Recorded coverage: 93.8 % (committed STIX fixture + protocol smoke test; gate `--cov-fail-under=79` — measured 93.77% on Python 3.11.15 with pytest-cov 7.1.0)
+
+## Security hygiene
+
+- 2026-09-19 — `.mcpregistry_github_token` and `.mcpregistry_registry_token` moved out of the working tree to `~/.config/mitre-mcp/` (directory mode 700, files mode 600); `.env` tightened to mode 600. All three remain git-ignored.
+- Token rotation: **pending owner action** — the GitHub personal access token and the MCP-registry token still require rotation in their respective web consoles (not automatable). Record the rotation date of each token here once done — dates only, never values.
