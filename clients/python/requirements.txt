@@ -2,6 +2,3 @@
 
 # HTTP client
 httpx>=0.25.0
-
-# MCP SDK (optional, for SDK-based client)
-mcp>=0.9.0
