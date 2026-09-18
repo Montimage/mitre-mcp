@@ -85,32 +85,32 @@ npm run lint
 
 `mitre_mcp/config.py` reads twelve `MITRE_*` variables:
 
-| Variable | Purpose |
-|----------|---------|
-| `MITRE_ENTERPRISE_URL` | Enterprise ATT&CK STIX bundle download URL |
-| `MITRE_MOBILE_URL` | Mobile ATT&CK STIX bundle download URL |
-| `MITRE_ICS_URL` | ICS ATT&CK STIX bundle download URL |
-| `MITRE_DOWNLOAD_TIMEOUT` | Download timeout in seconds |
-| `MITRE_CACHE_EXPIRY_DAYS` | Days before the data cache is considered stale |
-| `MITRE_REQUIRED_SPACE_MB` | Free disk space required before downloading data |
-| `MITRE_DEFAULT_PAGE_SIZE` | Default page size for tool results |
-| `MITRE_MAX_PAGE_SIZE` | Maximum page size for tool results |
-| `MITRE_MAX_DESC_LENGTH` | Maximum description length returned by tools |
-| `MITRE_DATA_DIR` | Data directory override (unset means auto-detect) |
-| `MITRE_LOG_LEVEL` | Logging level |
-| `MITRE_CORS_ORIGINS` | Comma-separated allowed CORS origins for HTTP mode |
+| Variable                  | Purpose                                            |
+| ------------------------- | -------------------------------------------------- |
+| `MITRE_ENTERPRISE_URL`    | Enterprise ATT&CK STIX bundle download URL         |
+| `MITRE_MOBILE_URL`        | Mobile ATT&CK STIX bundle download URL             |
+| `MITRE_ICS_URL`           | ICS ATT&CK STIX bundle download URL                |
+| `MITRE_DOWNLOAD_TIMEOUT`  | Download timeout in seconds                        |
+| `MITRE_CACHE_EXPIRY_DAYS` | Days before the data cache is considered stale     |
+| `MITRE_REQUIRED_SPACE_MB` | Free disk space required before downloading data   |
+| `MITRE_DEFAULT_PAGE_SIZE` | Default page size for tool results                 |
+| `MITRE_MAX_PAGE_SIZE`     | Maximum page size for tool results                 |
+| `MITRE_MAX_DESC_LENGTH`   | Maximum description length returned by tools       |
+| `MITRE_DATA_DIR`          | Data directory override (unset means auto-detect)  |
+| `MITRE_LOG_LEVEL`         | Logging level                                      |
+| `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode |
 
 `mitre_mcp/mitre_mcp_server.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port).
 
 The frontend reads the `VITE_*` names listed in `frontend/.env.example` — names only; never copy values from `.env` or the `.mcpregistry_*token` files:
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_MCP_DEFAULT_HOST` | Default MCP server host shown in the settings dialog |
-| `VITE_MCP_DEFAULT_PORT` | Default MCP server port shown in the settings dialog |
-| `VITE_OPENAI_API_KEY` | Optional OpenAI API key for LLM features |
-| `VITE_GEMINI_API_KEY` | Optional Google Gemini API key |
-| `VITE_OPENROUTER_API_KEY` | Optional OpenRouter API key |
+| Variable                  | Purpose                                              |
+| ------------------------- | ---------------------------------------------------- |
+| `VITE_MCP_DEFAULT_HOST`   | Default MCP server host shown in the settings dialog |
+| `VITE_MCP_DEFAULT_PORT`   | Default MCP server port shown in the settings dialog |
+| `VITE_OPENAI_API_KEY`     | Optional OpenAI API key for LLM features             |
+| `VITE_GEMINI_API_KEY`     | Optional Google Gemini API key                       |
+| `VITE_OPENROUTER_API_KEY` | Optional OpenRouter API key                          |
 
 ### Commands of record
 
