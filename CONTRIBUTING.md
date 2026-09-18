@@ -336,6 +336,23 @@ bandit -r mitre_mcp/ -c pyproject.toml
 safety check
 ```
 
+#### 4. PyPI Publish (`pypi-publish.yml`)
+
+**Trigger**: GitHub release published
+
+The package is published to PyPI with **OIDC Trusted Publishing** — no
+long-lived API token is stored as a repository secret. The job runs in the
+`release` environment and requests `id-token: write`, which lets
+`pypa/gh-action-pypi-publish` mint a short-lived token per run.
+
+One-time platform setup (repository owner, not version-controlled):
+
+1. On PyPI → project `mitre-mcp` → **Publishing** → add a trusted publisher:
+   owner `Montimage`, repository `mitre-mcp`, workflow
+   `pypi-publish.yml`, environment `release`.
+2. After the first successful trusted publish, delete the legacy
+   `PYPI_API_TOKEN` repository secret (`gh secret delete PYPI_API_TOKEN`).
+
 ### Status Badges
 
 Add these to your fork's README:
