@@ -47,8 +47,6 @@ def install_package(python_bin: Path, repo_root: Path) -> None:
     """Install mitre-mcp (editable) along with build tooling."""
     run([str(python_bin), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"])
     run([str(python_bin), "-m", "pip", "install", "-e", str(repo_root)])
-    # Ensure MCP SDK is available even if editable install was already satisfied
-    run([str(python_bin), "-m", "pip", "install", "mcp[cli]>=0.1.0,<1.0.0"])
     # Quick sanity check to fail fast if the module cannot be imported later
     run(
         [

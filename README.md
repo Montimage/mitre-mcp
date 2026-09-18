@@ -406,7 +406,7 @@ pre-commit run --all-files  # All quality checks
 - For HTTP mode: ensure `url` field is set correctly
 
 **Module not found: mcp.server.fastmcp**
-- Install MCP SDK: `pip install "mcp[cli]"` in your virtual environment
+- Reinstall the pinned MCP SDK: `pip install "mcp[cli]>=1.28.1,<2"` in your virtual environment (the `fastmcp` distribution does not provide `mcp.server.fastmcp`; the package's declared pin does)
 
 ## FAQ
 
