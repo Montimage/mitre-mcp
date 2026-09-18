@@ -1,6 +1,7 @@
 """Tests for MCP tools."""
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from mitre_mcp.mitre_mcp_server import (
     get_groups,
@@ -39,24 +40,18 @@ class TestGetTechniques:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques(mock_context, domain="invalid-attack")
-
-        assert "error" in result
-        assert "Invalid domain" in result["error"]
+        with pytest.raises(ToolError, match="Invalid domain"):
+            get_techniques(mock_context, domain="invalid-attack")
 
     def test_invalid_limit(self, mock_context):
         """Test invalid limit."""
-        result = get_techniques(mock_context, domain="enterprise-attack", limit=0)
-
-        assert "error" in result
-        assert "must be positive" in result["error"]
+        with pytest.raises(ToolError, match="must be positive"):
+            get_techniques(mock_context, domain="enterprise-attack", limit=0)
 
     def test_invalid_offset(self, mock_context):
         """Test invalid offset."""
-        result = get_techniques(mock_context, domain="enterprise-attack", offset=-1)
-
-        assert "error" in result
-        assert "must be non-negative" in result["error"]
+        with pytest.raises(ToolError, match="must be non-negative"):
+            get_techniques(mock_context, domain="enterprise-attack", offset=-1)
 
     def test_default_limit(self, mock_context):
         """Test default limit is applied."""
@@ -85,24 +80,18 @@ class TestGetTechniqueByID:
 
     def test_invalid_format(self, mock_context):
         """Test invalid technique ID format."""
-        result = get_technique_by_id(mock_context, "invalid")
-
-        assert "error" in result
-        assert "Invalid technique ID format" in result["error"]
+        with pytest.raises(ToolError, match="Invalid technique ID format"):
+            get_technique_by_id(mock_context, "invalid")
 
     def test_not_found(self, mock_context):
         """Test technique not found."""
-        result = get_technique_by_id(mock_context, "T9999")
-
-        assert "error" in result
-        assert "not found" in result["error"]
+        with pytest.raises(ToolError, match="not found"):
+            get_technique_by_id(mock_context, "T9999")
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_technique_by_id(mock_context, "T1055", domain="bad")
-
-        assert "error" in result
-        assert "Invalid domain" in result["error"]
+        with pytest.raises(ToolError, match="Invalid domain"):
+            get_technique_by_id(mock_context, "T1055", domain="bad")
 
 
 class TestGetTactics:
@@ -117,9 +106,8 @@ class TestGetTactics:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_tactics(mock_context, domain="invalid")
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_tactics(mock_context, domain="invalid")
 
 
 class TestGetGroups:
@@ -145,9 +133,8 @@ class TestGetGroups:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_groups(mock_context, domain="invalid")
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_groups(mock_context, domain="invalid")
 
 
 class TestGetSoftware:
@@ -162,9 +149,8 @@ class TestGetSoftware:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_software(mock_context, domain="invalid")
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_software(mock_context, domain="invalid")
 
 
 class TestGetTechniquesByTactic:
@@ -179,18 +165,15 @@ class TestGetTechniquesByTactic:
 
     def test_invalid_tactic_name(self, mock_context):
         """Test invalid tactic name (too long)."""
-        result = get_techniques_by_tactic(mock_context, tactic_shortname="x" * 100)
-
-        assert "error" in result
-        assert "too long" in result["error"]
+        with pytest.raises(ToolError, match="too long"):
+            get_techniques_by_tactic(mock_context, tactic_shortname="x" * 100)
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques_by_tactic(
-            mock_context, tactic_shortname="defense-evasion", domain="invalid"
-        )
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_techniques_by_tactic(
+                mock_context, tactic_shortname="defense-evasion", domain="invalid"
+            )
 
 
 class TestGetTechniquesUsedByGroup:
@@ -215,23 +198,18 @@ class TestGetTechniquesUsedByGroup:
     def test_group_not_found(self, mock_context):
         """Test group not found."""
         # Use mock that doesn't have this group in index
-        result = get_techniques_used_by_group(mock_context, group_name="NonexistentGroup")
-
-        assert "error" in result
-        assert "not found" in result["error"]
+        with pytest.raises(ToolError, match="not found"):
+            get_techniques_used_by_group(mock_context, group_name="NonexistentGroup")
 
     def test_invalid_group_name(self, mock_context):
         """Test invalid group name."""
-        result = get_techniques_used_by_group(mock_context, group_name="")
-
-        assert "error" in result
-        assert "cannot be empty" in result["error"]
+        with pytest.raises(ToolError, match="cannot be empty"):
+            get_techniques_used_by_group(mock_context, group_name="")
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques_used_by_group(mock_context, group_name="APT28", domain="invalid")
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_techniques_used_by_group(mock_context, group_name="APT28", domain="invalid")
 
 
 class TestGetMitigations:
@@ -256,9 +234,8 @@ class TestGetMitigations:
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_mitigations(mock_context, domain="invalid")
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_mitigations(mock_context, domain="invalid")
 
 
 class TestGetTechniquesMitigatedByMitigation:
@@ -284,24 +261,21 @@ class TestGetTechniquesMitigatedByMitigation:
 
     def test_mitigation_not_found(self, mock_context):
         """Test mitigation not found."""
-        result = get_techniques_mitigated_by_mitigation(
-            mock_context, mitigation_name="Nonexistent Mitigation"
-        )
-
-        assert "error" in result
-        assert "not found" in result["error"]
+        with pytest.raises(ToolError, match="not found"):
+            get_techniques_mitigated_by_mitigation(
+                mock_context, mitigation_name="Nonexistent Mitigation"
+            )
 
     def test_invalid_mitigation_name(self, mock_context):
         """Test invalid mitigation name."""
-        result = get_techniques_mitigated_by_mitigation(mock_context, mitigation_name="")
-
-        assert "error" in result
-        assert "cannot be empty" in result["error"]
+        with pytest.raises(ToolError, match="cannot be empty"):
+            get_techniques_mitigated_by_mitigation(mock_context, mitigation_name="")
 
     def test_invalid_domain(self, mock_context):
         """Test invalid domain."""
-        result = get_techniques_mitigated_by_mitigation(
-            mock_context, mitigation_name="Application Isolation and Sandboxing", domain="invalid"
-        )
-
-        assert "error" in result
+        with pytest.raises(ToolError):
+            get_techniques_mitigated_by_mitigation(
+                mock_context,
+                mitigation_name="Application Isolation and Sandboxing",
+                domain="invalid",
+            )

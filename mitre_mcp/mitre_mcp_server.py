@@ -27,6 +27,7 @@ import uvicorn
 
 # MCP SDK imports
 from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from mitreattack.stix20 import MitreAttackData
@@ -660,7 +661,7 @@ def get_techniques(
         limit = validate_limit(limit, Config.MAX_PAGE_SIZE)
         offset = validate_offset(offset)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     techniques = data.get_techniques(
@@ -711,7 +712,7 @@ def get_tactics(
     try:
         domain = validate_domain(domain)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     tactics = data.get_tactics(remove_revoked_deprecated=remove_revoked_deprecated)
@@ -749,7 +750,7 @@ def get_groups(
     try:
         domain = validate_domain(domain)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     groups = data.get_groups(remove_revoked_deprecated=remove_revoked_deprecated)
@@ -789,7 +790,7 @@ def get_software(
     try:
         domain = validate_domain(domain)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     software = data.get_software(remove_revoked_deprecated=remove_revoked_deprecated)
@@ -834,7 +835,7 @@ def get_techniques_by_tactic(
         domain = validate_domain(domain)
         tactic_shortname = validate_name(tactic_shortname, "tactic_shortname", 50)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     techniques = data.get_techniques_by_tactic(
@@ -865,7 +866,7 @@ def get_techniques_used_by_group(
         domain = validate_domain(domain)
         group_name = validate_name(group_name, "group_name")
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
 
@@ -884,7 +885,7 @@ def get_techniques_used_by_group(
                 break
 
     if not group:
-        return {"error": f"Group '{group_name}' not found"}
+        raise ToolError(f"Group '{group_name}' not found")
 
     techniques = data.get_techniques_used_by_group(group["id"])
 
@@ -914,7 +915,7 @@ def get_mitigations(
     try:
         domain = validate_domain(domain)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
     mitigations = data.get_mitigations(remove_revoked_deprecated=remove_revoked_deprecated)
@@ -950,7 +951,7 @@ def get_techniques_mitigated_by_mitigation(
         domain = validate_domain(domain)
         mitigation_name = validate_name(mitigation_name, "mitigation_name")
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     data = get_attack_data(domain, ctx)
 
@@ -969,7 +970,7 @@ def get_techniques_mitigated_by_mitigation(
                 break
 
     if not mitigation:
-        return {"error": f"Mitigation '{mitigation_name}' not found"}
+        raise ToolError(f"Mitigation '{mitigation_name}' not found")
 
     techniques = data.get_techniques_mitigated_by_mitigation(mitigation["id"])
 
@@ -998,7 +999,7 @@ def get_technique_by_id(
         technique_id = validate_technique_id(technique_id)
         domain = validate_domain(domain)
     except ValidationError as e:
-        return {"error": str(e)}
+        raise ToolError(str(e)) from e
 
     # Use index for O(1) lookup (enterprise domain)
     if domain == "enterprise-attack":
@@ -1022,7 +1023,7 @@ def get_technique_by_id(
                 break
 
     if not technique:
-        return {"error": f"Technique '{technique_id}' not found"}
+        raise ToolError(f"Technique '{technique_id}' not found")
 
     return {"technique": format_technique(technique, include_description=True)}
 
