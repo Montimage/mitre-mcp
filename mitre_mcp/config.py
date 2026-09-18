@@ -42,9 +42,13 @@ class Config:
     LOG_LEVEL = os.getenv("MITRE_LOG_LEVEL", "INFO")
 
     # CORS configuration (HTTP mode only)
-    # "*" allows all origins, or specify comma-separated domains
-    # e.g., "https://example.com,http://localhost:3000"
-    CORS_ORIGINS = os.getenv("MITRE_CORS_ORIGINS", "*")
+    # Comma-separated origins; defaults to localhost development origins.
+    # To allow a hosted UI, set MITRE_CORS_ORIGINS explicitly, e.g.
+    # "https://mitre-mcp.netlify.app,http://localhost:5173"
+    CORS_ORIGINS = os.getenv(
+        "MITRE_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
+    )
 
     @classmethod
     def get_data_urls(cls) -> dict[str, str]:

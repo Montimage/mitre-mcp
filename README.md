@@ -299,7 +299,9 @@ Set before starting `mitre-mcp` to customize behavior:
 | `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                 |
 | `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                            |
 | `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                     |
-| `MITRE_CORS_ORIGINS`                                        | `*`                            | CORS allowed origins for HTTP mode (`*` = all, or comma-separated list of domains) |
+| `MITRE_CORS_ORIGINS`                                        | localhost origins              | CORS allowed origins for HTTP mode (comma-separated list; `*` is an explicit opt-in) |
+
+To let a hosted UI (e.g. the Netlify deployment) call the server cross-origin, set `MITRE_CORS_ORIGINS` to its origin, e.g. `MITRE_CORS_ORIGINS="https://mitre-mcp.netlify.app,http://localhost:5173"`. Credentials are never allowed in any CORS configuration.
 
 ### Data Caching
 

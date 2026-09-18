@@ -203,9 +203,9 @@ class TestCorsConfiguration(unittest.TestCase):
     """Test cases for CORS configuration in HTTP mode."""
 
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_wildcard_default(self, mock_config):
-        """Test CORS with wildcard origin (default)."""
-        # Set default CORS config (wildcard)
+    def test_cors_wildcard_explicit(self, mock_config):
+        """Test CORS with explicit wildcard origin (opt-in)."""
+        # Set explicit wildcard CORS config
         mock_config.CORS_ORIGINS = "*"
 
         # Call get_cors_middleware
@@ -215,9 +215,9 @@ class TestCorsConfiguration(unittest.TestCase):
         self.assertEqual(len(middleware_list), 1)
         middleware = middleware_list[0]
 
-        # Verify regex pattern for all origins (allows credentials)
+        # Verify regex pattern for all origins (explicit opt-in, no credentials)
         self.assertEqual(middleware.kwargs["allow_origin_regex"], r".*")
-        self.assertEqual(middleware.kwargs["allow_credentials"], True)
+        self.assertEqual(middleware.kwargs["allow_credentials"], False)
         self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
         self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
 
@@ -239,8 +239,8 @@ class TestCorsConfiguration(unittest.TestCase):
             middleware.kwargs["allow_origins"],
             ["https://example.com", "http://localhost:3000"],
         )
-        # Credentials should be True with specific origins
-        self.assertEqual(middleware.kwargs["allow_credentials"], True)
+        # Credentials are never allowed, even with specific origins
+        self.assertEqual(middleware.kwargs["allow_credentials"], False)
         self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
         self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
 
@@ -259,7 +259,7 @@ class TestCorsConfiguration(unittest.TestCase):
 
         # Verify single origin
         self.assertEqual(middleware.kwargs["allow_origins"], ["https://myapp.example.com"])
-        self.assertEqual(middleware.kwargs["allow_credentials"], True)
+        self.assertEqual(middleware.kwargs["allow_credentials"], False)
 
     @patch("mitre_mcp.mitre_mcp_server.Config")
     def test_cors_origins_with_spaces(self, mock_config):
@@ -335,7 +335,45 @@ class TestCorsConfiguration(unittest.TestCase):
             call_args[1]["allow_origins"],
             ["https://example.com", "http://localhost:3000"],
         )
-        self.assertEqual(call_args[1]["allow_credentials"], True)
+        self.assertEqual(call_args[1]["allow_credentials"], False)
+
+    def test_cors_default_localhost_no_credentials(self):
+        """With no env override, CORS allows only localhost origins, no credentials."""
+        saved = os.environ.pop("MITRE_CORS_ORIGINS", None)
+        try:
+            from importlib import reload
+            from urllib.parse import urlparse
+
+            from mitre_mcp import config as config_module
+
+            reload(config_module)
+
+            origins = [
+                origin.strip()
+                for origin in config_module.Config.CORS_ORIGINS.split(",")
+                if origin.strip()
+            ]
+            self.assertTrue(origins)
+            self.assertNotEqual(config_module.Config.CORS_ORIGINS.strip(), "*")
+            for origin in origins:
+                self.assertIn(
+                    urlparse(origin).hostname, ("localhost", "127.0.0.1")
+                )
+
+            with patch("mitre_mcp.mitre_mcp_server.Config", config_module.Config):
+                middleware_list = get_cors_middleware()
+
+            middleware = middleware_list[0]
+            self.assertEqual(middleware.kwargs["allow_origins"], origins)
+            self.assertFalse(middleware.kwargs["allow_credentials"])
+        finally:
+            if saved is not None:
+                os.environ["MITRE_CORS_ORIGINS"] = saved
+            from importlib import reload
+
+            from mitre_mcp import config as config_module
+
+            reload(config_module)
 
 
 if __name__ == "__main__":
