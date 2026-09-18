@@ -198,7 +198,7 @@ class TestMitreMcpServer(unittest.TestCase):
     def test_get_server_info(self):
         """Test get_server_info endpoint."""
         # Call
-        result = get_server_info()
+        result = asyncio.run(get_server_info())
 
         # Assert
         self.assertIsInstance(result, str)
