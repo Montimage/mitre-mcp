@@ -14,7 +14,6 @@
     "@langchain/google-genai": "^2.0.0",
     "@langchain/ollama": "^1.0.1",
     "@langchain/openai": "^1.1.2",
-    "langchain": "^1.0.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "vite-plugin-node-polyfills": "^0.24.0",
