@@ -1,3 +1,4 @@
-mitreattack-python>=4.0.2,<5.0.0
-mcp>=1.28.1,<2
-httpx>=0.24.0,<1.0.0
+# Runtime dependencies are declared in pyproject.toml ([project].dependencies)
+# and pinned in uv.lock. Preferred install: uv sync --locked --extra dev
+# This file delegates to the project metadata (PEP 621).
+.
