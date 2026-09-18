@@ -157,14 +157,14 @@ async function cmdTechniques(client, options) {
     return await client.callTool('get_techniques_by_tactic', {
       tactic_shortname: options.tactic,
       domain: options.domain,
-      remove_revoked_deprecated: options.noRevoked
+      remove_revoked_deprecated: !options.revoked
     });
   } else {
     return await client.callTool('get_techniques', {
       domain: options.domain,
       include_subtechniques: options.subtechniques,
       include_descriptions: options.descriptions,
-      remove_revoked_deprecated: options.noRevoked,
+      remove_revoked_deprecated: !options.revoked,
       limit: options.limit,
       offset: options.offset
     });
@@ -187,7 +187,7 @@ async function cmdTactics(client, options) {
 async function cmdGroups(client, options) {
   return await client.callTool('get_groups', {
     domain: options.domain,
-    remove_revoked_deprecated: options.noRevoked
+    remove_revoked_deprecated: !options.revoked
   });
 }
 
@@ -209,7 +209,7 @@ async function cmdSoftware(client, options) {
   return await client.callTool('get_software', {
     domain: options.domain,
     software_types: softwareTypes,
-    remove_revoked_deprecated: options.noRevoked
+    remove_revoked_deprecated: !options.revoked
   });
 }
 
@@ -222,7 +222,7 @@ async function cmdMitigations(client, options) {
   } else {
     return await client.callTool('get_mitigations', {
       domain: options.domain,
-      remove_revoked_deprecated: options.noRevoked
+      remove_revoked_deprecated: !options.revoked
     });
   }
 }
