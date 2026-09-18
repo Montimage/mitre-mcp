@@ -66,3 +66,18 @@ async def test_tool_annotations_and_domain_enum():
             "mobile-attack",
             "ics-attack",
         }, tool.name
+
+
+@pytest.mark.asyncio
+async def test_tool_failures_report_is_error():
+    """Failures surface as MCP tool errors (isError), not success payloads."""
+    with patch.object(
+        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    ):
+        async with Client(mcp) as client:
+            bad_domain = await client.call_tool("get_tactics", {"domain": "bogus-domain"})
+            assert bad_domain.is_error
+
+            unknown_id = await client.call_tool("get_technique_by_id", {"technique_id": "T9999"})
+            assert unknown_id.is_error
+            assert "not found" in unknown_id.content[0].text
