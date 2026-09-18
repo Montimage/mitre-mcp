@@ -438,7 +438,7 @@ pre-commit run --all-files  # All quality checks
 
 **Which Python versions are supported?**
 
-- Python 3.10 through 3.14 (see `pyproject.toml`).
+- Python 3.11 through 3.14 (see `pyproject.toml`).
 
 **How often is data refreshed?**
 

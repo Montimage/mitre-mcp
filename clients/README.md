@@ -155,7 +155,7 @@ To add a client in another language:
 ## Requirements
 
 ### Python Client
-- Python 3.10+
+- Python 3.11+
 - httpx
 - See [python/requirements.txt](python/requirements.txt)
 
