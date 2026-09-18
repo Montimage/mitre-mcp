@@ -107,8 +107,13 @@ export default function ChatBox() {
 
         // Test MCP server connection
         try {
-          await newAgent.testConnection();
-          setMcpServerStatus('connected');
+          const connected = await newAgent.testConnection();
+          if (connected) {
+            setMcpServerStatus('connected');
+          } else {
+            console.warn('MCP server not reachable');
+            setMcpServerStatus('disconnected');
+          }
         } catch (error) {
           console.warn('MCP server not reachable:', error);
           setMcpServerStatus('disconnected');
@@ -151,8 +156,13 @@ export default function ChatBox() {
 
       // Test MCP server connection
       try {
-        await newAgent.testConnection();
-        setMcpServerStatus('connected');
+        const connected = await newAgent.testConnection();
+        if (connected) {
+          setMcpServerStatus('connected');
+        } else {
+          console.warn('MCP server not reachable');
+          setMcpServerStatus('disconnected');
+        }
       } catch (error) {
         console.warn('MCP server not reachable:', error);
         setMcpServerStatus('disconnected');
@@ -258,6 +268,13 @@ export default function ChatBox() {
   // Handle clear chat
   const handleClearChat = () => {
     if (window.confirm('Clear all messages?')) {
+      // Resolve any pending tool approval so the input is not left disabled
+      if (toolApprovalResolver) {
+        toolApprovalResolver.resolve(false);
+        setPendingToolCalls(null);
+        setToolApprovalResolver(null);
+      }
+
       setMessages([{
         type: 'system',
         message: 'Chat cleared. How can I help you?',
