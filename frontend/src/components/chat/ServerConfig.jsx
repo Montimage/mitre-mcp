@@ -242,12 +242,12 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     setGeminiTestResult(null);
 
     try {
-      const apiKey = config.geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY;
+      const apiKey = config.geminiApiKey;
 
       if (!apiKey) {
         setGeminiTestResult({
           type: 'error',
-          message: 'Gemini API key is required. Enter it above or set VITE_GEMINI_API_KEY in .env file.'
+          message: 'Gemini API key is required. Enter it above.'
         });
         return;
       }
@@ -298,12 +298,12 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     setOpenrouterTestResult(null);
 
     try {
-      const apiKey = config.openrouterApiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
+      const apiKey = config.openrouterApiKey;
 
       if (!apiKey) {
         setOpenrouterTestResult({
           type: 'error',
-          message: 'OpenRouter API key is required. Enter it above or set VITE_OPENROUTER_API_KEY in .env file.'
+          message: 'OpenRouter API key is required. Enter it above.'
         });
         return;
       }
@@ -611,11 +611,8 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
                     value={config.geminiApiKey}
                     onChange={(e) => handleChange('geminiApiKey', e.target.value)}
                     className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="Enter API key or use .env file"
+                    placeholder="Enter API key"
                   />
-                  {import.meta.env.VITE_GEMINI_API_KEY && !config.geminiApiKey && (
-                    <p className="text-xs text-green-700 mt-1">Using API key from environment</p>
-                  )}
                 </div>
 
                 {/* Gemini Model */}
@@ -675,9 +672,6 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
                 <p>
                   Get API key: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google AI Studio</a>
                 </p>
-                <p>
-                  Or set <code className="bg-white px-2 py-1 border border-gray-300 font-mono">VITE_GEMINI_API_KEY</code> in .env file
-                </p>
               </div>
             </>
           )}
@@ -697,11 +691,8 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
                     value={config.openrouterApiKey}
                     onChange={(e) => handleChange('openrouterApiKey', e.target.value)}
                     className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="Enter API key or use .env file"
+                    placeholder="Enter API key"
                   />
-                  {import.meta.env.VITE_OPENROUTER_API_KEY && !config.openrouterApiKey && (
-                    <p className="text-xs text-green-700 mt-1">Using API key from environment</p>
-                  )}
                   <p className="text-xs text-gray-500 mt-1">Stored securely in browser IndexedDB</p>
                 </div>
 
@@ -792,9 +783,6 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               <div className="text-xs text-gray-600 space-y-1">
                 <p>
                   Get API key: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">OpenRouter Dashboard</a>
-                </p>
-                <p>
-                  Or set <code className="bg-white px-2 py-1 border border-gray-300 font-mono">VITE_OPENROUTER_API_KEY</code> in .env file
                 </p>
               </div>
             </>
