@@ -17,20 +17,17 @@ This directory contains the test suite for the MITRE MCP Server.
 
 ### Prerequisites
 
-- Python 3.8+
-- Dependencies installed with test extras:
+- Python 3.11+
+- Dependencies installed with the dev extra:
   ```bash
-  pip install -e ".[test]"
+  uv sync --locked --extra dev
   ```
 
 ### Running All Tests
 
 ```bash
-# Using pytest directly
+# Using pytest
 pytest
-
-# Using the test runner script
-python run_tests.py
 ```
 
 ### Running Specific Tests
@@ -43,7 +40,7 @@ pytest tests/unit/test_mitre_mcp_server.py
 pytest tests/unit/test_mitre_mcp_server.py::TestMitreMcpServer
 
 # Run a specific test method
-pytest tests/unit/test_mitre_mcp_server.py::TestMitreMcpServer::test_health_check
+pytest tests/unit/test_mitre_mcp_server.py::TestMitreMcpServer::test_get_server_info
 
 # Run tests with coverage report
 pytest --cov=mitre_mcp
@@ -81,7 +78,7 @@ To debug a failing test:
 
 ```bash
 # Run pytest with the --pdb flag to drop into the debugger on failure
-pytest --pdb tests/unit/test_mitre_mcp_server.py::TestMitreMcpServer::test_failing_test
+pytest --pdb tests/unit/test_mitre_mcp_server.py::TestCorsConfiguration::test_build_http_app_adds_cors
 
 # Use logging for more detailed output
 pytest -s -v  # Disable output capturing

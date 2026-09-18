@@ -3,16 +3,15 @@ Unit tests for mitre_mcp_server.py
 """
 
 import asyncio
-import datetime
-import json
 import os
+import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 from mcp.server.transport_security import TransportSecurityMiddleware
 from starlette.applications import Starlette
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -25,9 +24,7 @@ from mitre_mcp.mitre_mcp_server import (
     format_relationship_map,
     format_technique,
     get_attack_data,
-    get_cors_middleware,
     get_server_info,
-    mcp,
     setup_http_server,
 )
 
@@ -37,8 +34,9 @@ class TestMitreMcpServer(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.test_data_dir = "/tmp/mitre_test_data"
-        os.makedirs(self.test_data_dir, exist_ok=True)
+        # Per-test temporary directory — portable across the OS matrix
+        self._tmp_dir = tempfile.TemporaryDirectory(prefix="mitre_test_data_")
+        self.test_data_dir = self._tmp_dir.name
 
         # Create a minimal test context
         self.ctx = MagicMock()
@@ -78,11 +76,7 @@ class TestMitreMcpServer(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after tests."""
-        # Clean up test data directory
-        import shutil
-
-        if os.path.exists(self.test_data_dir):
-            shutil.rmtree(self.test_data_dir)
+        self._tmp_dir.cleanup()
 
     @patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient")
     @patch("mitre_mcp.mitre_mcp_server.load_metadata")
@@ -210,82 +204,91 @@ class TestMitreMcpServer(unittest.TestCase):
 class TestCorsConfiguration(unittest.TestCase):
     """Test cases for CORS configuration in HTTP mode."""
 
+    @staticmethod
+    def _mock_sdk_app(mock_mcp):
+        """Return a mock SDK app that build_http_app adds middleware to."""
+        mock_app = MagicMock()
+        mock_mcp.streamable_http_app = MagicMock(return_value=mock_app)
+        return mock_app
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_wildcard_explicit(self, mock_config):
+    def test_cors_wildcard_explicit(self, mock_config, mock_mcp):
         """Test CORS with explicit wildcard origin (opt-in)."""
         # Set explicit wildcard CORS config
         mock_config.CORS_ORIGINS = "*"
+        mock_app = self._mock_sdk_app(mock_mcp)
 
-        # Call get_cors_middleware
-        middleware_list = get_cors_middleware()
+        app = build_http_app("0.0.0.0", "ts")
 
-        # Verify middleware was created
-        self.assertEqual(len(middleware_list), 1)
-        middleware = middleware_list[0]
+        # Verify CORSMiddleware was added to the live app
+        self.assertIs(app, mock_app)
+        mock_app.add_middleware.assert_called_once()
+        call_args = mock_app.add_middleware.call_args
+        self.assertIs(call_args[0][0], CORSMiddleware)
 
         # Verify regex pattern for all origins (explicit opt-in, no credentials)
-        self.assertEqual(middleware.kwargs["allow_origin_regex"], r".*")
-        self.assertEqual(middleware.kwargs["allow_credentials"], False)
-        self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
-        self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
+        self.assertEqual(call_args[1]["allow_origin_regex"], r".*")
+        self.assertEqual(call_args[1]["allow_credentials"], False)
+        self.assertEqual(call_args[1]["allow_methods"], ["*"])
+        self.assertEqual(call_args[1]["allow_headers"], ["*"])
 
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_specific_origins(self, mock_config):
+    def test_cors_specific_origins(self, mock_config, mock_mcp):
         """Test CORS with specific origins."""
         # Set specific CORS origins
         mock_config.CORS_ORIGINS = "https://example.com,http://localhost:3000"
+        mock_app = self._mock_sdk_app(mock_mcp)
 
-        # Call get_cors_middleware
-        middleware_list = get_cors_middleware()
+        build_http_app("127.0.0.1", "ts")
 
-        # Verify middleware was created
-        self.assertEqual(len(middleware_list), 1)
-        middleware = middleware_list[0]
-
-        # Verify specific origins
+        # Verify specific origins on the live app
+        mock_app.add_middleware.assert_called_once()
+        call_args = mock_app.add_middleware.call_args
+        self.assertIs(call_args[0][0], CORSMiddleware)
         self.assertEqual(
-            middleware.kwargs["allow_origins"],
+            call_args[1]["allow_origins"],
             ["https://example.com", "http://localhost:3000"],
         )
         # Credentials are never allowed, even with specific origins
-        self.assertEqual(middleware.kwargs["allow_credentials"], False)
-        self.assertEqual(middleware.kwargs["allow_methods"], ["*"])
-        self.assertEqual(middleware.kwargs["allow_headers"], ["*"])
+        self.assertEqual(call_args[1]["allow_credentials"], False)
+        self.assertEqual(call_args[1]["allow_methods"], ["*"])
+        self.assertEqual(call_args[1]["allow_headers"], ["*"])
 
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_single_origin(self, mock_config):
+    def test_cors_single_origin(self, mock_config, mock_mcp):
         """Test CORS with a single specific origin."""
         # Set single CORS origin
         mock_config.CORS_ORIGINS = "https://myapp.example.com"
+        mock_app = self._mock_sdk_app(mock_mcp)
 
-        # Call get_cors_middleware
-        middleware_list = get_cors_middleware()
+        build_http_app("127.0.0.1", "ts")
 
-        # Verify middleware was created
-        self.assertEqual(len(middleware_list), 1)
-        middleware = middleware_list[0]
+        # Verify single origin on the live app
+        mock_app.add_middleware.assert_called_once()
+        call_args = mock_app.add_middleware.call_args
+        self.assertIs(call_args[0][0], CORSMiddleware)
+        self.assertEqual(call_args[1]["allow_origins"], ["https://myapp.example.com"])
+        self.assertEqual(call_args[1]["allow_credentials"], False)
 
-        # Verify single origin
-        self.assertEqual(middleware.kwargs["allow_origins"], ["https://myapp.example.com"])
-        self.assertEqual(middleware.kwargs["allow_credentials"], False)
-
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_origins_with_spaces(self, mock_config):
+    def test_cors_origins_with_spaces(self, mock_config, mock_mcp):
         """Test CORS origins parsing handles spaces correctly."""
         # Set CORS origins with spaces
         mock_config.CORS_ORIGINS = (
             "https://example.com , http://localhost:3000 , https://app.test.com"
         )
+        mock_app = self._mock_sdk_app(mock_mcp)
 
-        # Call get_cors_middleware
-        middleware_list = get_cors_middleware()
+        build_http_app("127.0.0.1", "ts")
 
-        # Get middleware kwargs
-        middleware = middleware_list[0]
-
-        # Verify origins are trimmed
+        # Verify origins are trimmed on the live app
+        call_args = mock_app.add_middleware.call_args
         expected = ["https://example.com", "http://localhost:3000", "https://app.test.com"]
-        self.assertEqual(middleware.kwargs["allow_origins"], expected)
+        self.assertEqual(call_args[1]["allow_origins"], expected)
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     def test_setup_http_server_no_crash(self, mock_mcp):
@@ -339,7 +342,8 @@ class TestCorsConfiguration(unittest.TestCase):
         )
         self.assertEqual(call_args[1]["allow_credentials"], False)
 
-    def test_cors_default_localhost_no_credentials(self):
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    def test_cors_default_localhost_no_credentials(self, mock_mcp):
         """With no env override, CORS allows only localhost origins, no credentials."""
         saved = os.environ.pop("MITRE_CORS_ORIGINS", None)
         try:
@@ -360,12 +364,14 @@ class TestCorsConfiguration(unittest.TestCase):
             for origin in origins:
                 self.assertIn(urlparse(origin).hostname, ("localhost", "127.0.0.1"))
 
+            mock_app = self._mock_sdk_app(mock_mcp)
             with patch("mitre_mcp.mitre_mcp_server.Config", config_module.Config):
-                middleware_list = get_cors_middleware()
+                build_http_app("127.0.0.1", "ts")
 
-            middleware = middleware_list[0]
-            self.assertEqual(middleware.kwargs["allow_origins"], origins)
-            self.assertFalse(middleware.kwargs["allow_credentials"])
+            call_args = mock_app.add_middleware.call_args
+            self.assertIs(call_args[0][0], CORSMiddleware)
+            self.assertEqual(call_args[1]["allow_origins"], origins)
+            self.assertFalse(call_args[1]["allow_credentials"])
         finally:
             if saved is not None:
                 os.environ["MITRE_CORS_ORIGINS"] = saved
@@ -375,18 +381,20 @@ class TestCorsConfiguration(unittest.TestCase):
 
             reload(config_module)
 
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_cors_expose_headers_includes_session_id(self, mock_config):
+    def test_cors_expose_headers_includes_session_id(self, mock_config, mock_mcp):
         """CORS response carries Access-Control-Expose-Headers: Mcp-Session-Id."""
         mock_config.CORS_ORIGINS = "https://ui.example"
 
         async def ok(request):
             return JSONResponse({"ok": True})
 
-        app = Starlette(
-            routes=[Route("/mcp", ok, methods=["POST"])],
-            middleware=get_cors_middleware(),
-        )
+        # The SDK builder returns a real app; build_http_app adds CORS to it
+        sdk_app = Starlette(routes=[Route("/mcp", ok, methods=["POST"])])
+        mock_mcp.streamable_http_app = MagicMock(return_value=sdk_app)
+
+        app = build_http_app("127.0.0.1", "ts")
 
         async def run():
             transport = httpx.ASGITransport(app=app)
@@ -398,6 +406,7 @@ class TestCorsConfiguration(unittest.TestCase):
         response = asyncio.run(run())
         expose = response.headers.get("access-control-expose-headers", "")
         self.assertIn("mcp-session-id", expose.lower())
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "https://ui.example")
 
 
 class TestTransportSecurity(unittest.TestCase):

@@ -6,11 +6,12 @@ The following versions of `mitre-mcp` are currently supported with security upda
 
 | Version | Supported          | Notes                                       |
 | ------- | ------------------ | ------------------------------------------- |
-| 0.2.x   | :white_check_mark: | Current stable release - actively supported |
-| 0.1.x   | :x:                | End of life - please upgrade to 0.2.x       |
+| 0.3.x   | :white_check_mark: | Current stable release - actively supported |
+| 0.2.x   | :x:                | End of life - please upgrade to 0.3.x       |
+| 0.1.x   | :x:                | End of life - please upgrade to 0.3.x       |
 | < 0.1.0 | :x:                | Not supported                               |
 
-**Recommendation:** Always use the latest 0.2.x release to ensure you have the most recent security patches and features.
+**Recommendation:** Always use the latest 0.3.x release to ensure you have the most recent security patches and features.
 
 ## Security Considerations
 

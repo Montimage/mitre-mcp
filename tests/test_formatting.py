@@ -100,17 +100,17 @@ class TestFormatRelationshipMap:
         assert result[0]["mitre_id"] == "T1055"
         assert result[1]["id"] == "test2"
 
-    def test_limit_relationships(self, sample_technique):
-        """Test limiting relationships."""
+    def test_relationships_returns_all_items(self, sample_technique):
+        """Every mappable object is returned — no implicit truncation."""
         relationship_map = [
             {"object": sample_technique},
             {"object": {**sample_technique, "id": "test2"}},
             {"object": {**sample_technique, "id": "test3"}},
         ]
 
-        result = format_relationship_map(relationship_map, limit=2)
+        result = format_relationship_map(relationship_map)
 
-        assert len(result) == 2
+        assert len(result) == 3
 
     def test_empty_relationships(self):
         """Test empty relationship map."""

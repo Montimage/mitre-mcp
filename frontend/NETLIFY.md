@@ -205,18 +205,9 @@ Deploy mitre-mcp server to a public endpoint:
    - DigitalOcean
 
 2. **Enable CORS**:
-   ```python
-   # Add to mitre_mcp_server.py
-   from starlette.middleware.cors import CORSMiddleware
-
-   app.add_middleware(
-       CORSMiddleware,
-       allow_origins=["https://your-site.netlify.app"],
-       allow_credentials=True,
-       allow_methods=["*"],
-       allow_headers=["*"],
-   )
-   ```
+   - Set `MITRE_CORS_ORIGINS` on the server to include the site origin,
+     e.g. `MITRE_CORS_ORIGINS="https://your-site.netlify.app,http://localhost:5173"`
+     (credentials are never allowed)
 
 3. **Update Default Config**:
    - Site settings > Environment variables

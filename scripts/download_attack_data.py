@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""
-Download MITRE ATT&CK data for testing.
-"""
-import json
-import os
-from datetime import datetime, timezone
-from pathlib import Path
+"""Download MITRE ATT&CK data for testing.
 
-import httpx
+Delegates to the package downloader so the source URLs, cache-expiry
+rules, STIX validation and metadata handling live in one place
+(``mitre_mcp``) instead of being re-implemented here.
+"""
+
+import asyncio
+
+from mitre_mcp.mitre_mcp_server import download_and_save_attack_data_async
 
 
 def download_attack_data(data_dir: str = "tests/data", force: bool = False) -> dict:
@@ -20,66 +21,7 @@ def download_attack_data(data_dir: str = "tests/data", force: bool = False) -> d
     Returns:
         Dictionary with paths to the downloaded data files
     """
-    # Create the data directory if it doesn't exist
-    os.makedirs(data_dir, exist_ok=True)
-
-    # URLs for the MITRE ATT&CK STIX data
-    urls = {
-        "enterprise": "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
-        "mobile": "https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
-        "ics": "https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json",
-    }
-
-    # File paths
-    paths = {
-        "enterprise": os.path.join(data_dir, "enterprise-attack.json"),
-        "mobile": os.path.join(data_dir, "mobile-attack.json"),
-        "ics": os.path.join(data_dir, "ics-attack.json"),
-        "metadata": os.path.join(data_dir, "metadata.json"),
-    }
-
-    # Check if we need to download new data
-    need_download = force
-    if not need_download:
-        if not os.path.exists(paths["metadata"]):
-            need_download = True
-        else:
-            try:
-                with open(paths["metadata"]) as f:
-                    metadata = json.load(f)
-                last_update = datetime.fromisoformat(metadata["last_update"])
-                now = datetime.now(timezone.utc)
-                # Download if data is more than 1 day old
-                if (now - last_update).days >= 1:
-                    need_download = True
-                    print(
-                        f"MITRE ATT&CK data is {(now - last_update).days} days old. Downloading new data..."
-                    )
-                else:
-                    print(f"Using cached MITRE ATT&CK data from {last_update.isoformat()}")
-            except (json.JSONDecodeError, KeyError, ValueError):
-                need_download = True
-
-    if need_download:
-        print("Downloading MITRE ATT&CK data...")
-        for domain, url in urls.items():
-            print(f"Downloading {domain.capitalize()} ATT&CK data...")
-            response = httpx.get(url, timeout=60.0)
-            response.raise_for_status()
-            with open(paths[domain], "w") as f:
-                f.write(response.text)
-
-        # Save metadata
-        metadata = {
-            "last_update": datetime.now(timezone.utc).isoformat(),
-            "domains": list(urls.keys()),
-        }
-        with open(paths["metadata"], "w") as f:
-            json.dump(metadata, f, indent=2)
-
-        print("MITRE ATT&CK data downloaded successfully!")
-
-    return paths
+    return asyncio.run(download_and_save_attack_data_async(data_dir, force=force))
 
 
 if __name__ == "__main__":

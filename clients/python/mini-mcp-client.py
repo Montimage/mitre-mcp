@@ -157,9 +157,7 @@ class MitreMCPClient:
         return json.dumps(result)
 
 
-async def cmd_techniques(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_techniques(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get techniques, optionally filtered by tactic."""
     if args.tactic:
         return await client.call_tool(
@@ -184,9 +182,7 @@ async def cmd_techniques(
         )
 
 
-async def cmd_technique(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_technique(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get details for a specific technique by ID."""
     return await client.call_tool(
         "get_technique_by_id",
@@ -194,16 +190,12 @@ async def cmd_technique(
     )
 
 
-async def cmd_tactics(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_tactics(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get all tactics."""
     return await client.call_tool("get_tactics", {"domain": args.domain})
 
 
-async def cmd_groups(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_groups(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get all threat groups."""
     return await client.call_tool(
         "get_groups",
@@ -214,9 +206,7 @@ async def cmd_groups(
     )
 
 
-async def cmd_group(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_group(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get techniques used by a specific threat group."""
     return await client.call_tool(
         "get_techniques_used_by_group",
@@ -224,9 +214,7 @@ async def cmd_group(
     )
 
 
-async def cmd_software(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_software(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get software (malware/tools)."""
     software_types = []
     if args.malware:
@@ -246,9 +234,7 @@ async def cmd_software(
     )
 
 
-async def cmd_mitigations(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_mitigations(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Get mitigations, optionally for a specific mitigation name."""
     if args.name:
         return await client.call_tool(
@@ -367,9 +353,7 @@ Make sure the mitre-mcp server is running:
         "technique", help="Get details for a specific technique"
     )
     add_common_args(technique_parser)
-    technique_parser.add_argument(
-        "--id", required=True, help="Technique ID (e.g., T1059.001)"
-    )
+    technique_parser.add_argument("--id", required=True, help="Technique ID (e.g., T1059.001)")
     technique_parser.set_defaults(func=cmd_technique)
 
     # Tactics command
@@ -383,9 +367,7 @@ Make sure the mitre-mcp server is running:
     groups_parser.set_defaults(func=cmd_groups)
 
     # Group command (singular)
-    group_parser = subparsers.add_parser(
-        "group", help="Get techniques used by a threat group"
-    )
+    group_parser = subparsers.add_parser("group", help="Get techniques used by a threat group")
     add_common_args(group_parser)
     group_parser.add_argument(
         "--name", required=True, help="Group name (e.g., APT29, Lazarus Group)"
@@ -393,16 +375,10 @@ Make sure the mitre-mcp server is running:
     group_parser.set_defaults(func=cmd_group)
 
     # Software command
-    software_parser = subparsers.add_parser(
-        "software", help="Get software (malware/tools)"
-    )
+    software_parser = subparsers.add_parser("software", help="Get software (malware/tools)")
     add_common_args(software_parser)
-    software_parser.add_argument(
-        "--malware", action="store_true", help="Include only malware"
-    )
-    software_parser.add_argument(
-        "--tools", action="store_true", help="Include only tools"
-    )
+    software_parser.add_argument("--malware", action="store_true", help="Include only malware")
+    software_parser.add_argument("--tools", action="store_true", help="Include only tools")
     software_parser.set_defaults(func=cmd_software)
 
     # Mitigations command
