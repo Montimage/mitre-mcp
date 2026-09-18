@@ -111,10 +111,7 @@ class TestConfig:
         ]
         assert origins
         assert config_module.Config.CORS_ORIGINS.strip() != "*"
-        assert all(
-            urlparse(origin).hostname in ("localhost", "127.0.0.1")
-            for origin in origins
-        )
+        assert all(urlparse(origin).hostname in ("localhost", "127.0.0.1") for origin in origins)
 
     def test_cors_origins_custom_single(self, monkeypatch):
         """Test custom single CORS origin from environment variable."""

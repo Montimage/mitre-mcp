@@ -356,9 +356,7 @@ class TestCorsConfiguration(unittest.TestCase):
             self.assertTrue(origins)
             self.assertNotEqual(config_module.Config.CORS_ORIGINS.strip(), "*")
             for origin in origins:
-                self.assertIn(
-                    urlparse(origin).hostname, ("localhost", "127.0.0.1")
-                )
+                self.assertIn(urlparse(origin).hostname, ("localhost", "127.0.0.1"))
 
             with patch("mitre_mcp.mitre_mcp_server.Config", config_module.Config):
                 middleware_list = get_cors_middleware()
