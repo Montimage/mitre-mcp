@@ -37,14 +37,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install bandit
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+
+      - name: Install locked dependencies
         run: |
-          pip install bandit[toml]
+          uv sync --locked --extra dev --python "3.12"
 
       - name: Run Bandit security scan
         run: |
-          bandit -r mitre_mcp/ -c pyproject.toml -f json -o bandit-report.json
-          bandit -r mitre_mcp/ -c pyproject.toml
+          uv run --locked bandit -r mitre_mcp/ -c pyproject.toml -f json -o bandit-report.json
+          uv run --locked bandit -r mitre_mcp/ -c pyproject.toml
 
       - name: Upload Bandit results
         if: always()
@@ -53,8 +56,8 @@ jobs:
           name: bandit-security-report
           path: bandit-report.json
 
-  safety:
-    name: Safety Dependency Check
+  dependency-audit:
+    name: Dependency Vulnerability Audit
     runs-on: ubuntu-latest
 
     steps:
@@ -73,18 +76,18 @@ jobs:
         run: |
           uv sync --locked --extra dev --python "3.12"
 
-      - name: Run Safety check
+      - name: Audit locked dependencies with pip-audit
         run: |
           uv export --frozen --no-emit-project > requirements-scan.txt
-          uv run --locked safety check -r requirements-scan.txt --json --output safety-report.json
-          uv run --locked safety check -r requirements-scan.txt
+          uv run --locked pip-audit -r requirements-scan.txt --format json --output dependency-audit-report.json
+          uv run --locked pip-audit -r requirements-scan.txt
 
-      - name: Upload Safety results
+      - name: Upload audit results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: safety-dependency-report
-          path: safety-report.json
+          name: dependency-audit-report
+          path: dependency-audit-report.json
 
   codeql:
     name: CodeQL Analysis
