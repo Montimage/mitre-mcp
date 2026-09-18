@@ -10,7 +10,7 @@
 
 [build.environment]
   # Node version
-  NODE_VERSION = "18"
+  NODE_VERSION = "24"
 
 # SPA redirect rules - serve index.html for all routes
 [[redirects]]
