@@ -27,6 +27,32 @@ export const LLM_PROVIDERS = {
 };
 
 /**
+ * Normalise LLM response content to a plain string.
+ * Providers may return content as a string or as an array of content
+ * blocks (e.g. { type: 'text', text: '...' }); the UI expects a string.
+ *
+ * @param {*} content - Raw message content from the provider
+ * @returns {string} Normalised string content
+ */
+const normalizeContent = (content) => {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object') {
+          if (typeof part.text === 'string') return part.text;
+          if (typeof part.content === 'string') return part.content;
+        }
+        return '';
+      })
+      .join('');
+  }
+  if (content == null) return '';
+  return String(content);
+};
+
+/**
  * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements intelligent query routing and tool execution
@@ -518,7 +544,7 @@ Be helpful, accurate, and security-focused in your responses.`
                 content: cancelledResponse,
                 timestamp: new Date()
               });
-              return cancelledResponse;
+              return normalizeContent(cancelledResponse);
             }
           }
 
@@ -542,7 +568,7 @@ Be helpful, accurate, and security-focused in your responses.`
         // No tool calls, we have final response
         console.log('[Agent] Final response generated');
 
-        const finalResponse = response.content;
+        const finalResponse = normalizeContent(response.content);
 
         // Add to history
         this.conversationHistory.push({
@@ -563,7 +589,7 @@ Be helpful, accurate, and security-focused in your responses.`
         timestamp: new Date()
       });
 
-      return fallbackResponse;
+      return normalizeContent(fallbackResponse);
     } catch (error) {
       console.error('[Agent] Error:', error);
 
@@ -582,7 +608,7 @@ Be helpful, accurate, and security-focused in your responses.`
         timestamp: new Date()
       });
 
-      return errorMessage;
+      return normalizeContent(errorMessage);
     }
   }
 
