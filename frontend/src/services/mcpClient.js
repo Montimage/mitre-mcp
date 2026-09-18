@@ -236,7 +236,7 @@ export default class MitreMCPClient {
     try {
       await this.initializeSession();
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

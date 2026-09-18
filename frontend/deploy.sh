@@ -19,17 +19,21 @@ fi
 
 # Check if Netlify CLI is installed
 if ! command -v netlify &> /dev/null; then
-    echo "Netlify CLI not found. Installing..."
-    npm install -g netlify-cli
+    echo "Netlify CLI not found. Installing pinned version..."
+    npm install -g netlify-cli@27.8.0
 fi
 
 # Clean previous build
 echo "Cleaning previous build..."
 rm -rf dist
 
-# Install dependencies
+# Install dependencies reproducibly from the committed lockfile
 echo "Installing dependencies..."
-npm install
+npm ci
+
+# Lint gate — set -e stops the script on failure
+echo "Running lint..."
+npm run lint
 
 # Build the project
 echo "Building production bundle..."

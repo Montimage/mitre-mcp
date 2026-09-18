@@ -35,7 +35,7 @@ export default function ChatMessage({ message, type = 'user', timestamp, toolCal
 
     // Split by line breaks
     const lines = text.split('\n');
-    return lines.map((line, i) => {
+    return lines.map((line) => {
       // Bold text: **text**
       line = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
