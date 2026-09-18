@@ -5,7 +5,7 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 ## Commands
 
 - Python >= 3.11 virtual environment at `.venv` — activate before every Python command: `source .venv/bin/activate`
-- Install (until the Task 0.2 lockfile lands): `pip install -e ".[dev]"`
+- Install (locked, from `uv.lock`): `uv sync --locked --extra dev`
 - Build check: `python -c "import mitre_mcp.mitre_mcp_server"`
 - Test suite of record: `pytest -q -p no:cacheprovider -o addopts=""`
 - Frontend (`frontend/`, Node 24): `npm ci`, `npm run build`, `npm run lint`
@@ -18,5 +18,8 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 
 ## Baseline
 
-- Recorded pass rate: not yet measured (Task 0.2 fills this in)
+- Recorded pass rate: 131 passed / 133 total
+- Failing tests (listed separately; live-data dependent — see Task 0.5):
+  - `tests/integration/test_mcp_tools.py::TestMcpToolsIntegration::test_get_technique_by_id`
+  - `tests/integration/test_mcp_tools.py::TestMcpToolsIntegration::test_get_techniques_by_tactic`
 - Recorded coverage: not yet measured (Task 0.4 fills this in)

@@ -32,7 +32,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 ### 3. Install Dependencies
 
 ```bash
-# Install package in editable mode with dev dependencies
+# Locked install from uv.lock (recommended — reproduces the committed resolution)
+uv sync --locked --extra dev
+
+# Or install package in editable mode with dev dependencies
 pip install -e ".[dev]"
 
 # Or install from requirements files
@@ -64,11 +67,13 @@ Activate it before every Python command:
 source .venv/bin/activate
 ```
 
-Install the package with dev dependencies. A committed lockfile arrives with Task 0.2, which updates this section; until then use:
+Install the package with dev dependencies from the committed lockfile (`uv.lock`) — this creates `.venv` without re-resolving:
 
 ```bash
-pip install -e ".[dev]"
+uv sync --locked --extra dev
 ```
+
+The editable fallback `pip install -e ".[dev]"` re-resolves open ranges; prefer the locked command for reproducibility.
 
 ### Frontend
 
