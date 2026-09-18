@@ -98,7 +98,7 @@ export default class MitreMCPClient {
       return true;
     } catch (error) {
       this.log('Session initialization error', error);
-      throw new Error(`Failed to initialize session: ${error.message}`);
+      throw new Error(`Failed to initialize session: ${error.message}`, { cause: error });
     }
   }
 
@@ -147,7 +147,7 @@ export default class MitreMCPClient {
         return this.listTools(true);
       }
       this.log('tools/list error', error);
-      throw new Error(`Failed to list tools: ${error.message}`);
+      throw new Error(`Failed to list tools: ${error.message}`, { cause: error });
     }
   }
 
@@ -188,7 +188,7 @@ export default class MitreMCPClient {
         return this.callTool(toolName, args, true);
       }
       this.log('Tool call error', error);
-      throw new Error(`Failed to call tool ${toolName}: ${error.message}`);
+      throw new Error(`Failed to call tool ${toolName}: ${error.message}`, { cause: error });
     }
   }
 
