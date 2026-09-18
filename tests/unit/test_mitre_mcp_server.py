@@ -10,8 +10,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 from mcp.server.transport_security import TransportSecurityMiddleware
+from starlette.applications import Starlette
 from starlette.requests import HTTPConnection
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
@@ -376,6 +380,30 @@ class TestCorsConfiguration(unittest.TestCase):
             from mitre_mcp import config as config_module
 
             reload(config_module)
+
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_cors_expose_headers_includes_session_id(self, mock_config):
+        """CORS response carries Access-Control-Expose-Headers: Mcp-Session-Id."""
+        mock_config.CORS_ORIGINS = "https://ui.example"
+
+        async def ok(request):
+            return JSONResponse({"ok": True})
+
+        app = Starlette(
+            routes=[Route("/mcp", ok, methods=["POST"])],
+            middleware=get_cors_middleware(),
+        )
+
+        async def run():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://localhost:8000"
+            ) as client:
+                return await client.post("/mcp", headers={"Origin": "https://ui.example"}, json={})
+
+        response = asyncio.run(run())
+        expose = response.headers.get("access-control-expose-headers", "")
+        self.assertIn("mcp-session-id", expose.lower())
 
 
 class TestTransportSecurity(unittest.TestCase):
