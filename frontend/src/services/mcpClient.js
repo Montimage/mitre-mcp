@@ -30,6 +30,7 @@ export default class MitreMCPClient {
       console.log(`[MCP Client] Using direct URL: ${this.baseUrl}`);
     }
     this.sessionId = null;
+    this.sessionInitialized = false;
     this.requestId = 0;
     this.debug = true; // Enable debug by default in dev mode
   }
@@ -99,14 +100,11 @@ export default class MitreMCPClient {
         throw new Error(`Session initialization failed: ${response.status} ${response.statusText}`);
       }
 
-      // Extract session ID from response headers
+      // Extract session ID — absent when the server runs stateless
       this.sessionId = response.headers.get('mcp-session-id');
+      this.sessionInitialized = true;
 
-      if (!this.sessionId) {
-        throw new Error('Server did not return a session ID');
-      }
-
-      this.log('Session initialized', { sessionId: this.sessionId });
+      this.log('Session initialized', { sessionId: this.sessionId || '(stateless)' });
 
       return true;
     } catch (error) {
@@ -164,7 +162,7 @@ export default class MitreMCPClient {
    */
   async callTool(toolName, args = {}) {
     // Initialize session if not already done
-    if (!this.sessionId) {
+    if (!this.sessionInitialized) {
       await this.initializeSession();
     }
 
@@ -183,8 +181,10 @@ export default class MitreMCPClient {
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json, text/event-stream', // Both MIME types required!
-      'mcp-session-id': this.sessionId
     };
+    if (this.sessionId) {
+      headers['mcp-session-id'] = this.sessionId;
+    }
 
     this.log(`Calling tool: ${toolName}`, args);
 
@@ -248,6 +248,7 @@ export default class MitreMCPClient {
    */
   resetSession() {
     this.sessionId = null;
+    this.sessionInitialized = false;
     this.requestId = 0;
     this.log('Session reset');
   }
@@ -259,7 +260,7 @@ export default class MitreMCPClient {
    */
   getStatus() {
     return {
-      connected: !!this.sessionId,
+      connected: this.sessionInitialized,
       sessionId: this.sessionId,
       baseUrl: this.baseUrl,
       requestCount: this.requestId

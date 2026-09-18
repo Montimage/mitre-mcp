@@ -1117,6 +1117,7 @@ def get_cors_middleware() -> list[Middleware]:
                 allow_credentials=False,
                 allow_methods=["*"],
                 allow_headers=["*"],
+                expose_headers=["Mcp-Session-Id"],
             )
         ]
     else:
@@ -1130,6 +1131,7 @@ def get_cors_middleware() -> list[Middleware]:
                 allow_credentials=False,
                 allow_methods=["*"],
                 allow_headers=["*"],
+                expose_headers=["Mcp-Session-Id"],
             )
         ]
 
@@ -1201,6 +1203,7 @@ def add_cors_middleware_to_mcp() -> None:
                 allow_credentials=False,
                 allow_methods=["*"],
                 allow_headers=["*"],
+                expose_headers=["Mcp-Session-Id"],
             )
             logger.info("CORS middleware enabled for all origins (no credentials)")
         else:
@@ -1213,6 +1216,7 @@ def add_cors_middleware_to_mcp() -> None:
                 allow_credentials=False,
                 allow_methods=["*"],
                 allow_headers=["*"],
+                expose_headers=["Mcp-Session-Id"],
             )
             logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
 
