@@ -113,6 +113,45 @@ export default class MitreMCPClient {
   }
 
   /**
+   * List the tools the server advertises (MCP tools/list)
+   *
+   * Automatically initializes session if not already done and applies the
+   * same single expired-session retry as callTool. The SDK aggregates
+   * paginated results and caches the list for callTool's output-schema
+   * validation.
+   *
+   * @param {boolean} isRetry - Internal flag; true when this call is the
+   *   single retry after an expired-session 404
+   * @returns {Promise<Object>} ListToolsResult ({ tools: [...] })
+   * @throws {Error} If the list request fails
+   */
+  async listTools(isRetry = false) {
+    if (!this.sessionInitialized) {
+      await this.initializeSession();
+    }
+
+    this.requestId++;
+    this.log('Listing tools (tools/list)...');
+
+    try {
+      const result = await this.client.listTools();
+      this.log(`tools/list returned ${result.tools?.length ?? 0} tool(s)`);
+      return result;
+    } catch (error) {
+      // HTTP 404 means the server forgot our session — clear it,
+      // re-initialise, and retry exactly once
+      if (!isRetry && this.isSessionExpiredError(error)) {
+        this.log('Session expired (404), re-initialising and retrying once');
+        this.resetSession();
+        await this.initializeSession();
+        return this.listTools(true);
+      }
+      this.log('tools/list error', error);
+      throw new Error(`Failed to list tools: ${error.message}`);
+    }
+  }
+
+  /**
    * Call an MCP tool
    *
    * Automatically initializes session if not already done. Returns the same

@@ -14,8 +14,7 @@ import { ChatOllama } from '@langchain/ollama';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ChatOpenAI } from '@langchain/openai';
 import { tool } from '@langchain/core/tools';
-import { z } from 'zod';
-import MitreMCPClient, { MCP_TOOLS } from './mcpClient.js';
+import MitreMCPClient from './mcpClient.js';
 
 /**
  * LLM Provider types
@@ -53,6 +52,20 @@ const normalizeContent = (content) => {
 };
 
 /**
+ * Extract human-readable text from an MCP content block array
+ *
+ * @param {Array} content - MCP `content` array from a CallToolResult
+ * @returns {string} Concatenated text blocks
+ */
+const contentText = (content) => {
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((part) => (part && typeof part === 'object' && typeof part.text === 'string' ? part.text : ''))
+    .filter(Boolean)
+    .join('\n');
+};
+
+/**
  * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements intelligent query routing and tool execution
@@ -80,13 +93,38 @@ export default class LangGraphAgent {
       this.initOllama(config);
     }
 
-    // Create MCP tools
-    this.tools = this.createMCPTools();
-
-    // Bind tools to LLM
-    this.llmWithTools = this.llm.bindTools(this.tools);
+    // Tool surface is discovered from the server's tools/list at runtime —
+    // starts empty and is populated lazily on first use (see ensureTools)
+    this.tools = [];
+    this.toolDefinitions = [];
+    this.llmWithTools = this.llm;
+    this.toolsReady = null;
 
     this.conversationHistory = [];
+  }
+
+  /**
+   * Ensure the tool surface has been discovered before use
+   *
+   * Runs tools/list discovery on first call — lazy so it can reuse the
+   * session initializeSession() establishes instead of racing a second
+   * handshake from the constructor. Awaits in-flight discovery; retries
+   * on the next call after a failure (e.g. the MCP server was still
+   * starting).
+   *
+   * @returns {Promise<Array>} LangChain tools (possibly empty)
+   */
+  async ensureTools() {
+    if (!this.toolsReady) {
+      // createMCPTools never rejects — it resolves true/false
+      this.toolsReady = this.createMCPTools();
+    }
+    const discovered = await this.toolsReady;
+    if (!discovered) {
+      // Clear the failed promise so the next query retries discovery
+      this.toolsReady = null;
+    }
+    return this.tools;
   }
 
   /**
@@ -182,195 +220,77 @@ export default class LangGraphAgent {
   }
 
   /**
-   * Create LangChain tools from MCP tools
+   * Create LangChain tools from the server's tools/list
    *
-   * Wraps each MCP tool in a LangChain tool interface
+   * Discovers the tool surface through the MCP protocol instead of
+   * hard-coding declarations: every advertised tool gets a LangChain
+   * wrapper whose schema is the server's own inputSchema, so new or
+   * changed parameters are picked up automatically.
    *
-   * @returns {Array} Array of LangChain tools
+   * Never rejects — resolves false on failure so callers can retry.
+   *
+   * @returns {Promise<boolean>} True when tools were discovered and bound
    */
-  createMCPTools() {
-    const tools = [];
+  async createMCPTools() {
+    try {
+      const { tools: toolDefs } = await this.mcpClient.listTools();
+      this.toolDefinitions = Array.isArray(toolDefs) ? toolDefs : [];
+      this.tools = this.toolDefinitions.map((def) => this.mcpToolToLangChain(def));
 
-    // get_tactics tool
-    tools.push(
-      tool(
-        async ({ domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_TACTICS, { domain });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_tactics',
-          description: 'Get all MITRE ATT&CK tactics. Returns a list of tactical categories like Initial Access, Execution, Persistence, etc.',
-          schema: z.object({
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
+      // Rebind only when we actually have tools — providers reject an
+      // empty tool list, and a bare LLM is still usable as a fallback
+      this.llmWithTools = this.tools.length > 0 ? this.llm.bindTools(this.tools) : this.llm;
+
+      console.log(`[LangGraphAgent] Discovered ${this.tools.length} tool(s) via tools/list`);
+      return this.tools.length > 0;
+    } catch (error) {
+      console.error('[LangGraphAgent] Tool discovery (tools/list) failed:', error);
+      this.toolDefinitions = [];
+      this.tools = [];
+      this.llmWithTools = this.llm;
+      return false;
+    }
+  }
+
+  /**
+   * Wrap one advertised MCP tool in a LangChain tool interface
+   *
+   * The tools/list `inputSchema` (JSON Schema) is passed through
+   * unchanged — @langchain/core validates arguments against it and
+   * forwards it to the provider as-is. A result flagged `isError` by the
+   * server (MCP tool error, issue #47 semantics) is surfaced as a tool
+   * failure rather than a successful payload containing an `error` key.
+   *
+   * @param {Object} toolDef - One entry of a tools/list result
+   * @returns {*} LangChain structured tool
+   */
+  mcpToolToLangChain(toolDef) {
+    const { name, description, inputSchema } = toolDef;
+    const client = this.mcpClient;
+
+    return tool(
+      async (args) => {
+        const envelope = await client.callTool(name, args ?? {});
+        const result = envelope?.result;
+
+        // MCP reports tool-level failures as isError + text content —
+        // treat them as failures instead of parsing them as data
+        if (result?.isError) {
+          throw new Error(contentText(result.content) || `Tool ${name} reported an error`);
         }
-      )
-    );
 
-    // get_techniques tool
-    tools.push(
-      tool(
-        async ({ domain, include_subtechniques, limit }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_TECHNIQUES, {
-            domain,
-            include_subtechniques,
-            limit
-          });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_techniques',
-          description: 'List all MITRE ATT&CK techniques with optional filtering. Use this to explore available techniques.',
-          schema: z.object({
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack'),
-            include_subtechniques: z.boolean().default(false),
-            limit: z.number().default(20)
-          })
-        }
-      )
+        return this.formatToolResult(envelope);
+      },
+      {
+        name,
+        description: description || `${name} tool`,
+        schema: inputSchema && typeof inputSchema === 'object'
+          ? inputSchema
+          : { type: 'object', properties: {} },
+        // Surface schema-validation detail so the LLM can fix bad args
+        verboseParsingErrors: true
+      }
     );
-
-    // get_technique_by_id tool
-    tools.push(
-      tool(
-        async ({ technique_id, domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_TECHNIQUE_BY_ID, {
-            technique_id,
-            domain
-          });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_technique_by_id',
-          description: 'Look up a specific MITRE ATT&CK technique by its ID (e.g., T1055, T1059.001). Use this when the user mentions a specific technique ID.',
-          schema: z.object({
-            technique_id: z.string().regex(/^T\d{4}(\.\d{3})?$/),
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    // get_techniques_by_tactic tool
-    tools.push(
-      tool(
-        async ({ tactic_shortname, domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_TECHNIQUES_BY_TACTIC, {
-            tactic_shortname,
-            domain
-          });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_techniques_by_tactic',
-          description: 'Get all techniques for a specific tactic (e.g., initial-access, execution, persistence). Use this when the user asks about techniques for a specific tactic.',
-          schema: z.object({
-            tactic_shortname: z.string(),
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    // get_groups tool
-    tools.push(
-      tool(
-        async ({ domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_GROUPS, { domain });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_groups',
-          description: 'Get all threat actor groups tracked by MITRE ATT&CK. Returns APT groups, cybercriminal organizations, etc.',
-          schema: z.object({
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    // get_techniques_used_by_group tool
-    tools.push(
-      tool(
-        async ({ group_name, domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_TECHNIQUES_USED_BY_GROUP, {
-            group_name,
-            domain
-          });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_techniques_used_by_group',
-          description: 'Get techniques used by a specific threat group (e.g., APT29, APT28, FIN7). Use this when the user asks about a specific threat actor.',
-          schema: z.object({
-            group_name: z.string(),
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    // get_software tool
-    tools.push(
-      tool(
-        async ({ domain, software_types }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_SOFTWARE, {
-            domain,
-            software_types
-          });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_software',
-          description: 'Get malware and tools used by threat actors. Can filter by type (malware or tool).',
-          schema: z.object({
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack'),
-            software_types: z.array(z.enum(['malware', 'tool'])).optional()
-          })
-        }
-      )
-    );
-
-    // get_mitigations tool
-    tools.push(
-      tool(
-        async ({ domain }) => {
-          const result = await this.mcpClient.callTool(MCP_TOOLS.GET_MITIGATIONS, { domain });
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_mitigations',
-          description: 'Get all security mitigations recommended by MITRE ATT&CK. Use this when the user asks about defenses or security controls.',
-          schema: z.object({
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    // get_techniques_mitigated_by_mitigation tool
-    tools.push(
-      tool(
-        async ({ mitigation_name, domain }) => {
-          const result = await this.mcpClient.callTool(
-            MCP_TOOLS.GET_TECHNIQUES_MITIGATED_BY_MITIGATION,
-            { mitigation_name, domain }
-          );
-          return this.formatToolResult(result);
-        },
-        {
-          name: 'get_techniques_mitigated_by_mitigation',
-          description: 'Get techniques addressed by a specific mitigation (e.g., Network Segmentation, Multi-factor Authentication).',
-          schema: z.object({
-            mitigation_name: z.string(),
-            domain: z.enum(['enterprise-attack', 'mobile-attack', 'ics-attack']).default('enterprise-attack')
-          })
-        }
-      )
-    );
-
-    return tools;
   }
 
   /**
@@ -409,6 +329,7 @@ export default class LangGraphAgent {
    * @returns {Promise<Array>} Tool results
    */
   async executeTools(toolCalls) {
+    await this.ensureTools();
     const results = [];
 
     for (const toolCall of toolCalls) {
@@ -452,6 +373,29 @@ export default class LangGraphAgent {
   }
 
   /**
+   * Build the system prompt, listing the tools discovered via tools/list
+   *
+   * @returns {string} System prompt content
+   */
+  buildSystemPrompt() {
+    const toolList = this.toolDefinitions.length > 0
+      ? this.toolDefinitions
+        .map((def) => `- ${def.name}: ${def.description || 'No description provided'}`)
+        .join('\n')
+      : '- (tool discovery is unavailable; answer without tool calls)';
+
+    return `You are a helpful cybersecurity assistant with access to the MITRE ATT&CK framework.
+You have access to tools that can query the MITRE ATT&CK database. You MUST use these tools to answer questions - do not make up information.
+
+Available tools:
+${toolList}
+
+IMPORTANT: When the user asks about MITRE ATT&CK data, you MUST call the appropriate tool. Do not describe what tool you would use - actually call it. Pick the tool whose name and description best match the question, and supply the arguments its input schema requires.
+
+Be helpful, accurate, and security-focused in your responses.`;
+  }
+
+  /**
    * Process user query through the agent loop
    *
    * @param {string} query - User's natural language query
@@ -462,6 +406,9 @@ export default class LangGraphAgent {
     try {
       console.log('[Agent] Processing query:', query);
 
+      // Make sure the discovered tool surface is bound before invoking
+      await this.ensureTools();
+
       // Add user message to history
       this.conversationHistory.push({
         role: 'user',
@@ -469,31 +416,10 @@ export default class LangGraphAgent {
         timestamp: new Date()
       });
 
-      // Create system prompt
+      // Create system prompt from the discovered tool surface
       const systemMessage = {
         role: 'system',
-        content: `You are a helpful cybersecurity assistant with access to the MITRE ATT&CK framework.
-You have access to tools that can query the MITRE ATT&CK database. You MUST use these tools to answer questions - do not make up information.
-
-Available tools:
-- get_technique_by_id: Look up a specific technique by ID (e.g., T1055, T1059.001)
-- get_techniques: List all techniques
-- get_tactics: Get all tactics
-- get_techniques_by_tactic: Get techniques for a specific tactic
-- get_groups: Get all threat actor groups
-- get_techniques_used_by_group: Get techniques used by a specific group
-- get_software: Get malware and tools
-- get_mitigations: Get security mitigations
-- get_techniques_mitigated_by_mitigation: Get techniques addressed by a mitigation
-
-IMPORTANT: When the user asks about MITRE ATT&CK data, you MUST call the appropriate tool. Do not describe what tool you would use - actually call it.
-
-Examples:
-- If user asks about "T1055", call get_technique_by_id with technique_id="T1055"
-- If user asks about "APT29", call get_techniques_used_by_group with group_name="APT29"
-- If user asks about "persistence techniques", call get_techniques_by_tactic with tactic_shortname="persistence"
-
-Be helpful, accurate, and security-focused in your responses.`
+        content: this.buildSystemPrompt()
       };
 
       // Build messages for LLM
@@ -652,7 +578,8 @@ Be helpful, accurate, and security-focused in your responses.`
       mcpStatus: this.mcpClient.getStatus(),
       conversationLength: this.conversationHistory.length,
       llmProvider: this.llmProvider,
-      toolsCount: this.tools.length
+      toolsCount: this.tools.length,
+      toolsDiscovered: this.toolDefinitions.length > 0
     };
 
     if (this.llmProvider === LLM_PROVIDERS.GEMINI) {
