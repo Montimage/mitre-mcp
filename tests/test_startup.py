@@ -141,7 +141,7 @@ class TestMain:
 
     def test_http_mode_wires_pipeline(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--http", "--host", "h", "--port", "1234"])
-        setup_mock = MagicMock()
+        setup_mock = MagicMock(return_value=("info", "ts"))
         build_mock = MagicMock(return_value="app")
         uvicorn_mock = MagicMock()
         server_inst = MagicMock()
@@ -157,10 +157,8 @@ class TestMain:
         mod.main()
 
         setup_mock.assert_called_once_with("h", 1234)
-        build_mock.assert_called_once_with()
-        uvicorn_mock.Config.assert_called_once_with(
-            "app", host="h", port=1234, log_level=setup_mock.return_value
-        )
+        build_mock.assert_called_once_with("h", "ts")
+        uvicorn_mock.Config.assert_called_once_with("app", host="h", port=1234, log_level="info")
         uvicorn_mock.Server.assert_called_once_with(uvicorn_mock.Config.return_value)
         run_mock.assert_called_once_with(server_inst.serve.return_value)
 

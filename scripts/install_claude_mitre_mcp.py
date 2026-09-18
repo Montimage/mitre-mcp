@@ -52,7 +52,7 @@ def install_package(python_bin: Path, repo_root: Path) -> None:
         [
             str(python_bin),
             "-c",
-            "from mcp.server.fastmcp import FastMCP; print('Verified mcp.server.fastmcp')",
+            "from mcp.server.mcpserver import MCPServer; print('Verified mcp.server.mcpserver')",
         ]
     )
 

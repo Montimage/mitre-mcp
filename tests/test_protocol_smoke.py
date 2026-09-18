@@ -1,8 +1,9 @@
 """Protocol-level smoke test: drive the real server through a real MCP client.
 
-Uses the SDK v1 in-memory helper so tool registration, input schemas, and
-invocation are exercised end-to-end without any network access. The
-download step is patched to feed the committed STIX fixture as data.
+Uses the SDK's in-process `Client(server)` so tool registration, input
+schemas, and invocation are exercised end-to-end without any network
+access. The download step is patched to feed the committed STIX fixture
+as data.
 
 If the `mcp` SDK import fails this module errors at collection — that is
 the signal this test exists to provide (see F-DEP-001 history).
@@ -13,7 +14,7 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from mcp.shared.memory import create_connected_server_and_client_session
+from mcp.client import Client
 
 from mitre_mcp.mitre_mcp_server import mcp
 
@@ -43,8 +44,8 @@ async def test_tools_list_returns_exactly_the_nine_registered_tools():
         "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
         new=AsyncMock(return_value=FIXTURE_PATHS),
     ):
-        async with create_connected_server_and_client_session(mcp) as session:
-            result = await session.list_tools()
+        async with Client(mcp) as client:
+            result = await client.list_tools()
             assert len(result.tools) == 9
             assert {tool.name for tool in result.tools} == EXPECTED_TOOLS
 
@@ -55,9 +56,9 @@ async def test_tools_call_returns_non_error_result_with_fixture_data():
         "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
         new=AsyncMock(return_value=FIXTURE_PATHS),
     ):
-        async with create_connected_server_and_client_session(mcp) as session:
-            call = await session.call_tool("get_tactics", {"domain": "enterprise-attack"})
-            assert not call.isError
+        async with Client(mcp) as client:
+            call = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})
+            assert not call.is_error
             payload = json.loads(call.content[0].text)
             tactic_names = {tactic["name"] for tactic in payload["tactics"]}
             assert {"Persistence", "Lateral Movement"} <= tactic_names

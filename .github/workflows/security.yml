@@ -68,13 +68,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install safety
+          pip install safety uv
 
       - name: Run Safety check
         run: |
-          pip install -e .
-          safety check --json --output safety-report.json || true
-          safety check
+          uv export --frozen --no-emit-project > requirements-scan.txt
+          safety check -r requirements-scan.txt --json --output safety-report.json || true
+          safety check -r requirements-scan.txt
 
       - name: Upload Safety results
         if: always()

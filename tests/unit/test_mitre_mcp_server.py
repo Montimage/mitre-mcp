@@ -293,11 +293,12 @@ class TestCorsConfiguration(unittest.TestCase):
         mock_mcp.settings = MagicMock()
 
         # This should not raise an exception
-        setup_http_server("localhost", 8000)
+        log_level, transport_security = setup_http_server("localhost", 8000)
 
-        # Verify settings were updated
-        self.assertEqual(mock_mcp.settings.host, "localhost")
-        self.assertEqual(mock_mcp.settings.port, 8000)
+        # Returns the resolved log level (read from settings) and the
+        # derived DNS-rebinding transport security for the bind host
+        self.assertIs(log_level, mock_mcp.settings.log_level.lower())
+        self.assertIn("localhost:*", transport_security.allowed_hosts)
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
@@ -309,10 +310,10 @@ class TestCorsConfiguration(unittest.TestCase):
         mock_mcp.streamable_http_app = original_method
 
         # Build the app explicitly
-        app = build_http_app()
+        app = build_http_app("0.0.0.0", "ts")
 
-        # The SDK builder should have been called once
-        original_method.assert_called_once()
+        # The SDK builder receives the v2 transport params
+        original_method.assert_called_once_with(host="0.0.0.0", transport_security="ts")
         # CORS middleware should have been added
         mock_app.add_middleware.assert_called_once()
         # The built app is returned
@@ -328,7 +329,7 @@ class TestCorsConfiguration(unittest.TestCase):
         mock_mcp.streamable_http_app = original_method
 
         # Build the app explicitly
-        build_http_app()
+        build_http_app("127.0.0.1", "ts")
 
         # Check the middleware was added with correct origins
         call_args = mock_app.add_middleware.call_args
@@ -435,9 +436,7 @@ class TestTransportSecurity(unittest.TestCase):
         from mitre_mcp import mitre_mcp_server as server_module
 
         mock_config.CORS_ORIGINS = "https://ui.example"
-        with patch.object(server_module.mcp, "settings", MagicMock()):
-            server_module.setup_http_server("0.0.0.0", 8000)
-            settings = server_module.mcp.settings.transport_security
+        _, settings = server_module.setup_http_server("0.0.0.0", 8000)
 
         self.assertTrue(settings.enable_dns_rebinding_protection)
         self.assertIn("0.0.0.0:*", settings.allowed_hosts)
