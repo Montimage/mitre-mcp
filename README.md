@@ -1,4 +1,5 @@
 <!-- mcp-name: io.github.luongnv89/mitre-mcp -->
+
 # mitre-mcp: MITRE ATT&CK MCP Server
 
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue.svg?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMiA3TDEyIDEyTDIyIDdMMTIgMloiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0yIDEyTDEyIDE3TDIyIDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8cGF0aCBkPSJNMiAxN0wxMiAyMkwyMiAxNyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cg==)](https://registry.modelcontextprotocol.io)
@@ -53,17 +54,17 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 
 ## Available MCP Tools
 
-| Tool Name                                | Description                                                                     |
-| ---------------------------------------- | ------------------------------------------------------------------------------- |
-| `get_techniques`                         | List all techniques with filtering options                                       |
-| `get_technique_by_id`                    | Look up specific technique by ID (e.g., T1055)                                  |
-| `get_techniques_by_tactic`               | Get techniques for a specific tactic (e.g., persistence)                        |
-| `get_tactics`                            | List all tactical categories                                                    |
-| `get_groups`                             | List all threat actor groups                                                    |
-| `get_techniques_used_by_group`           | Get techniques used by a specific group (e.g., APT29)                           |
-| `get_software`                           | List malware and tools with filtering                                           |
-| `get_mitigations`                        | List all security mitigations                                                   |
-| `get_techniques_mitigated_by_mitigation` | Get techniques addressed by a specific mitigation                               |
+| Tool Name                                | Description                                              |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `get_techniques`                         | List all techniques with filtering options               |
+| `get_technique_by_id`                    | Look up specific technique by ID (e.g., T1055)           |
+| `get_techniques_by_tactic`               | Get techniques for a specific tactic (e.g., persistence) |
+| `get_tactics`                            | List all tactical categories                             |
+| `get_groups`                             | List all threat actor groups                             |
+| `get_techniques_used_by_group`           | Get techniques used by a specific group (e.g., APT29)    |
+| `get_software`                           | List malware and tools with filtering                    |
+| `get_mitigations`                        | List all security mitigations                            |
+| `get_techniques_mitigated_by_mitigation` | Get techniques addressed by a specific mitigation        |
 
 ## Quick Start
 
@@ -97,6 +98,7 @@ mitre-mcp --http
 ```
 
 **Expected output:**
+
 ```
 2025-11-17 22:40:10,991 - mitre_mcp.mitre_mcp_server - INFO - Starting MITRE ATT&CK MCP Server (HTTP mode on localhost:8000)
 ======================================================================
@@ -130,6 +132,7 @@ Add this JSON to your client's configuration file:
 ```
 
 **Configuration file locations:**
+
 - **macOS (Claude Desktop)**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows (Claude Desktop)**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux (Claude Desktop)**: `~/.config/Claude/claude_desktop_config.json`
@@ -144,6 +147,7 @@ mitre-mcp --http --host 0.0.0.0 --port 8080
 Then use `http://your-server-ip:8080/mcp` in your client configuration.
 
 **Why HTTP mode?**
+
 - Multiple clients can connect simultaneously
 - Better concurrency and async support
 - Easier debugging with HTTP tools
@@ -200,6 +204,7 @@ mitre-mcp --http --force-download
 A modern React-based web interface is available in the `frontend/` directory for interactive exploration of MITRE ATT&CK through a chat interface.
 
 **Features:**
+
 - Clean, minimal design with black/white/gray aesthetic
 - Interactive chatbox powered by LangGraphJS
 - Pre-built scenario playbooks for common security workflows
@@ -216,6 +221,7 @@ npm run dev
 Then open `http://localhost:5173` in your browser.
 
 **Prerequisites:**
+
 - Node.js 18+ installed
 - MCP server running: `mitre-mcp --http --port 8000`
 
@@ -230,6 +236,7 @@ We provide three comprehensive guides tailored to different use cases:
 **[Beginner-Playbook.md](Beginner-Playbook.md)** - For those new to MITRE ATT&CK or cybersecurity
 
 **Ideal for:**
+
 - Non-technical users
 - Security awareness training
 - Basic threat intelligence
@@ -240,12 +247,14 @@ We provide three comprehensive guides tailored to different use cases:
 **[Playbook.md](Playbook.md)** - For security professionals using MCP clients
 
 **Ideal for:**
+
 - Security analysts
 - Threat hunters
 - Incident responders
 - Security engineers
 
 Includes 10 ready-to-use scenarios:
+
 - Threat Intelligence
 - Detection Engineering
 - Threat Hunting
@@ -262,12 +271,14 @@ Includes 10 ready-to-use scenarios:
 **[API-INTEGRATION.md](API-INTEGRATION.md)** - For developers building automation and custom integrations
 
 **Ideal for:**
+
 - Backend developers
 - Automation engineers
 - Data pipeline developers
 - Custom tooling projects
 
 Includes:
+
 - Complete Python and Node.js client implementations
 - Protocol requirements and examples
 - Testing and debugging tools
@@ -279,17 +290,17 @@ Includes:
 
 Set before starting `mitre-mcp` to customize behavior:
 
-| Variable                                                    | Default                        | Purpose                                                                                       |
-| ----------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `MITRE_ENTERPRISE_URL`, `MITRE_MOBILE_URL`, `MITRE_ICS_URL` | Official MITRE CTI GitHub URLs | Override ATT&CK bundle locations or point to internal mirror                                  |
-| `MITRE_DATA_DIR`                                            | `mitre_mcp/data`               | Store cached bundles in custom directory                                                      |
-| `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                                  |
-| `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                                   |
-| `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                               |
-| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                            |
-| `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                                       |
-| `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                                |
-| `MITRE_CORS_ORIGINS`                                        | `*`                            | CORS allowed origins for HTTP mode (`*` = all, or comma-separated list of domains)            |
+| Variable                                                    | Default                        | Purpose                                                                            |
+| ----------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
+| `MITRE_ENTERPRISE_URL`, `MITRE_MOBILE_URL`, `MITRE_ICS_URL` | Official MITRE CTI GitHub URLs | Override ATT&CK bundle locations or point to internal mirror                       |
+| `MITRE_DATA_DIR`                                            | `mitre_mcp/data`               | Store cached bundles in custom directory                                           |
+| `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                       |
+| `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                        |
+| `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                    |
+| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                 |
+| `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                            |
+| `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                     |
+| `MITRE_CORS_ORIGINS`                                        | `*`                            | CORS allowed origins for HTTP mode (`*` = all, or comma-separated list of domains) |
 
 ### Data Caching
 
@@ -302,11 +313,11 @@ The server automatically caches MITRE ATT&CK data to improve performance:
 
 ## Performance
 
-| Scenario                    | Improvement       | Notes                                                                 |
-| --------------------------- | ----------------- | --------------------------------------------------------------------- |
-| Enterprise technique lookup | **80-95% faster** | Pre-built O(1) indices for groups, mitigations, and techniques       |
-| ATT&CK data downloads       | **20-40% faster** | HTTP connection pooling with TLS session reuse                        |
-| Warm cache startup          | **<2s**           | Cached bundles reused for instant LLM queries                         |
+| Scenario                    | Improvement       | Notes                                                          |
+| --------------------------- | ----------------- | -------------------------------------------------------------- |
+| Enterprise technique lookup | **80-95% faster** | Pre-built O(1) indices for groups, mitigations, and techniques |
+| ATT&CK data downloads       | **20-40% faster** | HTTP connection pooling with TLS session reuse                 |
+| Warm cache startup          | **<2s**           | Cached bundles reused for instant LLM queries                  |
 
 Benchmarks: macOS 14 / Apple M3 Pro with Python 3.11. Use `MITRE_LOG_LEVEL=DEBUG` for timing logs.
 
@@ -333,6 +344,7 @@ async def main():
 ```
 
 **Available clients:**
+
 - **Python**: `clients/python/mini-mcp-client.py` with full CLI
 - **Node.js**: `clients/nodejs/mini-mcp-client.js` with full CLI
 
@@ -368,20 +380,24 @@ pre-commit run --all-files  # All quality checks
 ### Code Quality Tools
 
 **Formatting:**
+
 - **black** - Python code formatter
 - **isort** - Import organizer
 - **prettier** - YAML/JSON/Markdown formatter
 
 **Linting & Type Checking:**
+
 - **flake8** - Python linter
 - **mypy** - Static type checker
 - **pydocstyle** - Docstring checker
 
 **Security:**
+
 - **bandit** - Security vulnerability scanner
 - **File validators** - YAML, JSON, TOML, private key detection
 
 **Testing:**
+
 - **pytest** - 114 tests before commit
 - **Installation test** - Package verification
 - **Import verification** - Module importability
@@ -390,36 +406,45 @@ pre-commit run --all-files  # All quality checks
 ## Troubleshooting
 
 **Download fails with "Insufficient disk space"**
+
 - Free at least 200 MB in the data directory or set `MITRE_DATA_DIR=/path/to/storage`
 
 **Data never updates**
+
 - Cached bundles refresh automatically after 1 day
 - Force refresh: `mitre-mcp --force-download` or delete `data/` folder
 
 **Tool calls return errors**
+
 - Ensure technique IDs follow `T####` or `T####.###` format
 - Keep names/tactics under 100 characters
 
 **MCP client cannot discover server**
+
 - Verify client configuration points to correct Python path
 - Test manually: run `mitre-mcp` and verify server starts
 - For HTTP mode: ensure `url` field is set correctly
 
 **Module not found: mcp.server.fastmcp**
+
 - Reinstall the pinned MCP SDK: `pip install "mcp[cli]>=1.28.1,<2"` in your virtual environment (the `fastmcp` distribution does not provide `mcp.server.fastmcp`; the package's declared pin does)
 
 ## FAQ
 
 **Does mitre-mcp work offline?**
+
 - Yes. Once bundles are cached, the server works offline until cache expires.
 
 **Which Python versions are supported?**
+
 - Python 3.10 through 3.14 (see `pyproject.toml`).
 
 **How often is data refreshed?**
+
 - By default every 24 hours. Adjust `MITRE_CACHE_EXPIRY_DAYS` or use `--force-download`.
 
 **Is HTTP mode safe for production?**
+
 - HTTP mode serves on localhost:8000 by default. Use firewall or reverse proxy if exposing externally.
 
 ## License
