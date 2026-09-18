@@ -125,9 +125,13 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     try {
       if (config.geminiApiKey) {
         await saveApiKey('geminiApiKey', config.geminiApiKey);
+      } else {
+        await deleteApiKey('geminiApiKey');
       }
       if (config.openrouterApiKey) {
         await saveApiKey('openrouterApiKey', config.openrouterApiKey);
+      } else {
+        await deleteApiKey('openrouterApiKey');
       }
     } catch (error) {
       console.error('Failed to save API keys to IndexedDB:', error);
@@ -154,7 +158,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     setTestResult(null);
 
     try {
-      console.log('[ServerConfig] Testing MCP connection with:', config);
+      console.log('[ServerConfig] Testing MCP connection to:', `${config.host}:${config.port}`);
 
       // Dynamically import to avoid issues if not yet installed
       const { default: MitreMCPClient } = await import('../../services/mcpClient.js');
@@ -256,7 +260,8 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
 
       // Test Gemini API by listing models
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+        'https://generativelanguage.googleapis.com/v1beta/models',
+        { headers: { 'x-goog-api-key': apiKey } }
       );
 
       if (!response.ok) {
