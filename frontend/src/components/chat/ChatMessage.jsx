@@ -4,6 +4,8 @@
  * Displays individual chat messages with different styling based on message type
  */
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 
 export default function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, decision }) {
   const [copied, setCopied] = useState(false);
@@ -27,26 +29,6 @@ export default function ChatMessage({ message, type = 'user', timestamp, toolCal
     } catch (error) {
       console.error('Failed to copy:', error);
     }
-  };
-
-  // Format message text (convert markdown-like syntax to HTML)
-  const formatMessage = (text) => {
-    if (!text) return '';
-
-    // Split by line breaks
-    const lines = text.split('\n');
-    return lines.map((line) => {
-      // Bold text: **text**
-      line = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-      // Italic text: *text*
-      line = line.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-      // Code: `code`
-      line = line.replace(/`([^`]+)`/g, '<code class="bg-gray-200 px-1 rounded text-sm">$1</code>');
-
-      return line;
-    });
   };
 
   // Handle tool-approval type message
@@ -149,14 +131,19 @@ export default function ChatMessage({ message, type = 'user', timestamp, toolCal
         <span className="text-xs opacity-60">{formatTime(timestamp)}</span>
       </div>
 
-      {/* Message Content */}
+      {/* Message Content — rendered via react-markdown (safe: never injects raw HTML);
+          remark-breaks preserves the old one-line-per-block visual structure */}
       <div className="text-sm leading-relaxed whitespace-pre-wrap">
-        {formatMessage(message).map((line, i) => (
-          <div
-            key={i}
-            dangerouslySetInnerHTML={{ __html: line }}
-          />
-        ))}
+        <ReactMarkdown
+          remarkPlugins={[remarkBreaks]}
+          components={{
+            code: ({ children }) => (
+              <code className="bg-gray-200 px-1 rounded text-sm">{children}</code>
+            ),
+          }}
+        >
+          {message || ''}
+        </ReactMarkdown>
       </div>
 
       {/* Message Actions */}
