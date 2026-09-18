@@ -24,25 +24,30 @@ from mitre_mcp.mitre_mcp_server import (
     mcp,
 )
 
-# Check if test data exists
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-TEST_DATA_EXISTS = all(
-    [
-        os.path.exists(os.path.join(TEST_DATA_DIR, "enterprise-attack.json")),
-        os.path.exists(os.path.join(TEST_DATA_DIR, "mobile-attack.json")),
-        os.path.exists(os.path.join(TEST_DATA_DIR, "ics-attack.json")),
-    ]
+# Committed STIX fixtures — a missing file must fail loudly, not skip.
+TEST_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fixtures"
 )
+REQUIRED_FIXTURES = ("enterprise-attack.json", "mobile-attack.json", "ics-attack.json")
 
 
-@unittest.skipUnless(TEST_DATA_EXISTS, "Test data files not found in tests/data/")
 class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
     """Integration tests for MCP tools with MITRE ATT&CK data."""
 
     @classmethod
     def setUpClass(cls):
         """Set up test fixtures once before all tests."""
-        # Initialize MITRE ATT&CK data with the downloaded files
+        missing = [
+            name
+            for name in REQUIRED_FIXTURES
+            if not os.path.exists(os.path.join(TEST_DATA_DIR, name))
+        ]
+        if missing:
+            raise FileNotFoundError(
+                f"Missing committed STIX fixture(s) in {TEST_DATA_DIR}: {missing}"
+            )
+
+        # Initialize MITRE ATT&CK data with the committed fixtures
         cls.enterprise_attack = MitreAttackData(
             os.path.join(TEST_DATA_DIR, "enterprise-attack.json")
         )
@@ -124,7 +129,6 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
         )
 
         # Assert
-        self.assertIn("tactic", result)
         self.assertIn("techniques", result)
         self.assertGreater(len(result["techniques"]), 0)
 
@@ -179,7 +183,7 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
 
         # Assert
         self.assertIn("technique", result)
-        self.assertEqual(result["technique"]["id"], "T1055")
+        self.assertEqual(result["technique"]["mitre_id"], "T1055")
         self.assertEqual(result["technique"]["name"], "Process Injection")
 
 

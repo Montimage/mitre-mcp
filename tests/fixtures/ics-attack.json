@@ -1,0 +1,27 @@
+{
+  "type": "bundle",
+  "id": "bundle--00000000-0000-4000-8000-251053439646408",
+  "spec_version": "2.0",
+  "objects": [
+    {
+      "type": "x-mitre-tactic",
+      "id": "x-mitre-tactic--00000000-0000-4000-8000-000000000164",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Fixture ICS Tactic",
+      "description": "Test fixture tactic.",
+      "x_mitre_shortname": "fixture-ics",
+      "x_mitre_domains": [
+        "ics-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "TA0098",
+          "url": "https://attack.mitre.org/tactics/TA0098"
+        }
+      ]
+    }
+  ]
+}

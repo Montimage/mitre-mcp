@@ -1,0 +1,27 @@
+{
+  "type": "bundle",
+  "id": "bundle--00000000-0000-4000-8000-112078604809782",
+  "spec_version": "2.0",
+  "objects": [
+    {
+      "type": "x-mitre-tactic",
+      "id": "x-mitre-tactic--00000000-0000-4000-8000-000000000163",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Fixture Mobile Tactic",
+      "description": "Test fixture tactic.",
+      "x_mitre_shortname": "fixture-mobile",
+      "x_mitre_domains": [
+        "mobile-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "TA0099",
+          "url": "https://attack.mitre.org/tactics/TA0099"
+        }
+      ]
+    }
+  ]
+}

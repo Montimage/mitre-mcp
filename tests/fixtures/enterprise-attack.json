@@ -1,0 +1,155 @@
+{
+  "type": "bundle",
+  "id": "bundle--00000000-0000-4000-8000-8402421816816",
+  "spec_version": "2.0",
+  "objects": [
+    {
+      "type": "x-mitre-tactic",
+      "id": "x-mitre-tactic--00000000-0000-4000-8000-000000000161",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Persistence",
+      "description": "Test fixture tactic.",
+      "x_mitre_shortname": "persistence",
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "TA0003",
+          "url": "https://attack.mitre.org/tactics/TA0003"
+        }
+      ]
+    },
+    {
+      "type": "x-mitre-tactic",
+      "id": "x-mitre-tactic--00000000-0000-4000-8000-000000000162",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Lateral Movement",
+      "description": "Test fixture tactic.",
+      "x_mitre_shortname": "lateral-movement",
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "TA0008",
+          "url": "https://attack.mitre.org/tactics/TA0008"
+        }
+      ]
+    },
+    {
+      "type": "attack-pattern",
+      "id": "attack-pattern--00000000-0000-4000-8000-000000000177",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Process Injection",
+      "description": "Test fixture technique.",
+      "revoked": false,
+      "kill_chain_phases": [
+        {
+          "kill_chain_name": "mitre-attack",
+          "phase_name": "persistence"
+        }
+      ],
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "x_mitre_is_subtechnique": false,
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1055",
+          "url": "https://attack.mitre.org/techniques/T1055"
+        }
+      ]
+    },
+    {
+      "type": "intrusion-set",
+      "id": "intrusion-set--00000000-0000-4000-8000-000000000193",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "APT29",
+      "description": "Test fixture group.",
+      "revoked": false,
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "G0016",
+          "url": "https://attack.mitre.org/groups/G0016"
+        }
+      ]
+    },
+    {
+      "type": "course-of-action",
+      "id": "course-of-action--00000000-0000-4000-8000-000000000209",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Process Injection Mitigation",
+      "description": "Test fixture mitigation.",
+      "revoked": false,
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "M1055",
+          "url": "https://attack.mitre.org/mitigations/M1055"
+        }
+      ]
+    },
+    {
+      "type": "tool",
+      "id": "tool--00000000-0000-4000-8000-000000000225",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Fixture Tool",
+      "description": "Test fixture software.",
+      "revoked": false,
+      "x_mitre_domains": [
+        "enterprise-attack"
+      ],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "S0001",
+          "url": "https://attack.mitre.org/software/S0001"
+        }
+      ],
+      "labels": [
+        "utility"
+      ]
+    },
+    {
+      "type": "relationship",
+      "id": "relationship--00000000-0000-4000-8000-0000000000f1",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--00000000-0000-4000-8000-0000000000c1",
+      "target_ref": "attack-pattern--00000000-0000-4000-8000-0000000000b1"
+    },
+    {
+      "type": "relationship",
+      "id": "relationship--00000000-0000-4000-8000-0000000000f2",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "relationship_type": "mitigates",
+      "source_ref": "course-of-action--00000000-0000-4000-8000-0000000000d1",
+      "target_ref": "attack-pattern--00000000-0000-4000-8000-0000000000b1"
+    }
+  ]
+}
