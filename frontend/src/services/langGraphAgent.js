@@ -94,14 +94,11 @@ export default class LangGraphAgent {
     }
 
     // Tool surface is discovered from the server's tools/list at runtime —
-    // starts empty and is populated asynchronously (see createMCPTools)
+    // starts empty and is populated lazily on first use (see ensureTools)
     this.tools = [];
     this.toolDefinitions = [];
     this.llmWithTools = this.llm;
-
-    // Kick off discovery immediately; createMCPTools never rejects —
-    // it resolves true/false so callers can retry on the next query
-    this.toolsReady = this.createMCPTools();
+    this.toolsReady = null;
 
     this.conversationHistory = [];
   }
@@ -109,14 +106,17 @@ export default class LangGraphAgent {
   /**
    * Ensure the tool surface has been discovered before use
    *
-   * Awaits in-flight discovery; retries once on the next call after a
-   * failure (e.g. the MCP server was still starting when the agent was
-   * constructed).
+   * Runs tools/list discovery on first call — lazy so it can reuse the
+   * session initializeSession() establishes instead of racing a second
+   * handshake from the constructor. Awaits in-flight discovery; retries
+   * on the next call after a failure (e.g. the MCP server was still
+   * starting).
    *
    * @returns {Promise<Array>} LangChain tools (possibly empty)
    */
   async ensureTools() {
     if (!this.toolsReady) {
+      // createMCPTools never rejects — it resolves true/false
       this.toolsReady = this.createMCPTools();
     }
     const discovered = await this.toolsReady;
