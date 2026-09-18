@@ -34,6 +34,6 @@ pre-commit>=3.5.0
 
 # Build Tools
 build>=1.0.0
-twine>=5.0.0
+twine>=7.0.0
 setuptools>=45.0.0
 wheel>=0.42.0
