@@ -23,11 +23,13 @@ from urllib.parse import urlparse
 
 # Third-party imports
 import httpx
+import uvicorn
 
 # MCP SDK imports
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mitreattack.stix20 import MitreAttackData
+from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
@@ -1149,12 +1151,18 @@ def get_cors_middleware() -> list[Middleware]:
         ]
 
 
-def setup_http_server(host: str, port: int) -> None:
+def setup_http_server(host: str, port: int) -> str:
     """Configure and display HTTP server information.
+
+    Single access site for ``mcp.settings`` — callers use the return
+    value instead of touching settings themselves.
 
     Args:
         host: Server host address
         port: Server port number
+
+    Returns:
+        The configured FastMCP log level (lowercase) for uvicorn.
     """
     logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
     logger.info("Press Ctrl+C to stop the server")
@@ -1189,54 +1197,21 @@ def setup_http_server(host: str, port: int) -> None:
     # Print to stderr with immediate flush
     print(config_message, file=sys.stderr, flush=True)
 
+    return mcp.settings.log_level.lower()
 
-def add_cors_middleware_to_mcp() -> None:
-    """Add CORS middleware to the MCP server's streamable HTTP app.
 
-    This patches the mcp.streamable_http_app method to add CORS middleware
-    after the app is created but before it's used by uvicorn.
+def build_http_app() -> Starlette:
+    """Build the streamable-HTTP ASGI app with CORS middleware.
+
+    Calls the SDK's streamable_http_app() once and adds the middleware
+    from get_cors_middleware() to the returned app — the same stack the
+    former monkey-patch produced, built explicitly so SDK internals stay
+    untouched (the v2 SDK moves transport parameters out of settings).
     """
-    from starlette.applications import Starlette
-
-    # Store the original method
-    original_streamable_http_app = mcp.streamable_http_app
-
-    def patched_streamable_http_app() -> Starlette:
-        # Call the original method to get the app
-        app = original_streamable_http_app()
-
-        # Build CORS middleware configuration
-        cors_config = Config.CORS_ORIGINS.strip()
-
-        if cors_config == "*":
-            # Explicit "*" opt-in: reflect all origins but never with credentials
-            app.add_middleware(
-                CORSMiddleware,
-                allow_origin_regex=r".*",  # Match all origins
-                allow_credentials=False,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["Mcp-Session-Id"],
-            )
-            logger.info("CORS middleware enabled for all origins (no credentials)")
-        else:
-            allowed_origins = [
-                origin.strip() for origin in cors_config.split(",") if origin.strip()
-            ]
-            app.add_middleware(
-                CORSMiddleware,
-                allow_origins=allowed_origins,
-                allow_credentials=False,
-                allow_methods=["*"],
-                allow_headers=["*"],
-                expose_headers=["Mcp-Session-Id"],
-            )
-            logger.info("CORS middleware enabled for: %s", ", ".join(allowed_origins))
-
-        return app
-
-    # Replace the method (type: ignore needed for monkey patching)
-    mcp.streamable_http_app = patched_streamable_http_app  # type: ignore[method-assign]
+    app = mcp.streamable_http_app()
+    for middleware in get_cors_middleware():
+        app.add_middleware(middleware.cls, *middleware.args, **middleware.kwargs)
+    return app
 
 
 def main() -> None:
@@ -1252,13 +1227,20 @@ def main() -> None:
     try:
         if "--http" in sys.argv:
             host, port = parse_http_args()
-            setup_http_server(host, port)
+            log_level = setup_http_server(host, port)
 
-            # Patch MCP to add CORS middleware
-            add_cors_middleware_to_mcp()
-
-            # Run as HTTP server with streamable HTTP transport
-            mcp.run(transport="streamable-http")
+            # Build the ASGI app explicitly (no SDK monkey-patch) and
+            # serve it — mirrors run_streamable_http_async in the SDK:
+            # app construction here, uvicorn bound from the same settings.
+            server = uvicorn.Server(
+                uvicorn.Config(
+                    build_http_app(),
+                    host=host,
+                    port=port,
+                    log_level=log_level,
+                )
+            )
+            asyncio.run(server.serve())
         else:
             logger.info("Starting MITRE ATT&CK MCP Server (stdio mode)")
             logger.info("Press Ctrl+C to stop the server")

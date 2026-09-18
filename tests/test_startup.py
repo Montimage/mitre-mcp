@@ -141,19 +141,28 @@ class TestMain:
 
     def test_http_mode_wires_pipeline(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--http", "--host", "h", "--port", "1234"])
-        run_mock = MagicMock()
         setup_mock = MagicMock()
-        cors_mock = MagicMock()
-        monkeypatch.setattr(mod.mcp, "run", run_mock)
+        build_mock = MagicMock(return_value="app")
+        uvicorn_mock = MagicMock()
+        server_inst = MagicMock()
+        server_inst.serve.return_value = "coro"
+        uvicorn_mock.Server.return_value = server_inst
+        run_mock = MagicMock()
         monkeypatch.setattr(mod, "setup_http_server", setup_mock)
-        monkeypatch.setattr(mod, "add_cors_middleware_to_mcp", cors_mock)
+        monkeypatch.setattr(mod, "build_http_app", build_mock)
+        monkeypatch.setattr(mod, "uvicorn", uvicorn_mock)
+        monkeypatch.setattr(mod.asyncio, "run", run_mock)
         monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         mod.main()
 
         setup_mock.assert_called_once_with("h", 1234)
-        cors_mock.assert_called_once_with()
-        run_mock.assert_called_once_with(transport="streamable-http")
+        build_mock.assert_called_once_with()
+        uvicorn_mock.Config.assert_called_once_with(
+            "app", host="h", port=1234, log_level=setup_mock.return_value
+        )
+        uvicorn_mock.Server.assert_called_once_with(uvicorn_mock.Config.return_value)
+        run_mock.assert_called_once_with(server_inst.serve.return_value)
 
     def test_keyboard_interrupt_exits_zero(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
