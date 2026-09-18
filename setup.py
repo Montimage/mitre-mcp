@@ -29,8 +29,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/montimage/mitre-mcp",
-    packages=find_packages(),
-    include_package_data=True,
+    packages=find_packages(include=["mitre_mcp", "mitre_mcp.*"]),
+    include_package_data=False,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
