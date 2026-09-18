@@ -5,11 +5,13 @@ Reference implementations for integrating with the mitre-mcp server via HTTP.
 ## Available Clients
 
 ### 🐍 Python Client
+
 **Location:** [`python/`](python/)
 
 A complete Python implementation with CLI and library support, built on the official `mcp` Python SDK.
 
 **Features:**
+
 - Complete CLI with all MCP tools
 - Official MCP SDK client (protocol negotiation, session management, SSE transport)
 - Debug mode
@@ -17,6 +19,7 @@ A complete Python implementation with CLI and library support, built on the offi
 - Can be used as a library
 
 **Quick Start:**
+
 ```bash
 cd clients/python
 pip install -r requirements.txt
@@ -28,11 +31,13 @@ python mini-mcp-client.py --help
 ---
 
 ### 🟢 Node.js Client
+
 **Location:** [`nodejs/`](nodejs/)
 
 A complete Node.js/JavaScript implementation with CLI and module export, built on the official `@modelcontextprotocol/client` TypeScript SDK.
 
 **Features:**
+
 - Complete CLI with all MCP tools
 - Official MCP SDK client (protocol negotiation, session management, SSE transport)
 - Debug mode
@@ -40,6 +45,7 @@ A complete Node.js/JavaScript implementation with CLI and module export, built o
 - Module export for use in Node.js apps
 
 **Quick Start:**
+
 ```bash
 cd clients/nodejs
 npm install
@@ -52,15 +58,15 @@ node mini-mcp-client.js --help
 
 ## Choosing a Client
 
-| Use Case | Python | Node.js |
-|----------|--------|---------|
-| **Quick CLI usage** | ✅ | ✅ |
-| **Data science/analysis** | ✅ Best choice | ⚠️ Possible |
-| **Web applications** | ⚠️ Possible | ✅ Best choice |
-| **Automation scripts** | ✅ | ✅ |
-| **API backends** | ✅ | ✅ Best choice |
-| **Serverless functions** | ✅ | ✅ Best choice |
-| **Desktop apps** | ✅ | ⚠️ Possible |
+| Use Case                  | Python         | Node.js        |
+| ------------------------- | -------------- | -------------- |
+| **Quick CLI usage**       | ✅             | ✅             |
+| **Data science/analysis** | ✅ Best choice | ⚠️ Possible    |
+| **Web applications**      | ⚠️ Possible    | ✅ Best choice |
+| **Automation scripts**    | ✅             | ✅             |
+| **API backends**          | ✅             | ✅ Best choice |
+| **Serverless functions**  | ✅             | ✅ Best choice |
+| **Desktop apps**          | ✅             | ⚠️ Possible    |
 
 ## Common Usage
 
@@ -103,10 +109,12 @@ result = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})
 ### Node.js
 
 ```javascript
-const { MitreMCPClient } = require('./mini-mcp-client');
+const { MitreMCPClient } = require("./mini-mcp-client");
 
-const client = new MitreMCPClient('localhost', 8000);
-const result = await client.callTool('get_tactics', { domain: 'enterprise-attack' });
+const client = new MitreMCPClient("localhost", 8000);
+const result = await client.callTool("get_tactics", {
+  domain: "enterprise-attack",
+});
 ```
 
 ## MCP Protocol Implementation
@@ -153,11 +161,13 @@ To add a client in another language:
 ## Requirements
 
 ### Python Client
+
 - Python 3.11+
 - `mcp>=2.2,<3` (official MCP Python SDK)
 - See [python/requirements.txt](python/requirements.txt)
 
 ### Node.js Client
+
 - Node.js 24+
 - `@modelcontextprotocol/client` (official MCP TypeScript SDK)
 - commander

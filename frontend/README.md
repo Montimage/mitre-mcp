@@ -32,12 +32,14 @@ A modern React.js landing page with integrated AI-powered chatbox for interactin
 ## Installation
 
 1. **Clone the repository** (if not already done):
+
    ```bash
    git clone https://github.com/montimage/mitre-mcp.git
    cd mitre-mcp/frontend
    ```
 
 2. **Install dependencies**:
+
    ```bash
    npm install
    ```
@@ -99,6 +101,7 @@ Navigate to `http://localhost:5173` in your browser.
 ### 3. Configure Server Connection
 
 Click the "⚙️ Configure" button in the chatbox header to:
+
 - Set the server host (default: localhost)
 - Set the server port (default: 8000)
 - Test the connection
@@ -109,6 +112,7 @@ Click the "⚙️ Configure" button in the chatbox header to:
 Ask questions in natural language:
 
 **Example Queries:**
+
 - "Show me all tactics in the enterprise domain"
 - "What is technique T1059?"
 - "Which techniques does APT29 use?"
@@ -147,6 +151,7 @@ frontend/
 ### 1. MCP Client (`mcpClient.js`)
 
 Handles HTTP communication with the mitre-mcp server:
+
 - Session management
 - Tool invocation via JSON-RPC
 - Server-Sent Events (SSE) parsing
@@ -155,12 +160,14 @@ Handles HTTP communication with the mitre-mcp server:
 ### 2. LangGraph Agent (`langGraphAgent.js`)
 
 Intelligent query router that:
+
 - Parses user intent from natural language
 - Routes queries to appropriate MCP tools
 - Formats responses for display
 - Maintains conversation history
 
 **Supported Query Patterns:**
+
 - Tactics: "show all tactics", "list tactics"
 - Techniques: "what is T1059", "techniques for initial-access"
 - Groups: "techniques used by APT29", "show all groups"
@@ -192,6 +199,7 @@ never set as build-time environment variables.
 ### Runtime Configuration
 
 Users can configure the server at runtime using the UI:
+
 1. Click "⚙️ Configure" in the chatbox
 2. Enter host and port
 3. Test connection
@@ -204,6 +212,7 @@ Users can configure the server at runtime using the UI:
 **Problem**: "Connection failed" or "Failed to initialize session"
 
 **Solutions**:
+
 1. Verify mitre-mcp server is running:
    ```bash
    mitre-mcp --http --port 8000
@@ -217,6 +226,7 @@ Users can configure the server at runtime using the UI:
 **Problem**: Build fails with module errors
 
 **Solutions**:
+
 1. Delete `node_modules` and reinstall:
    ```bash
    rm -rf node_modules package-lock.json
@@ -232,6 +242,7 @@ Users can configure the server at runtime using the UI:
 **Problem**: Agent doesn't understand query
 
 **Solutions**:
+
 1. Try rephrasing with clearer keywords
 2. Use example queries as templates
 3. Include technique IDs (T####) for specific techniques
@@ -285,6 +296,7 @@ MIT License - See [LICENSE](../LICENSE) file for details.
 ## Support
 
 For issues or questions:
+
 - GitHub Issues: https://github.com/montimage/mitre-mcp/issues
 - Email: luong.nguyen@montimage.eu
 

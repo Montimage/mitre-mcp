@@ -295,6 +295,7 @@ If you see connection errors:
 ```
 
 **Solution:**
+
 1. Check if the mitre-mcp server is running
 2. Verify the host and port match your server configuration
 3. Ensure no firewall is blocking the connection
@@ -309,6 +310,7 @@ If you see protocol errors:
 ```
 
 **Solution:**
+
 1. Check your command syntax with `--help`
 2. Verify technique IDs follow the format `T####` or `T####.###`
 3. Ensure group names and mitigation names are correct
@@ -322,6 +324,7 @@ If requests timeout:
 ```
 
 **Solution:**
+
 1. The server might be downloading data (first run)
 2. Increase `CALL_TIMEOUT_SECONDS` in the code (currently 30 seconds)
 3. Check server logs for issues
@@ -438,6 +441,7 @@ This mini-mcp-client is part of the mitre-mcp project and follows the same MIT l
 ## Support
 
 For issues or questions:
+
 - Check the main [mitre-mcp README](README.md)
 - Review the [Playbook](Playbook.md) for usage examples
 - Open an issue on the GitHub repository

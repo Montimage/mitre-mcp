@@ -33,7 +33,7 @@ Python client's `store_true` semantics: flag present → `true`
   CI/Node 24+ satisfies it.
 - **Default export of a global `Command` instance removed from
   CommonJS** — we already use the named `const { Command } =
-  require('commander')` — no-op.
+require('commander')` — no-op.
 - **Duplicate option flag / command name now throws** — audited:
   every `program.option`/`.command` name in `mini-mcp-client.js` is
   unique per command — no-op.
@@ -70,7 +70,7 @@ Python client's `store_true` semantics: flag present → `true`
   Node floor of **>= 22.12.0**, still under our `>= 24` pin.
   Verified: `require('commander')` resolves and `--help` exits 0 on
   Node 26.
-- **Negated-option default refined** ([#2405]): only a *lone*
+- **Negated-option default refined** ([#2405]): only a _lone_
   `--no-*` flag gets an implicit `true` default; defining both a
   positive and negative flag no longer implies a default. We define
   `--no-revoked` and `--no-pretty` as lone negated flags —

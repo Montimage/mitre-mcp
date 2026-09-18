@@ -11,9 +11,7 @@
       "name": "Persistence",
       "description": "Test fixture tactic.",
       "x_mitre_shortname": "persistence",
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {
@@ -31,9 +29,7 @@
       "name": "Lateral Movement",
       "description": "Test fixture tactic.",
       "x_mitre_shortname": "lateral-movement",
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {
@@ -57,9 +53,7 @@
           "phase_name": "persistence"
         }
       ],
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "x_mitre_is_subtechnique": false,
       "external_references": [
@@ -78,9 +72,7 @@
       "name": "APT29",
       "description": "Test fixture group.",
       "revoked": false,
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {
@@ -98,9 +90,7 @@
       "name": "Process Injection Mitigation",
       "description": "Test fixture mitigation.",
       "revoked": false,
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {
@@ -118,9 +108,7 @@
       "name": "Fixture Tool",
       "description": "Test fixture software.",
       "revoked": false,
-      "x_mitre_domains": [
-        "enterprise-attack"
-      ],
+      "x_mitre_domains": ["enterprise-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {
@@ -129,9 +117,7 @@
           "url": "https://attack.mitre.org/software/S0001"
         }
       ],
-      "labels": [
-        "utility"
-      ]
+      "labels": ["utility"]
     },
     {
       "type": "relationship",

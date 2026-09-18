@@ -11,6 +11,7 @@ This document explains common issues when integrating with the mitre-mcp HTTP se
 ```
 
 Server responds with:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -25,6 +26,7 @@ Server responds with:
 ### Root Cause
 
 The MCP HTTP server (using the streamable HTTP transport) requires the client to accept **both** MIME types:
+
 - `application/json` - for JSON-RPC responses
 - `text/event-stream` - for Server-Sent Events (SSE) support
 
@@ -44,6 +46,7 @@ headers = {
 ### Correct Implementation
 
 **❌ WRONG - Will fail with 406:**
+
 ```python
 async with httpx.AsyncClient() as client:
     response = await client.post(
@@ -57,6 +60,7 @@ async with httpx.AsyncClient() as client:
 ```
 
 **✅ CORRECT:**
+
 ```python
 async with httpx.AsyncClient() as client:
     response = await client.post(
@@ -90,11 +94,13 @@ By requiring both in the Accept header, the server ensures the client can handle
 To diagnose MCP HTTP connection issues:
 
 1. **Use the diagnostic script:**
+
    ```bash
    python test-mcp-connection.py localhost 8000
    ```
 
 2. **Enable debug mode in the client:**
+
    ```bash
    python mini-mcp-client.py --debug --host localhost --port 8000 tactics
    ```
@@ -122,6 +128,7 @@ To diagnose MCP HTTP connection issues:
 **Cause:** Server is not running or is on a different port.
 
 **Solution:**
+
 1. Start the server: `mitre-mcp --http --port 8000`
 2. Verify port matches your client configuration
 3. Check firewall settings
@@ -131,11 +138,13 @@ To diagnose MCP HTTP connection issues:
 **Symptom:** `TimeoutException`
 
 **Cause:**
+
 - Server is downloading data (first run)
 - Network latency
 - Server is processing a large request
 
 **Solution:**
+
 1. Wait for initial data download (check server logs)
 2. Increase client timeout
 3. Use pagination for large queries (`--limit`, `--offset`)
@@ -143,6 +152,7 @@ To diagnose MCP HTTP connection issues:
 ## MCP HTTP Protocol Reference
 
 The MCP HTTP transport uses:
+
 - **Endpoint:** `/mcp`
 - **Method:** `POST`
 - **Protocol:** JSON-RPC 2.0
@@ -150,6 +160,7 @@ The MCP HTTP transport uses:
 - **Accept:** `application/json, text/event-stream` (both required)
 
 **Session Management:**
+
 - Server assigns session IDs (visible in `mcp-session-id` header)
 - Sessions are maintained per connection
 - No manual session management needed for simple clients

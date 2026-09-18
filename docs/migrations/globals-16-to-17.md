@@ -52,4 +52,4 @@ still exists in v17 — usage remains valid, no renamed keys in use.
 - `frontend/package-lock.json`: regenerated via `npm install`.
 - Verified: `npm ci`, `npm run lint`, `npm run build`,
   `npm audit --audit-level=high` all exit 0 on Node 24+; `npm ls
-  globals` shows 17.12.0 with zero new lint errors.
+globals` shows 17.12.0 with zero new lint errors.

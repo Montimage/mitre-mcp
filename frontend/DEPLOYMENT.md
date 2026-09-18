@@ -5,6 +5,7 @@ This guide covers deploying the React frontend to various hosting platforms.
 ## Build Information
 
 **Production Build Stats:**
+
 - Total JavaScript: ~224 KB (~70 KB gzipped)
 - CSS: 7.13 KB (1.61 KB gzipped)
 - HTML: 0.64 KB (0.38 KB gzipped)
@@ -13,6 +14,7 @@ This guide covers deploying the React frontend to various hosting platforms.
 ## Prerequisites
 
 Before deployment:
+
 1. Build the production bundle: `npm run build`
 2. Ensure mitre-mcp server is accessible (deployed or configured for users)
 3. Configure CORS on mitre-mcp server if deploying to different domain
@@ -24,16 +26,19 @@ Before deployment:
 **Steps:**
 
 1. **Install Netlify CLI** (optional):
+
    ```bash
    npm install -g netlify-cli
    ```
 
 2. **Build the project**:
+
    ```bash
    npm run build
    ```
 
 3. **Deploy via CLI**:
+
    ```bash
    netlify deploy --prod --dir=dist
    ```
@@ -44,11 +49,13 @@ Before deployment:
    - Site will be live instantly
 
 **Configuration:**
+
 - Build command: `npm run build`
 - Publish directory: `dist`
 - No environment variables needed (runtime config via UI)
 
 **Custom Domain:**
+
 - Add custom domain in Netlify settings
 - DNS will be configured automatically
 
@@ -57,11 +64,13 @@ Before deployment:
 **Steps:**
 
 1. **Install Vercel CLI**:
+
    ```bash
    npm install -g vercel
    ```
 
 2. **Deploy**:
+
    ```bash
    vercel --prod
    ```
@@ -73,6 +82,7 @@ Before deployment:
    - Deploy
 
 **Configuration:**
+
 - Framework Preset: Vite
 - Build Command: `npm run build`
 - Output Directory: `dist`
@@ -83,14 +93,16 @@ Before deployment:
 **Steps:**
 
 1. **Update `vite.config.js`**:
+
    ```javascript
    export default defineConfig({
      plugins: [react()],
-     base: '/mitre-mcp/', // Replace with your repo name
-   })
+     base: "/mitre-mcp/", // Replace with your repo name
+   });
    ```
 
 2. **Build and deploy**:
+
    ```bash
    npm run build
 
@@ -187,11 +199,13 @@ docker run -d -p 8080:80 mitre-mcp-frontend
 **Steps:**
 
 1. **Create S3 bucket**:
+
    ```bash
    aws s3 mb s3://mitre-mcp-frontend
    ```
 
 2. **Configure bucket for static hosting**:
+
    ```bash
    aws s3 website s3://mitre-mcp-frontend \
      --index-document index.html \
@@ -199,12 +213,14 @@ docker run -d -p 8080:80 mitre-mcp-frontend
    ```
 
 3. **Upload build files**:
+
    ```bash
    npm run build
    aws s3 sync dist/ s3://mitre-mcp-frontend --delete
    ```
 
 4. **Set bucket policy** (make public):
+
    ```json
    {
      "Version": "2012-10-17",
@@ -231,6 +247,7 @@ docker run -d -p 8080:80 mitre-mcp-frontend
 For shared hosting (cPanel, FTP):
 
 1. **Build the project**:
+
    ```bash
    npm run build
    ```
@@ -261,10 +278,12 @@ For shared hosting (cPanel, FTP):
 Users need access to a running mitre-mcp server. Options:
 
 **A. Self-hosted** (users run locally):
+
 - Users run: `mitre-mcp --http --port 8000`
 - Configure in UI: localhost:8000
 
 **B. Deployed mitre-mcp server**:
+
 - Deploy mitre-mcp to cloud (AWS, GCP, Azure)
 - Expose via public URL with authentication
 - Users configure: your-server.com:8000
@@ -273,6 +292,7 @@ Users need access to a running mitre-mcp server. Options:
 
 Allow your frontend domain via the server's `MITRE_CORS_ORIGINS`
 environment variable (credentials are never allowed):
+
 ```bash
 MITRE_CORS_ORIGINS="https://your-frontend-domain.com,http://localhost:5173"
 ```
@@ -282,25 +302,30 @@ MITRE_CORS_ORIGINS="https://your-frontend-domain.com,http://localhost:5173"
 If using environment variables (optional):
 
 **Netlify/Vercel**:
+
 - Add in dashboard: Settings > Environment Variables
 - Example: `VITE_MCP_DEFAULT_HOST=api.example.com`
 
 **GitHub Pages**:
+
 - Not supported; users configure at runtime via UI
 
 ### 3. Custom Domain
 
 **Netlify**:
+
 ```bash
 netlify domains:add your-domain.com
 ```
 
 **Vercel**:
+
 ```bash
 vercel domains add your-domain.com
 ```
 
 **GitHub Pages**:
+
 - Add CNAME file to `public/` folder
 - Configure DNS: CNAME record pointing to `yourusername.github.io`
 
@@ -309,6 +334,7 @@ vercel domains add your-domain.com
 All modern platforms (Netlify, Vercel, GitHub Pages) provide free SSL/TLS certificates automatically.
 
 For custom deployments:
+
 - Use Let's Encrypt: https://letsencrypt.org/
 - Or cloud provider SSL (AWS Certificate Manager, etc.)
 
@@ -323,6 +349,7 @@ All platforms enable gzip/brotli by default. If using custom hosting, ensure com
 Platforms like Netlify, Vercel automatically use global CDN.
 
 For custom deployments, consider:
+
 - Cloudflare (free tier available)
 - AWS CloudFront
 - Google Cloud CDN
@@ -332,6 +359,7 @@ For custom deployments, consider:
 Headers are configured in build process. For custom hosting:
 
 **nginx**:
+
 ```nginx
 location /assets/ {
     add_header Cache-Control "public, max-age=31536000, immutable";
@@ -343,6 +371,7 @@ location / {
 ```
 
 **Apache (.htaccess)**:
+
 ```apache
 <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2)$">
     Header set Cache-Control "max-age=31536000, public, immutable"
@@ -360,6 +389,7 @@ location / {
 Add analytics to track usage:
 
 **Google Analytics**:
+
 ```javascript
 // Add to index.html
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
@@ -372,13 +402,19 @@ Add analytics to track usage:
 ```
 
 **Plausible** (privacy-friendly):
+
 ```html
-<script defer data-domain="yourdomain.com" src="https://plausible.io/js/script.js"></script>
+<script
+  defer
+  data-domain="yourdomain.com"
+  src="https://plausible.io/js/script.js"
+></script>
 ```
 
 ### Error Tracking
 
 **Sentry**:
+
 ```bash
 npm install @sentry/react
 ```
@@ -416,7 +452,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install dependencies
         run: |
@@ -450,6 +486,7 @@ jobs:
 ### Build Fails
 
 **Issue**: Build errors with dependencies
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
@@ -459,6 +496,7 @@ npm run build
 ### Blank Page After Deployment
 
 **Possible causes**:
+
 1. Incorrect `base` in vite.config.js (GitHub Pages)
 2. Missing `.htaccess` or nginx config for SPA routing
 3. Build files not uploaded to correct directory
@@ -470,6 +508,7 @@ npm run build
 **Issue**: Cannot connect to mitre-mcp server
 
 **Solution**:
+
 - Add CORS middleware to mitre-mcp server
 - Or deploy both on same domain/subdomain
 - Or use reverse proxy
@@ -477,6 +516,7 @@ npm run build
 ### Slow Loading
 
 **Solutions**:
+
 - Enable CDN
 - Verify compression enabled
 - Check network waterfall in DevTools
@@ -510,12 +550,14 @@ npm run preview
 ## Cost Estimates
 
 **Free Tier Options**:
+
 - Netlify: 100GB bandwidth/month, unlimited sites
 - Vercel: 100GB bandwidth/month
 - GitHub Pages: Unlimited bandwidth for public repos
 - Cloudflare Pages: Unlimited bandwidth
 
 **Paid Options** (if exceeding free tier):
+
 - Netlify Pro: $19/month
 - Vercel Pro: $20/month
 - AWS S3 + CloudFront: ~$1-5/month for small traffic
@@ -523,6 +565,7 @@ npm run preview
 ## Support
 
 For deployment issues:
+
 - Check platform-specific documentation
 - Review build logs
 - Test locally first: `npm run preview`

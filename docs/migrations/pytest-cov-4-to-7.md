@@ -59,11 +59,11 @@ pytest-cov 7.1.0.
   `subprocess`/`Popen`/multiprocessing coverage paths), and
   `[tool.coverage.run]` sets no `concurrency`/`parallel`/`patch` — the
   7.0.0 subprocess-measurement removal is a no-op; no `patch =
-  subprocess` needed.
+subprocess` needed.
 - `tests/` does not spawn `coverage` directly or read `.coverage*`
   data files.
 - CI (`.github/workflows/test.yml`) invokes `pytest --cov=mitre_mcp
-  --cov-report=xml --cov-report=term-missing` — flags unchanged.
+--cov-report=xml --cov-report=term-missing` — flags unchanged.
 - Coverage drift: measured 93.77% post-bump on Python 3.11.15
   (gate 79 — ~15pp margin; the CLAUDE.md recorded baseline of 80.2%
   was stale and is updated to 93.8% alongside this change).

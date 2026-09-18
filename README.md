@@ -289,16 +289,16 @@ Includes:
 
 Set before starting `mitre-mcp` to customize behavior:
 
-| Variable                                                    | Default                        | Purpose                                                                            |
-| ----------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
-| `MITRE_ENTERPRISE_URL`, `MITRE_MOBILE_URL`, `MITRE_ICS_URL` | Official MITRE CTI GitHub URLs | Override ATT&CK bundle locations or point to internal mirror                       |
-| `MITRE_DATA_DIR`                                            | `mitre_mcp/data`               | Store cached bundles in custom directory                                           |
-| `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                       |
-| `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                        |
-| `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                    |
-| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                 |
-| `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                            |
-| `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                     |
+| Variable                                                    | Default                        | Purpose                                                                              |
+| ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| `MITRE_ENTERPRISE_URL`, `MITRE_MOBILE_URL`, `MITRE_ICS_URL` | Official MITRE CTI GitHub URLs | Override ATT&CK bundle locations or point to internal mirror                         |
+| `MITRE_DATA_DIR`                                            | `mitre_mcp/data`               | Store cached bundles in custom directory                                             |
+| `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                         |
+| `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                          |
+| `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                      |
+| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                   |
+| `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                              |
+| `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                       |
 | `MITRE_CORS_ORIGINS`                                        | localhost origins              | CORS allowed origins for HTTP mode (comma-separated list; `*` is an explicit opt-in) |
 
 To let a hosted UI (e.g. the Netlify deployment) call the server cross-origin, set `MITRE_CORS_ORIGINS` to its origin, e.g. `MITRE_CORS_ORIGINS="https://mitre-mcp.netlify.app,http://localhost:5173"`. Credentials are never allowed in any CORS configuration.

@@ -11,7 +11,6 @@ Practical workflows for analysts, hunters, and engineers who pair `mitre-mcp` wi
   - **Claude Desktop** ([Download](https://claude.ai/download)) for conversational access
   - **or any MCP Client** such as: VSCode Studio, Cursor, Windsurf, etc.
 
-
 ### Configuration
 
 **Step 1:** Start the mitre-mcp server in HTTP mode (recommended):
@@ -23,6 +22,7 @@ mitre-mcp --http
 **Step 2:** Add `mitre-mcp` to your MCP client configuration:
 
 **Claude Desktop / VSCode** (`claude_desktop_config.json` or MCP settings):
+
 ```json
 {
   "mcpServers": {
@@ -34,6 +34,7 @@ mitre-mcp --http
 ```
 
 **Configuration file locations:**
+
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 - Linux: `~/.config/Claude/claude_desktop_config.json`
@@ -75,6 +76,7 @@ mitre-mcp --http --host 0.0.0.0 --port 8080
 ```
 
 **Environment variables:**
+
 - `MITRE_HTTP_HOST` - Override default host
 - `MITRE_HTTP_PORT` - Override default port (8000)
 - `MITRE_ENABLE_CORS` - Enable/disable CORS (default: enabled)
@@ -125,6 +127,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 ```
 
 Then start the server:
+
 ```bash
 mitre-mcp --http
 ```
@@ -140,6 +143,7 @@ mitre-mcp --http
 #### Other MCP Clients
 
 **mitre-mcp** works with any MCP-compatible client:
+
 - **Cursor** - AI-powered code editor
 - **Windsurf** - Collaborative development environment
 - **Zed** - High-performance code editor
@@ -152,6 +156,7 @@ See [README.md](README.md) for detailed configuration instructions.
 Once configured, simply open your MCP client's chatbox and ask natural language questions. The client will automatically invoke the appropriate mitre-mcp tools to answer your queries.
 
 **Example interaction:**
+
 ```
 You: What techniques does APT29 use? Highlight the most critical ones for defense.
 
@@ -160,6 +165,7 @@ AI: [Automatically calls get_techniques_used_by_group and presents the results]
 
 **Available MCP Tools:**
 The following tools are automatically available to your AI assistant:
+
 - `get_tactics` - List all tactics
 - `get_techniques` - List techniques with filtering
 - `get_technique_by_id` - Get specific technique details
@@ -191,16 +197,19 @@ The following scenarios provide ready-to-use prompts for common security workflo
 **Claude Desktop workflow:**
 
 **Step 1:** Ask about a threat group's techniques
+
 ```
 What techniques does APT29 use? Highlight the most critical ones for defense.
 ```
 
 **Step 2:** Compare multiple threat actors
+
 ```
 Compare APT29 and APT28 techniques - what overlaps exist?
 ```
 
 **Step 3:** Get detailed technique information
+
 ```
 Give me details on T1059.001 including detection guidance.
 ```
@@ -215,16 +224,19 @@ Give me details on T1059.001 including detection guidance.
 **Claude Desktop workflow:**
 
 **Step 1:** Analyze a specific technique for detection
+
 ```
 Analyze T1003 (Credential Dumping) - what log sources and detection logic should I implement?
 ```
 
 **Step 2:** Find mitigations for a tactic
+
 ```
 What mitigations address the most common persistence techniques?
 ```
 
 **Step 3:** Explore mitigation coverage
+
 ```
 Show me all techniques that 'Network Segmentation' mitigates.
 ```
@@ -239,16 +251,19 @@ Show me all techniques that 'Network Segmentation' mitigates.
 **Claude Desktop workflow:**
 
 **Step 1:** Create a hunt plan for a tactic
+
 ```
 Build a threat hunt plan for Initial Access techniques - include hypotheses and log sources.
 ```
 
 **Step 2:** Prioritize techniques for an environment
+
 ```
 What persistence techniques should I prioritize for a Windows environment?
 ```
 
 **Step 3:** Generate hunting queries for threat actors
+
 ```
 Generate hunting queries for lateral movement techniques used by APT groups.
 ```
@@ -263,16 +278,19 @@ Generate hunting queries for lateral movement techniques used by APT groups.
 **Claude Desktop workflow:**
 
 **Step 1:** Build an emulation plan for a threat group
+
 ```
 Build a FIN7 emulation plan focused on lateral movement techniques.
 ```
 
 **Step 2:** Identify tools and malware for emulation
+
 ```
 What tools and malware should I use to emulate APT41 behavior?
 ```
 
 **Step 3:** Create an attack chain for a tactic
+
 ```
 Create a multi-stage attack chain using techniques from the Privilege Escalation tactic.
 ```
@@ -287,16 +305,19 @@ Create a multi-stage attack chain using techniques from the Privilege Escalation
 **Claude Desktop workflow:**
 
 **Step 1:** Assess control coverage for a mitigation
+
 ```
 Assess my control coverage - what techniques does 'Network Segmentation' mitigate?
 ```
 
 **Step 2:** Generate a coverage heat map
+
 ```
 Generate a coverage heat map showing which mitigations address the most critical techniques.
 ```
 
 **Step 3:** Identify coverage gaps
+
 ```
 What techniques are under-covered by standard enterprise mitigations?
 ```
@@ -311,16 +332,19 @@ What techniques are under-covered by standard enterprise mitigations?
 **Claude Desktop workflow:**
 
 **Step 1:** Get detection details for observed technique
+
 ```
 We observed scheduled task creation (T1053.005) - provide detection details and likely threat actors.
 ```
 
 **Step 2:** Perform attribution with multiple techniques
+
 ```
 What groups use these techniques: T1053.005, T1059.001, T1003? Help with attribution.
 ```
 
 **Step 3:** Generate incident report
+
 ```
 Generate an incident report template mapping these IOCs to ATT&CK techniques.
 ```
@@ -335,16 +359,19 @@ Generate an incident report template mapping these IOCs to ATT&CK techniques.
 **Claude Desktop workflow:**
 
 **Step 1:** Prioritize techniques for alert tuning
+
 ```
 What Defense Evasion techniques should I prioritize for alert tuning?
 ```
 
 **Step 2:** Build runbook templates
+
 ```
 Build a SOC runbook template for responding to Credential Access alerts.
 ```
 
 **Step 3:** Map SIEM coverage to ATT&CK
+
 ```
 Map my current SIEM use cases to ATT&CK tactics - identify gaps.
 ```
@@ -359,16 +386,19 @@ Map my current SIEM use cases to ATT&CK tactics - identify gaps.
 **Claude Desktop workflow:**
 
 **Step 1:** Create hands-on lab content
+
 ```
 Create a hands-on lab for teaching T1059.001 (PowerShell) - include learning objectives and exercises.
 ```
 
 **Step 2:** Build tabletop exercise scenarios
+
 ```
 Build a tabletop exercise scenario using Lazarus Group techniques.
 ```
 
 **Step 3:** Generate quiz questions
+
 ```
 Generate quiz questions covering Initial Access and Persistence tactics.
 ```
@@ -383,16 +413,19 @@ Generate quiz questions covering Initial Access and Persistence tactics.
 **Claude Desktop workflow:**
 
 **Step 1:** Validate vendor coverage claims
+
 ```
 A vendor claims 80% coverage of Privilege Escalation techniques - build test scenarios to validate this.
 ```
 
 **Step 2:** Compare detection capabilities
+
 ```
 Compare vendor detection coverage against the top 20 most common enterprise techniques.
 ```
 
 **Step 3:** Prioritize evaluation criteria
+
 ```
 What techniques should I prioritize when evaluating EDR solutions?
 ```
@@ -407,16 +440,19 @@ What techniques should I prioritize when evaluating EDR solutions?
 **Claude Desktop workflow:**
 
 **Step 1:** Create a risk register
+
 ```
 Create a risk register prioritizing the top 50 enterprise techniques by severity and prevalence.
 ```
 
 **Step 2:** Identify mitigation investments
+
 ```
 What mitigations should we invest in to address Discovery and Collection tactics?
 ```
 
 **Step 3:** Build a security roadmap
+
 ```
 Build a security roadmap addressing gaps in our coverage of APT-commonly-used techniques.
 ```

@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 DEFAULT_VENV = Path.home() / ".mitre-mcp-claude"
 CLAUDE_CONFIG = Path.home() / "Library/Application Support/Claude/claude_desktop_config.json"

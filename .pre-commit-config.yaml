@@ -3,10 +3,14 @@
 # Setup: pre-commit install
 # Run manually: pre-commit run --all-files
 
+# `pre-commit install` registers both stages: fast checks on commit,
+# the test suite and install check on push (pre-push).
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   # Code formatting
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 26.5.1
     hooks:
       - id: black
         language_version: python3.11
@@ -14,14 +18,14 @@ repos:
 
   # Import sorting
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 9.0.1
     hooks:
       - id: isort
         args: ["--profile", "black", "--line-length", "100"]
 
   # Linting
   - repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
+    rev: 7.3.0
     hooks:
       - id: flake8
         args:
@@ -35,24 +39,26 @@ repos:
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v2.3.1
     hooks:
       - id: mypy
+        files: ^mitre_mcp/
         additional_dependencies:
           - types-requests
-        args: ["--ignore-missing-imports", "--strict"]
+        # No args: reads [tool.mypy] from pyproject.toml — same config as CI.
 
   # Security scanning
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.10
+    rev: 1.9.4
     hooks:
       - id: bandit
+        files: ^mitre_mcp/
         args: ["-c", "pyproject.toml"]
         additional_dependencies: ["bandit[toml]"]
 
   # General code quality
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -69,26 +75,27 @@ repos:
 
   # Python code upgrade suggestions
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+    rev: v3.21.2
     hooks:
       - id: pyupgrade
         args: ["--py311-plus"]
 
-  # Docstring formatting
-  - repo: https://github.com/PyCQA/pydocstyle
-    rev: 6.3.0
+  # Docstring linting — ruff D rules, configured under [tool.ruff] in pyproject.toml
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
     hooks:
-      - id: pydocstyle
-        args:
-          - "--convention=google"
-          - "--add-ignore=D100,D104,D105,D107"
+      - id: ruff-check
 
-  # YAML formatting
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
+  # YAML/JSON/Markdown formatting — prettier as a pinned npm dependency
+  # (the old git-mirror hook repository is archived upstream)
+  - repo: local
     hooks:
       - id: prettier
+        name: prettier
+        entry: prettier --write --ignore-unknown
+        language: node
         types_or: [yaml, json, markdown]
+        additional_dependencies: ["prettier@3.9.8"]
 
   # Local hooks for testing and installation verification
   - repo: local
@@ -100,7 +107,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        stages: [pre-push]
 
       # Test installation in a clean environment
       - id: test-install
@@ -109,7 +116,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        stages: [pre-push]
 
       # Verify all package imports work
       - id: import-check

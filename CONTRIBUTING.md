@@ -91,29 +91,29 @@ npm test
 
 `mitre_mcp/config.py` reads twelve `MITRE_*` variables:
 
-| Variable                  | Purpose                                            |
-| ------------------------- | -------------------------------------------------- |
-| `MITRE_ENTERPRISE_URL`    | Enterprise ATT&CK STIX bundle download URL         |
-| `MITRE_MOBILE_URL`        | Mobile ATT&CK STIX bundle download URL             |
-| `MITRE_ICS_URL`           | ICS ATT&CK STIX bundle download URL                |
-| `MITRE_DOWNLOAD_TIMEOUT`  | Download timeout in seconds                        |
-| `MITRE_CACHE_EXPIRY_DAYS` | Days before the data cache is considered stale     |
-| `MITRE_REQUIRED_SPACE_MB` | Free disk space required before downloading data   |
-| `MITRE_DEFAULT_PAGE_SIZE` | Default page size for tool results                 |
-| `MITRE_MAX_PAGE_SIZE`     | Maximum page size for tool results                 |
-| `MITRE_MAX_DESC_LENGTH`   | Maximum description length returned by tools       |
-| `MITRE_DATA_DIR`          | Data directory override (unset means auto-detect)  |
-| `MITRE_LOG_LEVEL`         | Logging level                                      |
+| Variable                  | Purpose                                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MITRE_ENTERPRISE_URL`    | Enterprise ATT&CK STIX bundle download URL                                                                                                           |
+| `MITRE_MOBILE_URL`        | Mobile ATT&CK STIX bundle download URL                                                                                                               |
+| `MITRE_ICS_URL`           | ICS ATT&CK STIX bundle download URL                                                                                                                  |
+| `MITRE_DOWNLOAD_TIMEOUT`  | Download timeout in seconds                                                                                                                          |
+| `MITRE_CACHE_EXPIRY_DAYS` | Days before the data cache is considered stale                                                                                                       |
+| `MITRE_REQUIRED_SPACE_MB` | Free disk space required before downloading data                                                                                                     |
+| `MITRE_DEFAULT_PAGE_SIZE` | Default page size for tool results                                                                                                                   |
+| `MITRE_MAX_PAGE_SIZE`     | Maximum page size for tool results                                                                                                                   |
+| `MITRE_MAX_DESC_LENGTH`   | Maximum description length returned by tools                                                                                                         |
+| `MITRE_DATA_DIR`          | Data directory override (unset means auto-detect)                                                                                                    |
+| `MITRE_LOG_LEVEL`         | Logging level                                                                                                                                        |
 | `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode (defaults to localhost dev origins; add a hosted UI origin explicitly; credentials never allowed) |
 
 `mitre_mcp/mitre_mcp_server.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port).
 
 The frontend reads the `VITE_*` names listed in `frontend/.env.example` — names only; never copy values from `.env` or the `.mcpregistry_*token` files:
 
-| Variable                  | Purpose                                              |
-| ------------------------- | ---------------------------------------------------- |
-| `VITE_MCP_DEFAULT_HOST`   | Default MCP server host shown in the settings dialog |
-| `VITE_MCP_DEFAULT_PORT`   | Default MCP server port shown in the settings dialog |
+| Variable                | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `VITE_MCP_DEFAULT_HOST` | Default MCP server host shown in the settings dialog |
+| `VITE_MCP_DEFAULT_PORT` | Default MCP server port shown in the settings dialog |
 
 LLM API keys (Gemini, OpenRouter, OpenAI) are entered at runtime via the
 settings dialog and stored in browser IndexedDB — there is no build-time
@@ -252,7 +252,7 @@ pre-commit run black --all-files
 4. **Security**: bandit
 5. **General Checks**: trailing whitespace, YAML/JSON validation, etc.
 6. **Python Upgrades**: pyupgrade for Python 3.11+ syntax
-7. **Docstrings**: pydocstyle (Google style)
+7. **Docstrings**: ruff `D` rules (Google convention, configured in `pyproject.toml`)
 
 ### Bypassing Hooks
 
@@ -270,10 +270,12 @@ The project uses three main workflows:
 
 #### 1. Tests (`test.yml`)
 
-**Triggers**: Push to main/develop/claude/\*, pull requests
+**Triggers**: Push to main/develop/claude/\*, pull requests, weekly schedule
 
 **Matrix Testing**:
 
+- Pull requests and pushes run a slim matrix (Ubuntu + macOS on Python 3.11, Ubuntu on 3.14)
+- The weekly schedule and manual dispatch run the full matrix
 - Python versions: 3.11, 3.12, 3.13, 3.14
 - Operating systems: Ubuntu, macOS, Windows
 
@@ -282,7 +284,7 @@ The project uses three main workflows:
 1. Set up Python environment
 2. Install dependencies
 3. Run pytest with coverage
-4. Upload coverage to Codecov (Ubuntu + Python 3.12 only)
+4. Upload coverage to Codecov (Ubuntu + Python 3.11 only)
 
 **Local Equivalent**:
 
@@ -300,7 +302,7 @@ pytest --cov=mitre_mcp --cov-report=xml
 2. isort import sorting
 3. flake8 linting
 4. mypy type checking
-5. pydocstyle docstring style
+5. ruff docstring rules (`D`, Google convention)
 6. Radon code complexity
 
 **Local Equivalent**:
@@ -310,7 +312,7 @@ black --check mitre_mcp/ tests/
 isort --check-only mitre_mcp/ tests/
 flake8 mitre_mcp/ tests/
 mypy mitre_mcp/
-pydocstyle mitre_mcp/
+ruff check mitre_mcp/
 radon cc mitre_mcp/ -a -nb
 ```
 

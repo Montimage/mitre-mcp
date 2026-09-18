@@ -52,7 +52,7 @@ instructions).
   options are in use, so no config changes are required.
 - Grep over `frontend/` (excluding `node_modules`/lockfile) for
   `rollupOptions|rolldownOptions|esbuild|optimizeDeps|minify|
-  manualChunks|build.target|transformWithEsbuild`: zero hits.
+manualChunks|build.target|transformWithEsbuild`: zero hits.
 - `src/` uses no `require()` or `process.env` — the CJS interop change
   is a no-op here (`"type": "module"` is set anyway).
 - `@vitejs/plugin-react` stays at `^5.2.0`: its peer range is
@@ -63,7 +63,7 @@ instructions).
 ## Repository impact audit
 
 - `netlify.toml` sets `NODE_VERSION = "24"` and `.github/workflows/
-  frontend.yml` uses `node-version: '24'` — both already satisfy the
+frontend.yml` uses `node-version: '24'` — both already satisfy the
   vite 8 engine floor; no changes needed.
 - Build output: chunk names/hashes change under Rolldown (expected),
   but the `dist/` shape (`index.html` + hashed `assets/`) is

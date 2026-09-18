@@ -24,6 +24,7 @@ cd frontend
 ```
 
 The script will:
+
 - Install dependencies
 - Build the production bundle
 - Prompt for deployment confirmation
@@ -39,6 +40,7 @@ On first deployment, you'll be asked:
 ```
 
 Choose "Create & configure a new site" and follow prompts:
+
 - **Team**: Select your team
 - **Site name**: Choose a unique name (e.g., `mitre-attack-assistant`)
 - **Production deploy**: Confirm
@@ -58,11 +60,13 @@ npm run build
 ### Step 2: Deploy
 
 **Production deployment:**
+
 ```bash
 netlify deploy --prod --dir=dist
 ```
 
 **Draft/Preview deployment:**
+
 ```bash
 netlify deploy --dir=dist
 ```
@@ -155,6 +159,7 @@ The project includes `netlify.toml` at the root with optimal settings:
 ### 1. Verify Deployment
 
 After deployment, visit your site URL:
+
 ```
 https://[your-site-name].netlify.app
 ```
@@ -170,12 +175,14 @@ https://[your-site-name].netlify.app
 ### 3. Test Functionality
 
 **Configure MCP Server:**
+
 1. Click "⚙️ Configure" in chatbox
 2. Enter your server address (if different from localhost:8000)
 3. Click "Test Connection"
 4. Click "Save"
 
 **Try Example Queries:**
+
 1. Click on a playbook scenario
 2. Copy an example query
 3. Paste into chatbox
@@ -190,6 +197,7 @@ For a fully functional public demo, you have two options:
 ### Option A: Users Run Local Server (Recommended)
 
 Clear instructions are provided in the app:
+
 1. Install: `pip install mitre-mcp`
 2. Run: `mitre-mcp --http --port 8000`
 3. Configure in UI: `localhost:8000`
@@ -251,6 +259,7 @@ npm run preview
 **Error**: "Build failed with exit code 1"
 
 **Solution**:
+
 ```bash
 cd frontend
 rm -rf node_modules package-lock.json
@@ -269,6 +278,7 @@ npm run build
 **Error**: "CORS policy: No 'Access-Control-Allow-Origin'"
 
 **Solution**:
+
 1. Enable CORS in mitre-mcp server
 2. Or deploy frontend and server on same domain
 
@@ -279,6 +289,7 @@ npm run build
 **Current size**: ~72 KB gzipped (excellent!)
 
 To further optimize:
+
 ```bash
 npm run build -- --mode production
 ```
@@ -298,6 +309,7 @@ Netlify automatically provides:
 ### Netlify Analytics (Optional)
 
 Enable in Site settings > Analytics:
+
 - Page views
 - Unique visitors
 - Top pages
@@ -320,9 +332,11 @@ Site settings > Domain management > Add custom domain
 ### 2. Configure DNS
 
 **Option A: Netlify DNS** (recommended):
+
 - Transfer DNS to Netlify for automatic setup
 
 **Option B: External DNS**:
+
 ```
 CNAME: www.yourdomain.com -> [site-name].netlify.app
 A Record: yourdomain.com -> (Netlify IP from docs)
@@ -335,6 +349,7 @@ Automatically enabled for custom domains (Let's Encrypt).
 ## Cost
 
 **Netlify Free Tier**:
+
 - 100 GB bandwidth/month
 - 300 build minutes/month
 - Unlimited sites

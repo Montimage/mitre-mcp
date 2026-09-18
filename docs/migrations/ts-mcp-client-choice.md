@@ -5,10 +5,10 @@ acceptance criterion.
 
 ## Candidates
 
-| Package | Version | Type | Runtime deps (npm) | Unpacked |
-|---|---|---|---|---|
-| `@modelcontextprotocol/sdk` | 1.30.0 | Full SDK (client + server) | express, hono, cors, ajv, raw-body, express-rate-limit, zod-to-json-schema, … (~18) | 4.3 MB |
-| `@modelcontextprotocol/client` | 2.0.0 | Client-only (`@modelcontextprotocol/core` 2.0.0) | zod, jose, cross-spawn, eventsource, eventsource-parser, pkce-challenge (~7) | 6.6 MB |
+| Package                        | Version | Type                                             | Runtime deps (npm)                                                                  | Unpacked |
+| ------------------------------ | ------- | ------------------------------------------------ | ----------------------------------------------------------------------------------- | -------- |
+| `@modelcontextprotocol/sdk`    | 1.30.0  | Full SDK (client + server)                       | express, hono, cors, ajv, raw-body, express-rate-limit, zod-to-json-schema, … (~18) | 4.3 MB   |
+| `@modelcontextprotocol/client` | 2.0.0   | Client-only (`@modelcontextprotocol/core` 2.0.0) | zod, jose, cross-spawn, eventsource, eventsource-parser, pkce-challenge (~7)        | 6.6 MB   |
 
 ## Sources consulted
 

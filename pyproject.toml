@@ -42,6 +42,7 @@ dev = [
     "isort>=5.13.0",
     "flake8>=7.0.0",
     "mypy>=1.11.0",
+    "ruff>=0.14.0",
     "bandit>=1.7.0",
     "safety>=3.0.0",
     "pip-audit>=2.7.0",
@@ -153,6 +154,22 @@ exclude_lines = [
     "@abstractmethod",
 ]
 
-[tool.pydocstyle]
+# Docstring linting — replaces the archived pydocstyle hook (pre-commit) and the
+# masked pydocstyle CI step. select = ["D"] keeps scope at docstring rules only;
+# flake8 stays the general linter.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["D"]
+ignore = ["D100", "D104", "D105", "D107"]
+
+[tool.ruff.lint.pydocstyle]
 convention = "google"
-add_ignore = ["D100", "D104", "D105", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+# Docstring rules apply to the package; tests, scripts and sample clients are exempt.
+"tests/**" = ["D"]
+"scripts/**" = ["D"]
+"clients/**" = ["D"]
