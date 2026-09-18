@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Python package + dev dependencies (pyproject.toml / requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Frontend npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+
+  # Node.js client npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/clients/nodejs"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions used by workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
