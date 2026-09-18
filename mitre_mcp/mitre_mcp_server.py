@@ -305,36 +305,49 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
                 logger.info("Using cached MITRE ATT&CK data from %s", last_update.isoformat())
 
     if need_download:
-        # Check disk space before downloading
-        check_disk_space(data_dir)
+        try:
+            # Check disk space before downloading
+            check_disk_space(data_dir)
 
-        logger.info("Downloading MITRE ATT&CK data in parallel...")
+            logger.info("Downloading MITRE ATT&CK data in parallel...")
 
-        # Create async HTTP client
-        async with httpx.AsyncClient(
-            headers={"User-Agent": f"mitre-mcp/{__version__}"},
-            verify=True,
-            timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
-        ) as client:
-            # Download all domains in parallel
-            download_tasks = [
-                download_domain(client, domain, url, paths[domain]) for domain, url in urls.items()
-            ]
+            # Create async HTTP client
+            async with httpx.AsyncClient(
+                headers={"User-Agent": f"mitre-mcp/{__version__}"},
+                verify=True,
+                timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
+            ) as client:
+                # Download all domains in parallel
+                download_tasks = [
+                    download_domain(client, domain, url, paths[domain])
+                    for domain, url in urls.items()
+                ]
 
-            # Wait for all downloads to complete
-            await asyncio.gather(*download_tasks)
+                # Wait for all downloads to complete
+                await asyncio.gather(*download_tasks)
 
-        # Save metadata
-        metadata = Metadata(
-            {
-                "last_update": datetime.now(timezone.utc).isoformat(),
-                "domains": list(urls.keys()),
-            }
-        )
-        with open(paths["metadata"], "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
+            # Save metadata
+            metadata = Metadata(
+                {
+                    "last_update": datetime.now(timezone.utc).isoformat(),
+                    "domains": list(urls.keys()),
+                }
+            )
+            with open(paths["metadata"], "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)
 
-        logger.info("MITRE ATT&CK data downloaded successfully.")
+            logger.info("MITRE ATT&CK data downloaded successfully.")
+        except Exception as e:
+            # A refresh failure must not kill startup when usable cached
+            # data is already on disk — serve it and warn loudly instead.
+            if all(os.path.exists(paths[domain]) for domain in urls):
+                logger.warning(
+                    "Failed to refresh MITRE ATT&CK data (%s); "
+                    "serving stale cached data — it may be outdated",
+                    e,
+                )
+            else:
+                raise
 
     return paths
 
