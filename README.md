@@ -101,7 +101,7 @@ mitre-mcp --http
 ```
 2025-11-17 22:40:10,991 - mitre_mcp.mitre_mcp_server - INFO - Starting MITRE ATT&CK MCP Server (HTTP mode on localhost:8000)
 ======================================================================
-MCP Client Configuration (Streamable HTTP Transport)
+MITRE ATT&CK MCP Server is ready (Streamable HTTP mode)
 Server URL: http://localhost:8000
 MCP Endpoint: http://localhost:8000/mcp
 

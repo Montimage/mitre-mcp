@@ -167,7 +167,9 @@ class TestStartupBanner:
             "ics": str(tmp_path / "i.json"),
             "metadata": str(tmp_path / "md.json"),
         }
-        monkeypatch.setattr(mod, "download_and_save_attack_data_async", AsyncMock(return_value=paths))
+        monkeypatch.setattr(
+            mod, "download_and_save_attack_data_async", AsyncMock(return_value=paths)
+        )
         _patch_lifespan_deps(monkeypatch, tmp_path)
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
 
