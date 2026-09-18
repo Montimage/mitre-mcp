@@ -10,9 +10,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from mcp.server.transport_security import TransportSecurityMiddleware
+from starlette.requests import HTTPConnection
+
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
     add_cors_middleware_to_mcp,
+    build_transport_security,
     download_and_save_attack_data_async,
     format_relationship_map,
     format_technique,
@@ -372,6 +376,72 @@ class TestCorsConfiguration(unittest.TestCase):
             from mitre_mcp import config as config_module
 
             reload(config_module)
+
+
+class TestTransportSecurity(unittest.TestCase):
+    """Tests for DNS-rebinding transport security settings (F-BUG-002)."""
+
+    @staticmethod
+    def _conn(host: str, origin: str | None) -> HTTPConnection:
+        headers = [(b"host", host.encode())]
+        if origin is not None:
+            headers.append((b"origin", origin.encode()))
+        return HTTPConnection({"type": "http", "method": "GET", "path": "/mcp", "headers": headers})
+
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_transport_security_configured_origin_accepted(self, mock_config):
+        """--host 0.0.0.0 + MITRE_CORS_ORIGINS=https://ui.example accepts the
+        listed Origin and answers an unlisted Origin with HTTP 403."""
+        mock_config.CORS_ORIGINS = "https://ui.example"
+
+        settings = build_transport_security("0.0.0.0", 8000)
+        middleware = TransportSecurityMiddleware(settings)
+
+        accepted = asyncio.run(
+            middleware.validate_request(self._conn("localhost:8000", "https://ui.example"))
+        )
+        self.assertIsNone(accepted)
+
+        rejected = asyncio.run(
+            middleware.validate_request(self._conn("localhost:8000", "https://evil.example"))
+        )
+        self.assertIsNotNone(rejected)
+        self.assertEqual(rejected.status_code, 403)
+
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_transport_security_wired_from_setup(self, mock_config):
+        """setup_http_server derives transport_security from --host + origins."""
+        from mitre_mcp import mitre_mcp_server as server_module
+
+        mock_config.CORS_ORIGINS = "https://ui.example"
+        with patch.object(server_module.mcp, "settings", MagicMock()):
+            server_module.setup_http_server("0.0.0.0", 8000)
+            settings = server_module.mcp.settings.transport_security
+
+        self.assertTrue(settings.enable_dns_rebinding_protection)
+        self.assertIn("0.0.0.0:*", settings.allowed_hosts)
+        self.assertIn("https://ui.example", settings.allowed_origins)
+
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_transport_security_loopback_bind(self, mock_config):
+        """Loopback bind keeps the loopback Host list; configured origins allowed."""
+        mock_config.CORS_ORIGINS = "http://localhost:5173"
+
+        settings = build_transport_security("127.0.0.1", 8000)
+
+        self.assertTrue(settings.enable_dns_rebinding_protection)
+        self.assertIn("localhost:*", settings.allowed_hosts)
+        self.assertNotIn("0.0.0.0:*", settings.allowed_hosts)
+        self.assertIn("http://localhost:5173", settings.allowed_origins)
+
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_transport_security_wildcard_disables(self, mock_config):
+        """Explicit '*' in MITRE_CORS_ORIGINS disables the protection."""
+        mock_config.CORS_ORIGINS = "*"
+
+        settings = build_transport_security("0.0.0.0", 8000)
+
+        self.assertFalse(settings.enable_dns_rebinding_protection)
 
 
 if __name__ == "__main__":

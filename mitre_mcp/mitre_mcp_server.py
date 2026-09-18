@@ -19,12 +19,14 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 # Third-party imports
 import httpx
 
 # MCP SDK imports
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from mitreattack.stix20 import MitreAttackData
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -1042,6 +1044,61 @@ def parse_http_args() -> tuple[str, int]:
     return host, port
 
 
+def build_transport_security(host: str, port: int) -> TransportSecuritySettings:
+    """Build DNS-rebinding protection settings for HTTP mode.
+
+    Derives the Host and Origin allow-lists in exactly one place from the
+    requested bind host and Config.CORS_ORIGINS:
+
+    - Loopback Host/Origin values are always allowed, matching the SDK
+      default.
+    - Configured MITRE_CORS_ORIGINS entries are always allowed as Origins,
+      and their hostnames are allowed as Host targets for same-host
+      deployments.
+    - A non-loopback bind host (e.g. 0.0.0.0) is added to the Host list.
+    - An explicit "*" in MITRE_CORS_ORIGINS disables the protection,
+      mirroring the allow-all CORS opt-in.
+    """
+    loopback_hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+    loopback_origins = [
+        "http://127.0.0.1:*",
+        "http://localhost:*",
+        "http://[::1]:*",
+    ]
+
+    configured_origins = [
+        origin.strip() for origin in Config.CORS_ORIGINS.split(",") if origin.strip()
+    ]
+
+    if "*" in configured_origins:
+        enable = False
+        allowed_hosts: list[str] = []
+        allowed_origins: list[str] = []
+        logger.warning(
+            "MITRE_CORS_ORIGINS='*': DNS rebinding protection disabled for HTTP transport"
+        )
+    else:
+        enable = True
+        allowed_hosts = list(loopback_hosts)
+        allowed_origins = loopback_origins + configured_origins
+
+        if host not in ("127.0.0.1", "localhost", "::1"):
+            allowed_hosts.append(f"{host}:*")
+
+        for origin in configured_origins:
+            netloc = urlparse(origin).netloc
+            if netloc:
+                allowed_hosts.append(netloc if ":" in netloc else f"{netloc}:*")
+
+        allowed_hosts = list(dict.fromkeys(allowed_hosts))
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=enable,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+    )
+
+
 def get_cors_middleware() -> list[Middleware]:
     """Build CORS middleware configuration.
 
@@ -1090,6 +1147,12 @@ def setup_http_server(host: str, port: int) -> None:
     # Configure FastMCP settings for HTTP mode
     mcp.settings.host = host
     mcp.settings.port = port
+
+    # Derive DNS-rebinding transport security from the bind host and the
+    # configured CORS origins — the SDK builds its localhost-only default
+    # at FastMCP() construction time, before --host is known, so it must be
+    # replaced here or remote clients are always rejected.
+    mcp.settings.transport_security = build_transport_security(host, port)
 
     # Show configuration for HTTP mode
     server_url = f"http://{host}:{port}"
