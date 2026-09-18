@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node mini-mcp-client.js",
     "tactics": "node mini-mcp-client.js tactics",
-    "test": "node mini-mcp-client.js tactics --limit 5"
+    "test": "node --test"
   },
   "keywords": [
     "mitre",
