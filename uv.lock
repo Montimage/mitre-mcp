@@ -1413,7 +1413,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.24.0,<1.0.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.0" },
     { name = "mcp", specifier = ">=1.28.1,<2" },
-    { name = "mitreattack-python", specifier = ">=5,<6" },
+    { name = "mitreattack-python", specifier = ">=6,<7" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.5.0" },
@@ -1427,9 +1427,10 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "mitreattack-python"
-version = "5.7.0"
+version = "6.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "click" },
     { name = "colour" },
     { name = "deepdiff" },
     { name = "drawsvg" },
@@ -1452,9 +1453,9 @@ dependencies = [
     { name = "wheel" },
     { name = "xlsxwriter" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/36/bb/220b6429f89bde3b95fdeb571856f50a340f000cf8e7d066caf3d1ec1e2f/mitreattack_python-5.7.0.tar.gz", hash = "sha256:f7693834e2b6f738e4d49751fc1308a234e82c18d65c1af55c85dffa7f7a3a17", size = 550624, upload-time = "2026-05-06T12:01:37.648Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/c5/3d3c9dbefa8bbd5683e1d847bdb75392290572f90dccb011bb8b30dd9601/mitreattack_python-6.2.0.tar.gz", hash = "sha256:8418ca171e6a6c432025389761317089388b807bb7bb2efc29c3189b843bb2b5", size = 554803, upload-time = "2026-08-05T23:15:49.123Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/23/f05b7b23b5949882922896a038946bad77e5b2be69783095bf22abbdc05d/mitreattack_python-5.7.0-py3-none-any.whl", hash = "sha256:a860252f5bfd29ee0d46dde960a5c349d55b07e3241bda87f4ea87dbca8eaee6", size = 570123, upload-time = "2026-05-06T12:01:35.951Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/a7/146008eb479134a14d3c8529dfee3435074f5e5a57681993dacf9c4c3d9a/mitreattack_python-6.2.0-py3-none-any.whl", hash = "sha256:321f160e14eb7e6fb2a5f6691c76266be6500e10dcb4bcdb018fab6394073e46", size = 574596, upload-time = "2026-08-05T23:15:47.285Z" },
 ]
 
 [[package]]
