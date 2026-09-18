@@ -1,5 +1,5 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.luongnv89/mitre-mcp",
   "title": "MITRE ATT&CK",
   "description": "MCP server exposing the MITRE ATT&CK framework via the official MCP Python SDK.",
