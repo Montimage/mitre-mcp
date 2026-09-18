@@ -5,11 +5,13 @@ on:
     branches: [main, develop, claude/*]
     paths:
       - 'frontend/**'
+      - 'clients/**'
       - '.github/workflows/frontend.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'frontend/**'
+      - 'clients/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
 
@@ -39,6 +41,9 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Run tests
+        run: npm test
+
       - name: Build frontend
         run: npm run build
 
@@ -48,3 +53,38 @@ jobs:
           name: frontend-build
           path: frontend/dist/
           retention-days: 7
+
+  client-smoke:
+    name: Sample client smoke tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: clients/nodejs/package-lock.json
+
+      - name: Node.js client smoke test
+        working-directory: ./clients/nodejs
+        run: |
+          npm ci
+          npm test
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Python client smoke test
+        run: uv run --locked pytest clients/python/ -q -p no:cacheprovider -o addopts=""
