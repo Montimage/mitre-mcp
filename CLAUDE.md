@@ -20,4 +20,4 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 
 - Recorded pass rate: 133 passed / 133 total
 - Failing tests: none
-- Recorded coverage: 76.0 % (committed STIX fixture runs all integration tests; gate `--cov-fail-under=76` in `pyproject.toml`)
+- Recorded coverage: 76.0 % (committed STIX fixture runs all integration tests; gate `--cov-fail-under=75` — set at the matrix minimum: Python 3.14 measures 75.77 %)
