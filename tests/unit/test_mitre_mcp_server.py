@@ -19,7 +19,7 @@ from starlette.routing import Route
 
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
-    add_cors_middleware_to_mcp,
+    build_http_app,
     build_transport_security,
     download_and_save_attack_data_async,
     format_relationship_map,
@@ -301,41 +301,34 @@ class TestCorsConfiguration(unittest.TestCase):
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_add_cors_middleware_patches_mcp(self, mock_config, mock_mcp):
-        """Test add_cors_middleware_to_mcp patches the streamable_http_app method."""
+    def test_build_http_app_adds_cors(self, mock_config, mock_mcp):
+        """Test build_http_app adds CORS middleware to the SDK app."""
         mock_config.CORS_ORIGINS = "*"
         mock_app = MagicMock()
         original_method = MagicMock(return_value=mock_app)
         mock_mcp.streamable_http_app = original_method
 
-        # Call the function to patch
-        add_cors_middleware_to_mcp()
+        # Build the app explicitly
+        app = build_http_app()
 
-        # The method should be replaced
-        self.assertNotEqual(mock_mcp.streamable_http_app, original_method)
-
-        # Call the patched method
-        mock_mcp.streamable_http_app()
-
-        # The original method should have been called
+        # The SDK builder should have been called once
         original_method.assert_called_once()
         # CORS middleware should have been added
         mock_app.add_middleware.assert_called_once()
+        # The built app is returned
+        self.assertIs(app, mock_app)
 
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
-    def test_add_cors_middleware_with_specific_origins(self, mock_config, mock_mcp):
-        """Test add_cors_middleware_to_mcp with specific origins."""
+    def test_build_http_app_with_specific_origins(self, mock_config, mock_mcp):
+        """Test build_http_app adds CORS middleware with specific origins."""
         mock_config.CORS_ORIGINS = "https://example.com,http://localhost:3000"
         mock_app = MagicMock()
         original_method = MagicMock(return_value=mock_app)
         mock_mcp.streamable_http_app = original_method
 
-        # Call the function to patch
-        add_cors_middleware_to_mcp()
-
-        # Call the patched method
-        mock_mcp.streamable_http_app()
+        # Build the app explicitly
+        build_http_app()
 
         # Check the middleware was added with correct origins
         call_args = mock_app.add_middleware.call_args
