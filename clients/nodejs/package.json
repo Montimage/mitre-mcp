@@ -22,7 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
-    "commander": "^11.1.0"
+    "commander": "^15.0.0"
   },
   "engines": {
     "node": ">=24"
