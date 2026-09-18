@@ -27,7 +27,7 @@ bandit[toml]>=1.7.0
 safety>=3.0.0
 
 # Code Quality Analysis
-radon>=6.0.0
+radon>=6.0.1
 
 # Pre-commit Hooks
 pre-commit>=3.5.0
