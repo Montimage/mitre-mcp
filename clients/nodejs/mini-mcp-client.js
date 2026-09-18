@@ -113,7 +113,7 @@ class MitreMCPClient {
    * Important: The MCP HTTP server requires the Accept header to include
    * both "application/json" and "text/event-stream" for proper protocol support.
    */
-  async callTool(toolName, args = {}) {
+  async callTool(toolName, args = {}, isRetry = false) {
     // Initialize session if not already done
     if (!this.sessionId) {
       await this.initializeSession();
@@ -133,9 +133,11 @@ class MitreMCPClient {
 
     const headers = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
-      'mcp-session-id': this.sessionId
+      'Accept': 'application/json, text/event-stream'
     };
+    if (this.sessionId) {
+      headers['mcp-session-id'] = this.sessionId;
+    }
 
     if (this.debug) {
       console.error('🔍 Debug: Sending request to', this.baseUrl);
@@ -158,6 +160,13 @@ class MitreMCPClient {
     }
 
     if (!response.ok) {
+      // HTTP 404 means the server forgot our session — clear it,
+      // re-initialise, and retry exactly once
+      if (response.status === 404 && !isRetry) {
+        this.sessionId = null;
+        await this.initializeSession();
+        return this.callTool(toolName, args, true);
+      }
       const error = `HTTP Error: ${response.status} ${response.statusText}`;
       console.error(`❌ ${error}`);
       console.error(`   Make sure mitre-mcp server is running: mitre-mcp --http --port ${this.baseUrl.split(':')[2].split('/')[0]}`);
