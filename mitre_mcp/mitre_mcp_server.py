@@ -26,7 +26,7 @@ import httpx
 import uvicorn
 
 # MCP SDK imports
-from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mitreattack.stix20 import MitreAttackData
 from starlette.applications import Starlette
@@ -417,7 +417,7 @@ def build_technique_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
 
 
 @asynccontextmanager
-async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
+async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
     """Initialize and manage MITRE ATT&CK data."""
     # Create data directory if it doesn't exist
     data_dir = Config.get_data_dir()
@@ -525,7 +525,7 @@ async def attack_lifespan(server: FastMCP) -> AsyncIterator[AttackContext]:
 
 
 # Create MCP server with lifespan
-mcp = FastMCP("MITRE ATT&CK Server", lifespan=attack_lifespan)
+mcp = MCPServer("MITRE ATT&CK Server", lifespan=attack_lifespan)
 
 
 # Helper functions
@@ -1151,7 +1151,7 @@ def get_cors_middleware() -> list[Middleware]:
         ]
 
 
-def setup_http_server(host: str, port: int) -> str:
+def setup_http_server(host: str, port: int) -> tuple[str, TransportSecuritySettings]:
     """Configure and display HTTP server information.
 
     Single access site for ``mcp.settings`` — callers use the return
@@ -1162,20 +1162,18 @@ def setup_http_server(host: str, port: int) -> str:
         port: Server port number
 
     Returns:
-        The configured FastMCP log level (lowercase) for uvicorn.
+        ``(log_level, transport_security)`` — the configured MCPServer
+        log level (lowercase) for uvicorn, and the DNS-rebinding
+        settings to hand to ``streamable_http_app()``.
     """
     logger.info("Starting MITRE ATT&CK MCP Server (HTTP mode on %s:%d)", host, port)
     logger.info("Press Ctrl+C to stop the server")
 
-    # Configure FastMCP settings for HTTP mode
-    mcp.settings.host = host
-    mcp.settings.port = port
-
     # Derive DNS-rebinding transport security from the bind host and the
-    # configured CORS origins — the SDK builds its localhost-only default
-    # at FastMCP() construction time, before --host is known, so it must be
-    # replaced here or remote clients are always rejected.
-    mcp.settings.transport_security = build_transport_security(host, port)
+    # configured CORS origins — the SDK auto-enables a localhost-only
+    # default inside streamable_http_app() when none is passed, so it
+    # must be built here or remote clients are always rejected.
+    transport_security = build_transport_security(host, port)
 
     # Show configuration for HTTP mode
     server_url = f"http://{host}:{port}"
@@ -1197,18 +1195,19 @@ def setup_http_server(host: str, port: int) -> str:
     # Print to stderr with immediate flush
     print(config_message, file=sys.stderr, flush=True)
 
-    return mcp.settings.log_level.lower()
+    return mcp.settings.log_level.lower(), transport_security
 
 
-def build_http_app() -> Starlette:
+def build_http_app(host: str, transport_security: TransportSecuritySettings) -> Starlette:
     """Build the streamable-HTTP ASGI app with CORS middleware.
 
-    Calls the SDK's streamable_http_app() once and adds the middleware
-    from get_cors_middleware() to the returned app — the same stack the
-    former monkey-patch produced, built explicitly so SDK internals stay
-    untouched (the v2 SDK moves transport parameters out of settings).
+    Calls the SDK's streamable_http_app() once with the transport
+    parameters that v2 moved off the constructor/settings, then adds the
+    middleware from get_cors_middleware() to the returned app — the same
+    stack the former monkey-patch produced, built explicitly so SDK
+    internals stay untouched.
     """
-    app = mcp.streamable_http_app()
+    app = mcp.streamable_http_app(host=host, transport_security=transport_security)
     for middleware in get_cors_middleware():
         app.add_middleware(middleware.cls, *middleware.args, **middleware.kwargs)
     return app
@@ -1227,14 +1226,14 @@ def main() -> None:
     try:
         if "--http" in sys.argv:
             host, port = parse_http_args()
-            log_level = setup_http_server(host, port)
+            log_level, transport_security = setup_http_server(host, port)
 
             # Build the ASGI app explicitly (no SDK monkey-patch) and
             # serve it — mirrors run_streamable_http_async in the SDK:
             # app construction here, uvicorn bound from the same settings.
             server = uvicorn.Server(
                 uvicorn.Config(
-                    build_http_app(),
+                    build_http_app(host, transport_security),
                     host=host,
                     port=port,
                     log_level=log_level,

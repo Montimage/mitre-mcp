@@ -132,7 +132,7 @@ def mock_attack_data(sample_technique, sample_group, sample_mitigation):
 
 @pytest.fixture
 def mock_context(mock_attack_data):
-    """Mock FastMCP Context."""
+    """Mock MCPServer Context."""
     from dataclasses import dataclass
 
     @dataclass
