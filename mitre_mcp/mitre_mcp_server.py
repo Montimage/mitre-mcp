@@ -34,6 +34,7 @@ from mitreattack.stix20 import MitreAttackData
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from typing_extensions import TypedDict
 
 # Local imports
 from . import __version__
@@ -560,6 +561,127 @@ mcp = MCPServer(
 )
 
 
+# Tool result models. TypedDicts give each tool a real outputSchema with named
+# properties; tools keep returning plain dicts, so the unstructured content
+# payload is unchanged while structuredContent is validated against these.
+class FormattedTechnique(TypedDict, total=False):
+    """Token-optimized technique object emitted by format_technique."""
+
+    id: str
+    name: str
+    type: str
+    mitre_id: str
+    description: str
+
+
+class Pagination(TypedDict):
+    """Pagination metadata returned alongside paged list results."""
+
+    total: int
+    offset: int
+    limit: int
+    has_more: bool
+
+
+class TacticResult(TypedDict):
+    """Single tactic entry in get_tactics results."""
+
+    id: str
+    name: str
+    shortname: str
+    description: str
+
+
+class GroupResult(TypedDict):
+    """Single group entry in get_groups results."""
+
+    id: str
+    name: str
+    description: str
+    aliases: list[str]
+
+
+class SoftwareResult(TypedDict):
+    """Single software entry in get_software results."""
+
+    id: str
+    name: str
+    type: str
+    description: str
+
+
+class MitigationResult(TypedDict):
+    """Single mitigation entry in get_mitigations results."""
+
+    id: str
+    name: str
+    description: str
+
+
+class EntityRef(TypedDict):
+    """Minimal id/name reference to a group or mitigation."""
+
+    id: str
+    name: str
+
+
+class TechniquesPageResult(TypedDict):
+    """get_techniques result: paged technique list plus pagination metadata."""
+
+    techniques: list[FormattedTechnique]
+    pagination: Pagination
+
+
+class TacticsResult(TypedDict):
+    """get_tactics result."""
+
+    tactics: list[TacticResult]
+
+
+class GroupsResult(TypedDict):
+    """get_groups result."""
+
+    groups: list[GroupResult]
+
+
+class SoftwareListResult(TypedDict):
+    """get_software result."""
+
+    software: list[SoftwareResult]
+
+
+class TechniquesListResult(TypedDict):
+    """Result for tools returning a flat formatted technique list."""
+
+    techniques: list[FormattedTechnique]
+
+
+class GroupTechniquesResult(TypedDict):
+    """get_techniques_used_by_group result."""
+
+    group: EntityRef
+    techniques: list[FormattedTechnique]
+
+
+class MitigationsResult(TypedDict):
+    """get_mitigations result."""
+
+    mitigations: list[MitigationResult]
+
+
+class MitigationTechniquesResult(TypedDict):
+    """get_techniques_mitigated_by_mitigation result."""
+
+    mitigation: EntityRef
+    techniques: list[FormattedTechnique]
+
+
+class TechniqueResult(TypedDict):
+    """get_technique_by_id result."""
+
+    technique: FormattedTechnique
+
+
 # Helper functions
 def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
     """Get the appropriate MITRE ATT&CK data based on the domain."""
@@ -576,13 +698,13 @@ def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
 
 def format_technique(
     technique: dict[str, Any], include_description: bool = False
-) -> dict[str, Any]:
+) -> FormattedTechnique:
     """Format a technique object for output with token optimization."""
     if technique is None:
         return {}
 
     # Start with minimal information
-    result = {
+    result: FormattedTechnique = {
         "id": technique.get("id", ""),
         "name": technique.get("name", ""),
         "type": technique.get("type", ""),
@@ -610,12 +732,12 @@ def format_relationship_map(
     relationship_map: list[dict[str, Any]],
     include_description: bool = False,
     limit: int | None = None,
-) -> list[dict[str, Any]]:
+) -> list[FormattedTechnique]:
     """Format a relationship map for output with token optimization."""
     if not relationship_map:
         return []
 
-    result = []
+    result: list[FormattedTechnique] = []
     for item in relationship_map:
         obj = item.get("object", {})
         formatted_obj = format_technique(obj, include_description=include_description)
@@ -638,7 +760,7 @@ def get_techniques(
     include_descriptions: bool = False,
     limit: int | None = None,
     offset: int = 0,
-) -> dict[str, Any]:
+) -> TechniquesPageResult:
     """
     Get techniques from the MITRE ATT&CK framework with token-optimized responses.
 
@@ -697,7 +819,7 @@ def get_tactics(
     ctx: Context,
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-) -> dict[str, Any]:
+) -> TacticsResult:
     """
     Get all tactics from the MITRE ATT&CK framework.
 
@@ -719,12 +841,12 @@ def get_tactics(
 
     return {
         "tactics": [
-            {
-                "id": tactic.get("id", ""),
-                "name": tactic.get("name", ""),
-                "shortname": tactic.get("x_mitre_shortname", ""),
-                "description": tactic.get("description", ""),
-            }
+            TacticResult(
+                id=tactic.get("id", ""),
+                name=tactic.get("name", ""),
+                shortname=tactic.get("x_mitre_shortname", ""),
+                description=tactic.get("description", ""),
+            )
             for tactic in tactics
         ]
     }
@@ -735,7 +857,7 @@ def get_groups(
     ctx: Context,
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-) -> dict[str, Any]:
+) -> GroupsResult:
     """
     Get all groups from the MITRE ATT&CK framework.
 
@@ -757,12 +879,12 @@ def get_groups(
 
     return {
         "groups": [
-            {
-                "id": group.get("id", ""),
-                "name": group.get("name", ""),
-                "description": group.get("description", ""),
-                "aliases": group.get("aliases", []),
-            }
+            GroupResult(
+                id=group.get("id", ""),
+                name=group.get("name", ""),
+                description=group.get("description", ""),
+                aliases=group.get("aliases", []),
+            )
             for group in groups
         ]
     }
@@ -774,7 +896,7 @@ def get_software(
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
     software_types: list[str] | None = None,
-) -> dict[str, Any]:
+) -> SoftwareListResult:
     """
     Get all software from the MITRE ATT&CK framework.
 
@@ -801,12 +923,12 @@ def get_software(
 
     return {
         "software": [
-            {
-                "id": s.get("id", ""),
-                "name": s.get("name", ""),
-                "type": s.get("type", ""),
-                "description": s.get("description", ""),
-            }
+            SoftwareResult(
+                id=s.get("id", ""),
+                name=s.get("name", ""),
+                type=s.get("type", ""),
+                description=s.get("description", ""),
+            )
             for s in software
         ]
     }
@@ -818,7 +940,7 @@ def get_techniques_by_tactic(
     tactic_shortname: str,
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-) -> dict[str, Any]:
+) -> TechniquesListResult:
     """
     Get techniques by tactic.
 
@@ -850,7 +972,7 @@ def get_techniques_by_tactic(
 @mcp.tool(title="Get Techniques Used by Group", annotations=READ_ONLY_TOOL)
 def get_techniques_used_by_group(
     ctx: Context, group_name: str, domain: AttackDomain = "enterprise-attack"
-) -> dict[str, Any]:
+) -> GroupTechniquesResult:
     """
     Get techniques used by a group.
 
@@ -890,7 +1012,7 @@ def get_techniques_used_by_group(
     techniques = data.get_techniques_used_by_group(group["id"])
 
     return {
-        "group": {"id": group.get("id", ""), "name": group.get("name", "")},
+        "group": EntityRef(id=group.get("id", ""), name=group.get("name", "")),
         "techniques": format_relationship_map(techniques),
     }
 
@@ -900,7 +1022,7 @@ def get_mitigations(
     ctx: Context,
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
-) -> dict[str, Any]:
+) -> MitigationsResult:
     """
     Get all mitigations from the MITRE ATT&CK framework.
 
@@ -922,11 +1044,11 @@ def get_mitigations(
 
     return {
         "mitigations": [
-            {
-                "id": mitigation.get("id", ""),
-                "name": mitigation.get("name", ""),
-                "description": mitigation.get("description", ""),
-            }
+            MitigationResult(
+                id=mitigation.get("id", ""),
+                name=mitigation.get("name", ""),
+                description=mitigation.get("description", ""),
+            )
             for mitigation in mitigations
         ]
     }
@@ -935,7 +1057,7 @@ def get_mitigations(
 @mcp.tool(title="Get Techniques Mitigated by Mitigation", annotations=READ_ONLY_TOOL)
 def get_techniques_mitigated_by_mitigation(
     ctx: Context, mitigation_name: str, domain: AttackDomain = "enterprise-attack"
-) -> dict[str, Any]:
+) -> MitigationTechniquesResult:
     """
     Get techniques mitigated by a mitigation.
 
@@ -975,7 +1097,7 @@ def get_techniques_mitigated_by_mitigation(
     techniques = data.get_techniques_mitigated_by_mitigation(mitigation["id"])
 
     return {
-        "mitigation": {"id": mitigation.get("id", ""), "name": mitigation.get("name", "")},
+        "mitigation": EntityRef(id=mitigation.get("id", ""), name=mitigation.get("name", "")),
         "techniques": format_relationship_map(techniques),
     }
 
@@ -983,7 +1105,7 @@ def get_techniques_mitigated_by_mitigation(
 @mcp.tool(title="Get Technique by ID", annotations=READ_ONLY_TOOL)
 def get_technique_by_id(
     ctx: Context, technique_id: str, domain: AttackDomain = "enterprise-attack"
-) -> dict[str, Any]:
+) -> TechniqueResult:
     """
     Get a technique by its MITRE ATT&CK ID.
 

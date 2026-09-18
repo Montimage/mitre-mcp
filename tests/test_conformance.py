@@ -6,13 +6,18 @@ Pins the server identity surface and per-tool metadata exposed through
 - ``test_server_discover`` — the discover result carries the server name,
   a version equal to the package version, and non-empty instructions.
 - ``test_tool_annotations_and_domain_enum`` — every tool advertises a
-  title, ``readOnlyHint`` (and friends), and a ``domain`` property with an
-  enum in its input schema.
+  title, ``readOnlyHint`` (and friends), a ``domain`` property with an
+  enum in its input schema, and (issue #48) an ``outputSchema`` object
+  with named properties.
+- ``test_structured_content_matches_unstructured`` — call results carry
+  ``structuredContent`` identical to the JSON in ``content[0].text``, so
+  the observed payload is unchanged.
 
 The download step is patched to feed the committed STIX fixtures, as in
 ``test_protocol_smoke.py``.
 """
 
+import json
 import os
 from unittest.mock import AsyncMock, patch
 
@@ -28,6 +33,20 @@ FIXTURE_PATHS = {
     "enterprise": os.path.join(FIXTURE_DIR, "enterprise-attack.json"),
     "mobile": os.path.join(FIXTURE_DIR, "mobile-attack.json"),
     "ics": os.path.join(FIXTURE_DIR, "ics-attack.json"),
+}
+
+# Root properties each tool's outputSchema must name — the success payload keys
+# observed on the wire before structured output was added (issue #48).
+EXPECTED_OUTPUT_PROPERTIES = {
+    "get_techniques": {"techniques", "pagination"},
+    "get_tactics": {"tactics"},
+    "get_groups": {"groups"},
+    "get_software": {"software"},
+    "get_techniques_by_tactic": {"techniques"},
+    "get_techniques_used_by_group": {"group", "techniques"},
+    "get_mitigations": {"mitigations"},
+    "get_techniques_mitigated_by_mitigation": {"mitigation", "techniques"},
+    "get_technique_by_id": {"technique"},
 }
 
 
@@ -66,6 +85,47 @@ async def test_tool_annotations_and_domain_enum():
             "mobile-attack",
             "ics-attack",
         }, tool.name
+
+        output = tool.output_schema
+        assert output is not None, f"{tool.name} has no outputSchema"
+        assert output.get("type") == "object", tool.name
+        expected = EXPECTED_OUTPUT_PROPERTIES[tool.name]
+        assert (
+            set(output.get("properties", {})) == expected
+        ), f"{tool.name} outputSchema properties do not match the observed payload keys"
+        assert set(output.get("required", [])) == expected, tool.name
+
+
+@pytest.mark.asyncio
+async def test_structured_content_matches_unstructured():
+    """structuredContent equals the JSON in content[0].text — payload unchanged."""
+    with patch.object(
+        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    ):
+        async with Client(mcp) as client:
+            calls = [
+                ("get_techniques", {"limit": 1}),
+                ("get_tactics", {}),
+                ("get_technique_by_id", {"technique_id": "T1055"}),
+                ("get_techniques_used_by_group", {"group_name": "APT29"}),
+            ]
+            for tool_name, arguments in calls:
+                result = await client.call_tool(tool_name, arguments)
+                assert not result.is_error, tool_name
+                assert result.structured_content == json.loads(result.content[0].text), tool_name
+
+            # Nested structure is validated against the schema, not stringified.
+            paged = await client.call_tool("get_techniques", {"limit": 1})
+            pagination = paged.structured_content["pagination"]
+            assert set(pagination) == {"total", "offset", "limit", "has_more"}
+            assert pagination["limit"] == 1
+            assert pagination["total"] >= 1
+
+            by_group = await client.call_tool(
+                "get_techniques_used_by_group", {"group_name": "APT29"}
+            )
+            assert by_group.structured_content["group"]["name"] == "APT29"
+            assert by_group.structured_content["group"]["id"].startswith("intrusion-set--")
 
 
 @pytest.mark.asyncio
