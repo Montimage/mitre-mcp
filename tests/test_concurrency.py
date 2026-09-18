@@ -53,6 +53,8 @@ async def test_lifespan_once_across_two_http_sessions():
         server = uvicorn.Server(uvicorn.Config(app, log_level="error"))
         serve_task = asyncio.create_task(server.serve(sockets=[sock]))
         while not server.started:
+            if serve_task.done():
+                serve_task.result()  # re-raise a startup failure
             await asyncio.sleep(0.01)
 
         # The session manager has already entered the lifespan once at
