@@ -41,12 +41,12 @@ result = await call_mcp_tool("get_tactics", {"domain": "enterprise-attack"})
 - ✅ **Pretty Output** - JSON formatting with optional pretty-printing
 - ✅ **All Tools Supported** - Covers all 9 MCP tools
 - ✅ **Configurable** - Customize host, port, and domain
-- ✅ **Lightweight** - Only requires `httpx` and Python 3.10+
+- ✅ **Lightweight** - Only requires `httpx` and Python 3.11+
 - ✅ **Debug Mode** - Detailed request/response logging for troubleshooting
 
 ## Prerequisites
 
-1. Python 3.10 or higher
+1. Python 3.11 or higher
 2. The `httpx` library
 3. A running mitre-mcp server in HTTP mode
 

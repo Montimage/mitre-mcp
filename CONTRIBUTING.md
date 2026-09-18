@@ -250,7 +250,7 @@ pre-commit run black --all-files
 3. **Type Checking**: mypy
 4. **Security**: bandit
 5. **General Checks**: trailing whitespace, YAML/JSON validation, etc.
-6. **Python Upgrades**: pyupgrade for Python 3.10+ syntax
+6. **Python Upgrades**: pyupgrade for Python 3.11+ syntax
 7. **Docstrings**: pydocstyle (Google style)
 
 ### Bypassing Hooks
@@ -273,7 +273,7 @@ The project uses three main workflows:
 
 **Matrix Testing**:
 
-- Python versions: 3.10, 3.11, 3.12, 3.13, 3.14
+- Python versions: 3.11, 3.12, 3.13, 3.14
 - Operating systems: Ubuntu, macOS, Windows
 
 **Steps**:
@@ -460,8 +460,8 @@ Please report security vulnerabilities to the project maintainers privately. Do 
 
 ### Python Version
 
-- Minimum: Python 3.10
-- Target: Python 3.10-3.14
+- Minimum: Python 3.11
+- Target: Python 3.11-3.14
 
 ### Naming Conventions
 

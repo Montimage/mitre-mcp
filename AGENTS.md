@@ -4,7 +4,7 @@ Cross-agent rules for this repository. The recorded build, test, and install com
 
 ## Project
 
-MITRE ATT&CK MCP server: Python package `mitre_mcp` (requires Python >= 3.10) plus a React/Vite frontend in `frontend/` (Node 24). Invariants: never change observed MITRE tool outputs, keep the model dropdown in sync with the manifests, and never commit generated data or secrets.
+MITRE ATT&CK MCP server: Python package `mitre_mcp` (requires Python >= 3.11) plus a React/Vite frontend in `frontend/` (Node 24). Invariants: never change observed MITRE tool outputs, keep the model dropdown in sync with the manifests, and never commit generated data or secrets.
 
 ## Commands
 
