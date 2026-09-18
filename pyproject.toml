@@ -27,7 +27,6 @@ dependencies = [
     "mitreattack-python>=4.0.2,<5.0.0",
     "mcp>=1.28.1,<2",
     "httpx>=0.24.0,<1.0.0",
-    "requests>=2.25.0,<3.0.0",
 ]
 
 [project.scripts]
@@ -45,8 +44,8 @@ dev = [
     "mypy>=1.11.0",
     "bandit>=1.7.0",
     "safety>=3.0.0",
+    "pip-audit>=2.7.0",
     "pre-commit>=3.5.0",
-    "types-requests>=2.31.0",
 ]
 
 [tool.black]

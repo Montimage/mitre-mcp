@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
+import httpx
 
 
 def download_attack_data(data_dir: str = "tests/data", force: bool = False) -> dict:
@@ -64,7 +64,7 @@ def download_attack_data(data_dir: str = "tests/data", force: bool = False) -> d
         print("Downloading MITRE ATT&CK data...")
         for domain, url in urls.items():
             print(f"Downloading {domain.capitalize()} ATT&CK data...")
-            response = requests.get(url)
+            response = httpx.get(url, timeout=60.0)
             response.raise_for_status()
             with open(paths[domain], "w") as f:
                 f.write(response.text)
