@@ -1,19 +1,21 @@
 /**
  * MCP HTTP Client for mitre-mcp Server
  *
- * Handles communication with mitre-mcp server via HTTP/JSON-RPC protocol.
- * Implements session management, SSE parsing, and tool calling.
- *
- * Critical Protocol Requirements:
- * 1. Accept header must include: "application/json, text/event-stream"
- * 2. Initialize session before tool calls
- * 3. Handle Server-Sent Events (SSE) response format
+ * Wraps the official @modelcontextprotocol/client SDK's Client and
+ * StreamableHTTPClientTransport (see docs/migrations/ts-mcp-client-choice.md).
+ * The SDK handles protocol-version negotiation, SSE framing, the required
+ * Accept header, and mcp-session-id propagation; this class preserves the
+ * public interface the UI was built against, including the single
+ * expired-session retry added for server session loss.
  */
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+
 export default class MitreMCPClient {
   /**
    * Create a new MCP client instance
    *
-   * @param {string} host - Server hostname (default: 'localhost')
+   * @param {string} host - Server hostname (default: 'localhost') or a full
+   *   URL including scheme (e.g. 'https://mcp.example.com/mcp')
    * @param {number} port - Server port (default: 8000)
    */
   constructor(host = 'localhost', port = 8000) {
@@ -25,10 +27,18 @@ export default class MitreMCPClient {
     if (import.meta.env.DEV && isDefaultConfig) {
       this.baseUrl = '/mcp';
       console.log('[MCP Client] Using proxy URL: /mcp');
+    } else if (/^https?:\/\//i.test(host)) {
+      // Full URL supplied in settings — use verbatim so HTTPS endpoints work
+      this.baseUrl = host;
+      console.log(`[MCP Client] Using configured URL: ${this.baseUrl}`);
     } else {
-      this.baseUrl = `http://${host}:${portNum}/mcp`;
+      // Scheme-relative URL inherits the page's scheme: an HTTPS-served UI
+      // reaches the backend over HTTPS instead of being blocked as mixed
+      // content; an HTTP dev UI keeps the previous http behaviour.
+      this.baseUrl = new URL(`//${host}:${portNum}/mcp`, window.location.origin).href;
       console.log(`[MCP Client] Using direct URL: ${this.baseUrl}`);
     }
+    this.client = null;
     this.sessionId = null;
     this.sessionInitialized = false;
     this.requestId = 0;
@@ -59,53 +69,32 @@ export default class MitreMCPClient {
   /**
    * Initialize an MCP session with the server
    *
-   * This must be called before any tool calls. The session ID is extracted
-   * from the response headers and used for all subsequent requests.
+   * This must be called before any tool calls. The SDK transport performs
+   * protocol-version negotiation and captures the mcp-session-id response
+   * header automatically.
    *
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} True on success
    * @throws {Error} If session initialization fails
    */
   async initializeSession() {
     this.requestId++;
-
-    const initPayload = {
-      jsonrpc: '2.0',
-      id: this.requestId,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: {
-          name: 'mitre-mcp-web-client',
-          version: '1.0.0'
-        }
-      }
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream' // Both MIME types required!
-    };
-
-    this.log('Initializing session...', initPayload);
+    this.log('Initializing session...');
 
     try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(initPayload)
-      });
+      const transport = new StreamableHTTPClientTransport(
+        new URL(this.baseUrl, window.location.origin)
+      );
+      const client = new Client({ name: 'mitre-mcp-web-client', version: '1.0.0' });
+      // 'auto' probes server/discover for the modern era and falls back to
+      // the legacy initialize handshake when the server only speaks 2025-era
+      await client.connect(transport, { mode: 'auto' });
 
-      if (!response.ok) {
-        throw new Error(`Session initialization failed: ${response.status} ${response.statusText}`);
-      }
-
-      // Extract session ID — absent when the server runs stateless
-      this.sessionId = response.headers.get('mcp-session-id');
+      this.client = client;
+      // Absent when the server runs stateless — transport handles both cases
+      this.sessionId = transport.sessionId ?? null;
       this.sessionInitialized = true;
 
       this.log('Session initialized', { sessionId: this.sessionId || '(stateless)' });
-
       return true;
     } catch (error) {
       this.log('Session initialization error', error);
@@ -114,46 +103,21 @@ export default class MitreMCPClient {
   }
 
   /**
-   * Parse Server-Sent Events (SSE) response format
+   * Whether an SDK error reports an expired/unknown session (HTTP 404)
    *
-   * SSE format example:
-   *   event: message
-   *   data: {"jsonrpc":"2.0","id":1,"result":{...}}
-   *
-   * @param {string} sseText - Raw SSE response text
-   * @returns {Object} Parsed JSON object
-   * @throws {Error} If parsing fails
+   * @param {*} error - Error thrown by the SDK transport
+   * @returns {boolean}
    */
-  parseSSEResponse(sseText) {
-    try {
-      const lines = sseText.trim().split('\n');
-      const dataLines = [];
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          dataLines.push(line.substring(6)); // Skip "data: " prefix
-        }
-      }
-
-      const jsonData = dataLines.join('');
-
-      if (!jsonData) {
-        throw new Error('No data found in SSE response');
-      }
-
-      this.log('Parsed SSE data', jsonData.substring(0, 200));
-
-      return JSON.parse(jsonData);
-    } catch (error) {
-      this.log('SSE parsing error', error);
-      throw new Error(`Failed to parse SSE response: ${error.message}`);
-    }
+  isSessionExpiredError(error) {
+    return error?.status === 404 || error?.code === 404;
   }
 
   /**
-   * Call an MCP tool via HTTP/JSON-RPC
+   * Call an MCP tool
    *
-   * Automatically initializes session if not already done.
+   * Automatically initializes session if not already done. Returns the same
+   * envelope shape the previous hand-rolled transport produced
+   * ({ result: <CallToolResult> }) so existing callers are unchanged.
    *
    * @param {string} toolName - Name of the MCP tool to call
    * @param {Object} args - Tool arguments
@@ -169,69 +133,21 @@ export default class MitreMCPClient {
     }
 
     this.requestId++;
-
-    const payload = {
-      jsonrpc: '2.0',
-      id: this.requestId,
-      method: 'tools/call',
-      params: {
-        name: toolName,
-        arguments: args
-      }
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream', // Both MIME types required!
-    };
-    if (this.sessionId) {
-      headers['mcp-session-id'] = this.sessionId;
-    }
-
     this.log(`Calling tool: ${toolName}`, args);
 
     try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        // HTTP 404 means the server forgot our session — clear it,
-        // re-initialise, and retry exactly once
-        if (response.status === 404 && !isRetry) {
-          this.log('Session expired (404), re-initialising and retrying once');
-          this.resetSession();
-          await this.initializeSession();
-          return this.callTool(toolName, args, true);
-        }
-        const errorText = await response.text();
-        throw new Error(`HTTP Error ${response.status}: ${errorText}`);
-      }
-
-      const text = await response.text();
-
-      // Check if response is SSE format (text/event-stream)
-      const contentType = response.headers.get('content-type') || '';
-      let result;
-
-      if (contentType.includes('text/event-stream')) {
-        result = this.parseSSEResponse(text);
-      } else {
-        result = JSON.parse(text);
-      }
-
-      // Check for JSON-RPC errors
-      if (result.error) {
-        const error = result.error;
-        throw new Error(`JSON-RPC Error ${error.code}: ${error.message}`);
-      }
-
+      const result = await this.client.callTool({ name: toolName, arguments: args });
       this.log(`Tool call result:`, result);
-
-      return result;
+      return { result };
     } catch (error) {
+      // HTTP 404 means the server forgot our session — clear it,
+      // re-initialise, and retry exactly once
+      if (!isRetry && this.isSessionExpiredError(error)) {
+        this.log('Session expired (404), re-initialising and retrying once');
+        this.resetSession();
+        await this.initializeSession();
+        return this.callTool(toolName, args, true);
+      }
       this.log('Tool call error', error);
       throw new Error(`Failed to call tool ${toolName}: ${error.message}`);
     }
@@ -257,6 +173,10 @@ export default class MitreMCPClient {
    * Call this to force a new session on the next request
    */
   resetSession() {
+    // Terminate the old session server-side if one exists; fire-and-forget
+    // since this method stays synchronous for existing callers
+    this.client?.close().catch(() => {});
+    this.client = null;
     this.sessionId = null;
     this.sessionInitialized = false;
     this.requestId = 0;

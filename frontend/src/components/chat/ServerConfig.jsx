@@ -13,6 +13,7 @@ const LLM_PROVIDERS = {
 
 // IndexedDB helper functions for secure API key storage
 const DB_NAME = 'mitre-mcp-config';
+const PROBE_TIMEOUT_MS = 10000;
 const DB_VERSION = 1;
 const STORE_NAME = 'api-keys';
 
@@ -206,7 +207,9 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
       console.log('[ServerConfig] Fetching from:', ollamaUrl);
 
       // Test if Ollama is running by fetching tags
-      const response = await fetch(ollamaUrl);
+      const response = await fetch(ollamaUrl, {
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
+      });
 
       if (!response.ok) {
         throw new Error(`Ollama server returned ${response.status}`);
@@ -261,7 +264,10 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
       // Test Gemini API by listing models
       const response = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models',
-        { headers: { 'x-goog-api-key': apiKey } }
+        {
+          headers: { 'x-goog-api-key': apiKey },
+          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
+        }
       );
 
       if (!response.ok) {
@@ -321,7 +327,8 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
           'Authorization': `Bearer ${apiKey}`,
           'HTTP-Referer': window.location.origin,
           'X-Title': 'MITRE MCP Chat'
-        }
+        },
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
       });
 
       if (!response.ok) {
