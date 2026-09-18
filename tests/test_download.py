@@ -1,6 +1,7 @@
 """Tests for download and caching functionality."""
 
 import json
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -301,3 +302,65 @@ class TestDownloadAndSaveAttackDataAsync:
 
             # Should have downloaded due to expiry
             assert os.path.exists(result["metadata"])
+
+
+def _write_expired_cache(data_dir, sample_stix_bundle, domains=("enterprise", "mobile", "ics")):
+    """Write an expired metadata file plus cached domain bundles."""
+    old_date = datetime.now(timezone.utc) - timedelta(days=7)
+    metadata = {"last_update": old_date.isoformat(), "domains": list(domains)}
+    with open(os.path.join(data_dir, "metadata.json"), "w") as f:
+        json.dump(metadata, f)
+    for domain in domains:
+        with open(os.path.join(data_dir, f"{domain}-attack.json"), "w") as f:
+            json.dump(sample_stix_bundle, f)
+
+
+def _failing_http_client(mock_client_class):
+    """Point httpx.AsyncClient at a client whose GET always fails."""
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(side_effect=httpx.HTTPError("connection refused"))
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client_class.return_value = mock_client
+
+
+@pytest.mark.asyncio
+class TestStaleCacheFallback:
+    """Test serving the stale cache when a refresh download fails."""
+
+    async def test_expired_cache_served_on_download_failure(
+        self, temp_data_dir, sample_stix_bundle, caplog
+    ):
+        """Expired cache + failing download -> stale cache served with a warning."""
+        _write_expired_cache(temp_data_dir, sample_stix_bundle)
+
+        with patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient") as mock_client_class:
+            _failing_http_client(mock_client_class)
+
+            with caplog.at_level(logging.WARNING):
+                result = await download_and_save_attack_data_async(temp_data_dir, force=False)
+
+        # Startup data paths still resolve to the on-disk cache
+        for domain in ["enterprise", "mobile", "ics"]:
+            assert os.path.exists(result[domain])
+
+        # Staleness is observable in the logs
+        assert any("stale" in record.message.lower() for record in caplog.records)
+
+    async def test_no_cache_fails_on_download_failure(self, temp_data_dir):
+        """No cache + failing download -> clear failure (first-run semantics)."""
+        with patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient") as mock_client_class:
+            _failing_http_client(mock_client_class)
+
+            with pytest.raises(httpx.HTTPError, match="connection refused"):
+                await download_and_save_attack_data_async(temp_data_dir, force=True)
+
+    async def test_partial_cache_fails_on_download_failure(self, temp_data_dir, sample_stix_bundle):
+        """Missing one domain file + failing download -> clear failure."""
+        _write_expired_cache(temp_data_dir, sample_stix_bundle, domains=("enterprise", "mobile"))
+
+        with patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient") as mock_client_class:
+            _failing_http_client(mock_client_class)
+
+            with pytest.raises(httpx.HTTPError, match="connection refused"):
+                await download_and_save_attack_data_async(temp_data_dir, force=False)
