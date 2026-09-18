@@ -1,7 +1,7 @@
 {
   "name": "mini-mcp-client",
   "version": "1.0.0",
-  "description": "Simple Node.js client for mitre-mcp server via HTTP/JSON-RPC",
+  "description": "Simple Node.js client for mitre-mcp server via the official MCP SDK",
   "main": "mini-mcp-client.js",
   "bin": {
     "mini-mcp-client": "./mini-mcp-client.js"
@@ -21,8 +21,8 @@
   "author": "MITRE MCP Team",
   "license": "MIT",
   "dependencies": {
-    "commander": "^11.1.0",
-    "node-fetch": "^2.7.0"
+    "@modelcontextprotocol/client": "^2.0.0",
+    "commander": "^11.1.0"
   },
   "engines": {
     "node": ">=24"

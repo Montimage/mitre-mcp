@@ -1,60 +1,48 @@
 # Mini MCP Client
 
-A simple, standalone Python client demonstrating how to integrate with the mitre-mcp server via HTTP/JSON-RPC. This client serves as both a practical tool and a reference implementation for building your own integrations.
+A simple, standalone Python client demonstrating how to integrate with the mitre-mcp server via the official MCP Python SDK (`mcp`). This client serves as both a practical tool and a reference implementation for building your own integrations.
 
 ## ⚡ Quick Reference
 
-**Critical requirement for MCP HTTP integration:**
+**Call an MCP tool with the official SDK:**
 
 ```python
-import httpx
+from mcp import Client
 
 async def call_mcp_tool(tool_name: str, arguments: dict):
-    """Call an MCP tool via HTTP/JSON-RPC."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:8000/mcp",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {"name": tool_name, "arguments": arguments}
-            },
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream"  # ⚠️ BOTH required!
-            }
-        )
-        return response.json()
+    """Call an MCP tool via the SDK's streamable-HTTP transport."""
+    async with Client("http://localhost:8000/mcp") as client:
+        result = await client.call_tool(tool_name, arguments)
+        return result.model_dump(mode="json", by_alias=True, exclude_none=True)
 
 # Example usage
 result = await call_mcp_tool("get_tactics", {"domain": "enterprise-attack"})
 ```
 
-**Key point:** The MCP server requires `Accept: application/json, text/event-stream` - omitting either will result in 406 errors.
+**Key point:** The SDK handles the initialize handshake, `notifications/initialized`, protocol-version negotiation, the required `Accept` header, SSE framing, and session-id propagation — no hand-rolled JSON-RPC is needed.
 
 ## Features
 
 - ✅ **Complete CLI** - Command-line interface for all mitre-mcp tools
-- ✅ **HTTP/JSON-RPC** - Uses the recommended HTTP transport mode with proper MCP headers
+- ✅ **Official SDK** - Built on `mcp` (streamable-HTTP transport, session handling, protocol negotiation)
 - ✅ **Error Handling** - Proper error messages and connection troubleshooting
 - ✅ **Pretty Output** - JSON formatting with optional pretty-printing
 - ✅ **All Tools Supported** - Covers all 9 MCP tools
 - ✅ **Configurable** - Customize host, port, and domain
-- ✅ **Lightweight** - Only requires `httpx` and Python 3.11+
+- ✅ **Lightweight** - Only requires the `mcp` SDK and Python 3.11+
 - ✅ **Debug Mode** - Detailed request/response logging for troubleshooting
 
 ## Prerequisites
 
 1. Python 3.11 or higher
-2. The `httpx` library
+2. The `mcp` SDK (`mcp>=2.2,<3`)
 3. A running mitre-mcp server in HTTP mode
 
 ## Installation
 
 ```bash
-# Install httpx if not already installed
-pip install httpx
+# Install dependencies
+pip install -r requirements.txt
 
 # Make the script executable (optional)
 chmod +x mini-mcp-client.py
@@ -221,8 +209,8 @@ python mini-mcp-client.py --host 192.168.1.100 --port 8080 tactics
 # Use mobile domain
 python mini-mcp-client.py techniques --domain mobile-attack
 
-# Disable pretty printing (for piping to jq)
-python mini-mcp-client.py tactics --no-pretty | jq '.result'
+# Disable pretty printing (for piping to jq) — global options precede the command
+python mini-mcp-client.py --no-pretty tactics | jq '.result'
 ```
 
 ## Integration Examples
@@ -287,7 +275,7 @@ asyncio.run(analyze_apt_group("APT29"))
 
 ### 406 Not Acceptable Error
 
-If you see this error:
+If you implement your own transport and see this error:
 
 ```
 ❌ HTTP Error: Client error '406 Not Acceptable'
@@ -295,22 +283,14 @@ If you see this error:
 
 **Cause:** The MCP HTTP server requires the `Accept` header to include both `application/json` and `text/event-stream`.
 
-**Solution:** This is already fixed in the current version. The client now sends:
-```python
-headers = {
-    "Content-Type": "application/json",
-    "Accept": "application/json, text/event-stream"
-}
-```
-
-If you're implementing your own client, make sure to include both MIME types in the Accept header.
+**Solution:** Use the official `mcp` SDK like this client does — its streamable-HTTP transport sends the correct headers automatically.
 
 ### Server Connection Issues
 
 If you see connection errors:
 
 ```
-❌ HTTP Error: ConnectError
+❌ Error: unhandled errors in a TaskGroup (1 sub-exception)
    Make sure mitre-mcp server is running: mitre-mcp --http --port 8000
 ```
 
@@ -320,12 +300,12 @@ If you see connection errors:
 3. Ensure no firewall is blocking the connection
 4. Run the diagnostic script: `python test-mcp-connection.py localhost 8000`
 
-### JSON-RPC Errors
+### MCP Protocol Errors
 
-If you see JSON-RPC errors:
+If you see protocol errors:
 
 ```
-❌ Error: JSON-RPC Error -32602: Invalid params
+❌ MCP Error -32602: Invalid params
 ```
 
 **Solution:**
@@ -338,21 +318,23 @@ If you see JSON-RPC errors:
 If requests timeout:
 
 ```
-❌ HTTP Error: TimeoutException
+❌ Error: timed out
 ```
 
 **Solution:**
 1. The server might be downloading data (first run)
-2. Increase timeout in the code (currently 30 seconds)
+2. Increase `CALL_TIMEOUT_SECONDS` in the code (currently 30 seconds)
 3. Check server logs for issues
 
 ## Code Structure
 
 ```
 mini-mcp-client.py
-├── MitreMCPClient          # HTTP client class
+├── MitreMCPClient          # SDK-backed client class
 │   ├── __init__()          # Initialize with host/port
-│   ├── call_tool()         # Call MCP tools via JSON-RPC
+│   ├── initialize_session()# Connect + MCP handshake (lazy)
+│   ├── call_tool()         # Call MCP tools via the SDK
+│   ├── close()             # Terminate the session
 │   └── format_output()     # Format JSON output
 │
 ├── Command Functions       # One per MCP tool

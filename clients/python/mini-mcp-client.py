@@ -2,8 +2,10 @@
 """
 Mini MCP Client - A simple client to interact with mitre-mcp server via HTTP.
 
-This demonstrates how to integrate mitre-mcp into your Python applications.
-For production use, consider adding proper error handling, logging, and retries.
+Built on the official MCP Python SDK (`mcp` package, v2). The SDK handles
+protocol-version negotiation, the initialize handshake, SSE framing, the
+required Accept header, and session-id propagation; this module only maps
+CLI commands to `tools/call` invocations.
 
 Usage:
     python mini-mcp-client.py --help
@@ -16,206 +18,133 @@ Usage:
 import argparse
 import asyncio
 import json
+import logging
 import sys
+from contextlib import AsyncExitStack
 from typing import Any, Dict, Optional
 
-import httpx
+from mcp import Client, MCPError
+from mcp.types import Implementation
+
+# Per-request timeout for tools/call (the SDK also applies its own default).
+CALL_TIMEOUT_SECONDS = 30.0
 
 
 class MitreMCPClient:
-    """Simple HTTP client for mitre-mcp server."""
+    """Simple client for mitre-mcp server, built on the official mcp SDK."""
 
     def __init__(self, host: str = "localhost", port: int = 8000, debug: bool = False):
         """Initialize the client with server connection details."""
         self.base_url = f"http://{host}:{port}/mcp"
-        self.request_id = 0
+        self.port = port
         self.debug = debug
-        self.session_id: Optional[str] = None
-        self.http_client: Optional[httpx.AsyncClient] = None
+        self._client: Optional[Client] = None
+        self._exit_stack = AsyncExitStack()
+
+    def _debug(self, message: str) -> None:
+        if self.debug:
+            print(f"🔍 Debug: {message}", file=sys.stderr)
+
+    async def initialize_session(self) -> None:
+        """Connect to the server and perform the MCP handshake.
+
+        `Client.__aenter__` runs version negotiation ('auto' probes
+        `server/discover` and falls back to the legacy `initialize`
+        handshake), sends `notifications/initialized`, and lets the transport
+        capture the session header — the steps the previous hand-rolled
+        implementation had to do by hand.
+        """
+        self._debug(f"Initializing session against {self.base_url} ...")
+        client = await self._exit_stack.enter_async_context(
+            Client(
+                self.base_url,
+                client_info=Implementation(name="mini-mcp-client", version="1.0.0"),
+                read_timeout_seconds=CALL_TIMEOUT_SECONDS,
+            )
+        )
+        self._client = client
+        self._debug("Session initialized")
+
+    async def _ensure_connected(self) -> Client:
+        if self._client is None:
+            await self.initialize_session()
+        assert self._client is not None
+        return self._client
+
+    async def _reset_session(self) -> None:
+        """Drop the current session so the next call re-initializes."""
+        if self._client is not None:
+            self._client = None
+            await self._exit_stack.aclose()
+            self._exit_stack = AsyncExitStack()
 
     async def test_connection(self) -> bool:
-        """Test if the server is reachable."""
+        """Test if the server is reachable and answers the MCP handshake."""
+        if self._client is not None:
+            return True
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                # Try a simple GET to see if server responds
-                response = await client.get(f"http://{self.base_url.split('/')[2]}")
-                return response.status_code < 500
+            async with Client(self.base_url):
+                return True
         except Exception:
             return False
 
-    async def initialize_session(self) -> None:
-        """Initialize an MCP session with the server."""
-        self.request_id += 1
-
-        init_payload = {
-            "jsonrpc": "2.0",
-            "id": self.request_id,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {
-                    "name": "mini-mcp-client",
-                    "version": "1.0.0"
-                }
-            }
-        }
-
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-
-        if self.debug:
-            print(f"🔍 Debug: Initializing session...", file=sys.stderr)
-            print(f"🔍 Debug: Init payload: {json.dumps(init_payload, indent=2)}", file=sys.stderr)
-
-        if not self.http_client:
-            self.http_client = httpx.AsyncClient(timeout=30.0)
-
-        response = await self.http_client.post(
-            self.base_url,
-            json=init_payload,
-            headers=headers
-        )
-
-        # Extract session ID from response headers
-        self.session_id = response.headers.get("mcp-session-id")
-
-        if self.debug:
-            print(f"🔍 Debug: Session initialized", file=sys.stderr)
-            print(f"🔍 Debug: Session ID: {self.session_id}", file=sys.stderr)
-            print(f"🔍 Debug: Init response: {response.text[:500]}", file=sys.stderr)
-
-        response.raise_for_status()
-
     async def close(self) -> None:
-        """Close the HTTP client."""
-        if self.http_client:
-            await self.http_client.aclose()
-            self.http_client = None
+        """Close the client, terminating the server-side session if any."""
+        await self._reset_session()
 
-    def _parse_sse_response(self, sse_text: str) -> Dict[str, Any]:
-        """
-        Parse Server-Sent Events (SSE) response format.
-
-        SSE format:
-            event: message
-            data: {"jsonrpc":"2.0","id":1,"result":{...}}
-
-        """
-        lines = sse_text.strip().split('\n')
-        data_lines = []
-
-        for line in lines:
-            if line.startswith('data: '):
-                # Extract the JSON data after "data: "
-                data_lines.append(line[6:])  # Skip "data: " prefix
-
-        # Join all data lines (in case data is split across multiple lines)
-        json_data = ''.join(data_lines)
-
-        if self.debug:
-            print(f"🔍 Debug: Extracted SSE data: {json_data[:500]}", file=sys.stderr)
-
-        return json.loads(json_data)
+    @staticmethod
+    def _is_session_terminated_error(exc: Exception) -> bool:
+        """Whether the error reports an expired/unknown server-side session."""
+        return isinstance(exc, MCPError) and "session terminated" in str(exc.error.message).lower()
 
     async def call_tool(
-        self, tool_name: str, arguments: Optional[Dict[str, Any]] = None
+        self, tool_name: str, arguments: Optional[Dict[str, Any]] = None, _is_retry: bool = False
     ) -> Dict[str, Any]:
         """
-        Call a mitre-mcp tool via HTTP/JSON-RPC.
-
-        Important: The MCP HTTP server requires the Accept header to include
-        both "application/json" and "text/event-stream" for proper protocol
-        support (even though JSON-RPC calls return JSON).
+        Call a mitre-mcp tool via the MCP SDK.
 
         Args:
             tool_name: Name of the MCP tool to call
             arguments: Dictionary of arguments for the tool
 
         Returns:
-            JSON-RPC response from the server
+            ``{"result": <CallToolResult>}`` — the same envelope shape the
+            previous JSON-RPC implementation produced, so callers can keep
+            reading ``result["result"]["content"]`` /
+            ``result["result"]["structuredContent"]`` /
+            ``result["result"]["isError"]``.
 
         Raises:
-            httpx.HTTPError: If the HTTP request fails
-            ValueError: If the JSON-RPC response contains an error
+            MCPError: If the server returns a JSON-RPC error
+            Exception: If the request fails at the transport level
         """
-        self.request_id += 1
-
-        payload = {
-            "jsonrpc": "2.0",
-            "id": self.request_id,
-            "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments or {}},
-        }
-
         try:
-            # Initialize session if not already done
-            if not self.session_id:
-                await self.initialize_session()
-
-            # MCP HTTP server requires both content types and session ID
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            }
-
-            # Add session ID to headers
-            if self.session_id:
-                headers["mcp-session-id"] = self.session_id
-
-            if self.debug:
-                print(f"🔍 Debug: Sending request to {self.base_url}", file=sys.stderr)
-                print(f"🔍 Debug: Payload: {json.dumps(payload, indent=2)}", file=sys.stderr)
-                print(f"🔍 Debug: Headers: {headers}", file=sys.stderr)
-
-            if not self.http_client:
-                self.http_client = httpx.AsyncClient(timeout=30.0)
-
-            response = await self.http_client.post(
-                self.base_url,
-                json=payload,
-                headers=headers
-            )
-
-            if self.debug:
-                print(f"🔍 Debug: Response status: {response.status_code}", file=sys.stderr)
-                print(f"🔍 Debug: Response headers: {dict(response.headers)}", file=sys.stderr)
-                print(f"🔍 Debug: Response body: {response.text[:500]}", file=sys.stderr)
-
-            response.raise_for_status()
-
-            # Check if response is SSE format (text/event-stream)
-            content_type = response.headers.get("content-type", "")
-            if "text/event-stream" in content_type:
-                # Parse SSE format
-                result = self._parse_sse_response(response.text)
-            else:
-                # Regular JSON response
-                result = response.json()
-
-            # Check for JSON-RPC errors
-            if "error" in result:
-                error = result["error"]
-                raise ValueError(
-                    f"JSON-RPC Error {error.get('code')}: {error.get('message')}"
-                )
-
-            return result
-
-        except httpx.HTTPError as e:
-            print(f"❌ HTTP Error: {e}", file=sys.stderr)
-            print(
-                f"   Make sure mitre-mcp server is running: mitre-mcp --http --port {self.base_url.split(':')[-1].split('/')[0]}",
-                file=sys.stderr,
-            )
-            if self.debug:
-                print(f"🔍 Debug: Full exception: {type(e).__name__}: {e}", file=sys.stderr)
-            raise
+            client = await self._ensure_connected()
+            self._debug(f"Calling tool: {tool_name} args={arguments or {}}")
+            result = await client.call_tool(tool_name, arguments or {})
         except Exception as e:
-            print(f"❌ Error: {e}", file=sys.stderr)
+            # "Session terminated" means the server forgot our session —
+            # drop it, re-initialize, and retry exactly once.
+            if not _is_retry and self._is_session_terminated_error(e):
+                self._debug("Session expired, re-initializing and retrying once")
+                await self._reset_session()
+                return await self.call_tool(tool_name, arguments, _is_retry=True)
+            if isinstance(e, MCPError):
+                print(f"❌ MCP Error {e.error.code}: {e.error.message}", file=sys.stderr)
+            else:
+                print(f"❌ Error: {e}", file=sys.stderr)
+                print(
+                    f"   Make sure mitre-mcp server is running: mitre-mcp --http --port {self.port}",
+                    file=sys.stderr,
+                )
             raise
+
+        self._debug(f"Tool call completed: isError={result.is_error}")
+        return {
+            "result": result.model_dump(
+                mode="json", by_alias=True, exclude_none=True, exclude={"result_type"}
+            )
+        }
 
     def format_output(self, result: Dict[str, Any], pretty: bool = True) -> str:
         """Format the result for display."""
@@ -486,6 +415,14 @@ Make sure the mitre-mcp server is running:
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    if args.debug:
+        # Surface the SDK's protocol logs (negotiation, session, SSE frames).
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("🔍 %(name)s: %(message)s"))
+        mcp_logger = logging.getLogger("mcp")
+        mcp_logger.setLevel(logging.DEBUG)
+        mcp_logger.addHandler(handler)
 
     # Create client and execute command
     client = MitreMCPClient(host=args.host, port=args.port, debug=args.debug)
