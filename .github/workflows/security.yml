@@ -14,7 +14,12 @@ on:
       - '**.md'
       - 'docs/**'
   schedule:
-    # Run security checks daily at 2 AM UTC
+    # Run security checks daily at 2 AM UTC.
+    # Keep-alive strategy: this scheduled trigger (plus workflow_dispatch)
+    # is what prevents GitHub from auto-disabling the workflow after 60
+    # days of repository inactivity. If the workflow is already in state
+    # disabled_inactivity, a repository admin must re-enable it once under
+    # Actions; thereafter the daily run keeps it alive.
     - cron: "0 2 * * *"
   workflow_dispatch:
 
