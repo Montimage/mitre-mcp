@@ -84,6 +84,7 @@ cd frontend
 npm ci
 npm run build
 npm run lint
+npm test
 ```
 
 ### Environment variables
@@ -336,7 +337,26 @@ bandit -r mitre_mcp/ -c pyproject.toml
 safety check
 ```
 
-#### 4. PyPI Publish (`pypi-publish.yml`)
+#### 4. Frontend Tests (`frontend.yml`)
+
+**Triggers**: Push to main/develop/claude/\* and pull requests touching
+`frontend/**`, `clients/**`, or the workflow itself
+
+**Steps**:
+
+1. Install, lint, test (`npm test` — Vitest), and build `frontend/`
+2. Run the sample-client smoke tests: `npm test` in `clients/nodejs/`
+   and `pytest clients/python/` (offline — no server required)
+
+**Local Equivalent**:
+
+```bash
+cd frontend && npm ci && npm test
+cd clients/nodejs && npm ci && npm test
+uv run --locked pytest clients/python/ -q -p no:cacheprovider -o addopts=""
+```
+
+#### 5. PyPI Publish (`pypi-publish.yml`)
 
 **Trigger**: GitHub release published
 

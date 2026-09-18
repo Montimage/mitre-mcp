@@ -58,6 +58,14 @@ npm run dev
 
 The application will be available at `http://localhost:5173`
 
+## Testing
+
+Run the Vitest suite (jsdom environment; no server required):
+
+```bash
+npm test
+```
+
 ## Building for Production
 
 Build the optimized production bundle:
