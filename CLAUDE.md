@@ -22,4 +22,4 @@ Claude-specific pins for this repository. Shared rules (layout, conventions, con
 - Failing tests (listed separately; live-data dependent — see Task 0.5):
   - `tests/integration/test_mcp_tools.py::TestMcpToolsIntegration::test_get_technique_by_id`
   - `tests/integration/test_mcp_tools.py::TestMcpToolsIntegration::test_get_techniques_by_tactic`
-- Recorded coverage: not yet measured (Task 0.4 fills this in)
+- Recorded coverage: 70.7 % (fresh checkout — 9 integration tests skip without `tests/data/`; gate `--cov-fail-under=70` in `pyproject.toml`)
