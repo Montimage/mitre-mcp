@@ -7,6 +7,7 @@ using the mitreattack-python library. Implemented using the official MCP Python 
 """
 
 # Standard library imports
+import argparse
 import asyncio
 import json
 import logging
@@ -422,97 +423,28 @@ def build_technique_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
 @asynccontextmanager
 async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
     """Initialize and manage MITRE ATT&CK data."""
-    # Create data directory if it doesn't exist
     data_dir = Config.get_data_dir()
     os.makedirs(data_dir, exist_ok=True)
     logger.info("Using data directory: %s", data_dir)
 
     try:
-        # Get command line arguments
-        force_download = "--force-download" in sys.argv
+        args = get_cli_args()
 
-        # Download and save MITRE ATT&CK data asynchronously with parallel downloads
-        paths = await download_and_save_attack_data_async(data_dir, force=force_download)
+        paths = await download_and_save_attack_data_async(data_dir, force=args.force_download)
 
-        # Initialize on startup
         logger.info("Initializing MITRE ATT&CK data...")
         enterprise_attack = MitreAttackData(paths["enterprise"])
         mobile_attack = MitreAttackData(paths["mobile"])
         ics_attack = MitreAttackData(paths["ics"])
         logger.info("MITRE ATT&CK data initialized successfully.")
 
-        # Build lookup indices
         logger.info("Building lookup indices...")
         groups_index = build_group_index(enterprise_attack)
         mitigations_index = build_mitigation_index(enterprise_attack)
         techniques_index = build_technique_index(enterprise_attack)
         logger.info("Lookup indices built successfully.")
 
-        # Show appropriate configuration based on transport mode
-        if "--http" in sys.argv:
-            # Parse host and port from command line
-            host = "localhost"
-            port = 8000
-            for i, arg in enumerate(sys.argv):
-                if arg == "--host" and i + 1 < len(sys.argv):
-                    host = sys.argv[i + 1]
-                elif arg == "--port" and i + 1 < len(sys.argv):
-                    try:  # noqa: SIM105
-                        port = int(sys.argv[i + 1])
-                    except ValueError:
-                        pass  # Will use default
-
-            # Streamable HTTP transport configuration
-            server_url = f"http://{host}:{port}"
-            config_snippet: dict[str, Any] = {
-                "mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}
-            }
-
-            # Log the configuration
-            config_message = (
-                "\n"
-                + "=" * 70
-                + "\n"
-                + "MITRE ATT&CK MCP Server is ready (Streamable HTTP mode)\n"
-                + f"Server URL: {server_url}\n"
-                + f"MCP Endpoint: {server_url}/mcp\n"
-                + "\n"
-                + "Add this to your MCP client configuration:\n"
-                + json.dumps(config_snippet, indent=2)
-                + "\n"
-                + "=" * 70
-            )
-            logger.info(config_message)
-
-            # Also print directly to stderr with immediate flush to ensure visibility
-            print(config_message, file=sys.stderr, flush=True)
-        else:
-            # stdio transport configuration
-            config_snippet = {
-                "mcpServers": {
-                    "mitreattack": {
-                        "command": sys.executable,
-                        "args": ["-m", "mitre_mcp.mitre_mcp_server"],
-                    }
-                }
-            }
-
-            # Log the configuration
-            config_message = (
-                "\n"
-                + "=" * 70
-                + "\n"
-                + "MITRE ATT&CK MCP Server is ready (stdio mode)\n"
-                + "\n"
-                + "Add this to your MCP client configuration:\n"
-                + json.dumps(config_snippet, indent=2)
-                + "\n"
-                + "=" * 70
-            )
-            logger.info(config_message)
-
-            # Also print directly to stderr with immediate flush to ensure visibility
-            print(config_message, file=sys.stderr, flush=True)
+        emit_startup_banner(args)
 
         yield AttackContext(
             enterprise_attack=enterprise_attack,
@@ -1179,43 +1111,138 @@ def signal_handler(signum: int, frame: Any) -> None:
     sys.exit(0)
 
 
-def print_help() -> None:
-    """Print help message and exit."""
-    print("MITRE ATT&CK MCP Server")
-    print("Usage: mitre-mcp [options]")
-    print("\nOptions:")
-    print("  --http               Run as HTTP server with streamable HTTP transport")
-    print("  --host HOST          Host to bind to (default: localhost, only with --http)")
-    print("  --port PORT          Port to bind to (default: 8000, only with --http)")
-    print("  --force-download     Force download of MITRE ATT&CK data even if it's recent")
-    print("  -h, --help           Show this help message and exit")
-    print("\nEnvironment Variables (HTTP mode):")
-    print("  MITRE_CORS_ORIGINS   CORS allowed origins (default: localhost origins)")
-    print("                       Use comma-separated list for specific domains:")
-    print("                       e.g., 'https://example.com,http://localhost:5173'")
-    sys.exit(0)
+def build_parser() -> argparse.ArgumentParser:
+    """The one command-line parser for the mitre-mcp entry point.
 
-
-def parse_http_args() -> tuple[str, int]:
-    """Parse HTTP host and port from command line arguments.
-
-    Returns:
-        Tuple of (host, port)
+    ``-h``/``--help`` is argparse's built-in action, so help text, usage
+    and the exit-0/exit-2 semantics all come from this definition — there
+    is no hand-rolled help printer or argv scan anywhere else.
     """
-    host = os.getenv("FASTMCP_SERVER_HOST", "localhost")
-    port = int(os.getenv("FASTMCP_SERVER_PORT", "8000"))
+    parser = argparse.ArgumentParser(
+        prog="mitre-mcp",
+        description="MITRE ATT&CK MCP Server",
+        epilog=(
+            "Environment variables (HTTP mode):\n"
+            "  MITRE_CORS_ORIGINS   CORS allowed origins (default: localhost origins)\n"
+            "                       use a comma-separated list for specific domains,\n"
+            '                       e.g. "https://example.com,http://localhost:5173"\n'
+            "  FASTMCP_SERVER_HOST  default bind host (overridden by --host)\n"
+            "  FASTMCP_SERVER_PORT  default bind port (overridden by --port)"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help="run as HTTP server with streamable HTTP transport",
+    )
+    parser.add_argument(
+        "--host",
+        metavar="HOST",
+        help="host to bind to (only with --http; default: FASTMCP_SERVER_HOST or localhost)",
+    )
+    parser.add_argument(
+        "--port",
+        metavar="PORT",
+        type=int,
+        help="port to bind to (only with --http; default: FASTMCP_SERVER_PORT or 8000)",
+    )
+    parser.add_argument(
+        "--force-download",
+        action="store_true",
+        help="force download of MITRE ATT&CK data even if it's recent",
+    )
+    return parser
 
-    for i, arg in enumerate(sys.argv):
-        if arg == "--host" and i + 1 < len(sys.argv):
-            host = sys.argv[i + 1]
-        elif arg == "--port" and i + 1 < len(sys.argv):
-            try:
-                port = int(sys.argv[i + 1])
-            except ValueError:
-                logger.error("Invalid port number: %s", sys.argv[i + 1])
-                sys.exit(1)
 
-    return host, port
+def _apply_env_defaults(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> argparse.Namespace:
+    """Fold FASTMCP_SERVER_HOST/PORT into --host/--port left unset on the CLI."""
+    if args.host is None:
+        args.host = os.getenv("FASTMCP_SERVER_HOST", "localhost")
+    if args.port is None:
+        env_port = os.getenv("FASTMCP_SERVER_PORT", "8000")
+        try:
+            args.port = int(env_port)
+        except ValueError:
+            parser.error(f"invalid FASTMCP_SERVER_PORT value: {env_port!r}")
+    return args
+
+
+def parse_cli_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Strictly parse the mitre-mcp command line for ``main()``.
+
+    Bad input (unknown flag, missing value, non-integer port) exits 2 with
+    a usage message; ``-h``/``--help`` prints help and exits 0.
+    """
+    parser = build_parser()
+    return _apply_env_defaults(parser.parse_args(argv), parser)
+
+
+_parsed_cli_args: argparse.Namespace | None = None
+
+
+def get_cli_args() -> argparse.Namespace:
+    """Return the process's parsed command-line args.
+
+    ``main()`` parses once and stores the namespace here. When the lifespan
+    runs without it — embedded ``mcp.run()``, a foreign ASGI host, tests —
+    the process argv belongs to the embedder, so a tolerant
+    ``parse_known_args`` picks up only this server's own flags.
+    """
+    if _parsed_cli_args is not None:
+        return _parsed_cli_args
+    parser = build_parser()
+    args, _unknown = parser.parse_known_args()
+    return _apply_env_defaults(args, parser)
+
+
+def build_config_banner(*, http: bool, host: str, port: int) -> str:
+    """Build the startup configuration banner for the active transport.
+
+    The single producer of the banner text — called once per start-up via
+    ``emit_startup_banner``.
+    """
+    if http:
+        server_url = f"http://{host}:{port}"
+        headline = (
+            "MITRE ATT&CK MCP Server is ready (Streamable HTTP mode)\n"
+            f"Server URL: {server_url}\n"
+            f"MCP Endpoint: {server_url}/mcp\n"
+        )
+        config_snippet: dict[str, Any] = {
+            "mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}
+        }
+    else:
+        headline = "MITRE ATT&CK MCP Server is ready (stdio mode)\n"
+        config_snippet = {
+            "mcpServers": {
+                "mitreattack": {
+                    "command": sys.executable,
+                    "args": ["-m", "mitre_mcp.mitre_mcp_server"],
+                }
+            }
+        }
+
+    return (
+        "\n"
+        + "=" * 70
+        + "\n"
+        + headline
+        + "\n"
+        + "Add this to your MCP client configuration:\n"
+        + json.dumps(config_snippet, indent=2)
+        + "\n"
+        + "=" * 70
+    )
+
+
+def emit_startup_banner(args: argparse.Namespace) -> None:
+    """Log the ready banner once, and print it to stderr with an immediate flush."""
+    message = build_config_banner(http=args.http, host=args.host, port=args.port)
+    logger.info(message)
+    print(message, file=sys.stderr, flush=True)
 
 
 def build_transport_security(host: str, port: int) -> TransportSecuritySettings:
@@ -1334,26 +1361,8 @@ def setup_http_server(host: str, port: int) -> tuple[str, TransportSecuritySetti
     # must be built here or remote clients are always rejected.
     transport_security = build_transport_security(host, port)
 
-    # Show configuration for HTTP mode
-    server_url = f"http://{host}:{port}"
-    config_snippet = {"mcpServers": {"mitreattack": {"url": f"{server_url}/mcp"}}}
-    config_message = (
-        "\n"
-        + "=" * 70
-        + "\n"
-        + "MCP Client Configuration (Streamable HTTP Transport)\n"
-        + f"Server URL: {server_url}\n"
-        + f"MCP Endpoint: {server_url}/mcp\n"
-        + "\n"
-        + "Add this to your MCP client configuration:\n"
-        + json.dumps(config_snippet, indent=2)
-        + "\n"
-        + "=" * 70
-        + "\n"
-    )
-    # Print to stderr with immediate flush
-    print(config_message, file=sys.stderr, flush=True)
-
+    # The configuration banner is emitted once, by the lifespan, when the
+    # server is actually ready — not here, before uvicorn starts.
     return mcp.settings.log_level.lower(), transport_security
 
 
@@ -1374,17 +1383,19 @@ def build_http_app(host: str, transport_security: TransportSecuritySettings) -> 
 
 def main() -> None:
     """Entry point for the package when installed."""
-    # Print help message if requested
-    if "--help" in sys.argv or "-h" in sys.argv:
-        print_help()
+    global _parsed_cli_args
+    # The single parse for this start-up: argparse handles -h/--help
+    # (exit 0) and bad input (exit 2 with usage). The namespace is stored
+    # so attack_lifespan reads the same args instead of re-parsing argv.
+    _parsed_cli_args = parse_cli_args()
 
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        if "--http" in sys.argv:
-            host, port = parse_http_args()
+        if _parsed_cli_args.http:
+            host, port = _parsed_cli_args.host, _parsed_cli_args.port
             log_level, transport_security = setup_http_server(host, port)
 
             # Build the ASGI app explicitly (no SDK monkey-patch) and

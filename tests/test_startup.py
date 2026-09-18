@@ -1,12 +1,19 @@
 """Characterisation tests for the server start-up path.
 
-These tests pin the *current* behaviour of ``parse_http_args``,
-``print_help``, ``signal_handler``, ``main`` and ``attack_lifespan`` —
-including the oddities recorded in F-DEAD-002/F-CLEAN-006 (e.g. a
-trailing ``--port`` with no value is silently ignored, and ``--host``
-consumes the next argv token literally). They exist so the SDK v2 port
-(Tasks 3.6-4.2) and later refactors have a regression net; they must not
-drive production behaviour changes.
+These tests pin the behaviour of the single ``argparse`` parser
+(``build_parser``/``parse_cli_args``/``get_cli_args``), ``signal_handler``,
+``build_config_banner``, ``main`` and ``attack_lifespan``.
+
+Tasks 6.3/6.4 consolidated three hand-rolled ``sys.argv`` scans and three
+banner builders into one parser and one banner function. Assertions that
+pinned *buggy* behaviour were updated here, exactly where the old
+behaviour was the bug:
+
+- a trailing ``--port``/``--host`` with no value now exits 2 with a usage
+  message instead of being silently ignored (F-CLEAN-006);
+- ``--host --port`` no longer lets ``--host`` swallow the next flag as its
+  value (F-DEAD-002);
+- an invalid ``--port`` exits 2 (argparse's convention) instead of 1.
 """
 
 import signal
@@ -18,69 +25,114 @@ import pytest
 import mitre_mcp.mitre_mcp_server as mod
 from mitre_mcp.mitre_mcp_server import (
     attack_lifespan,
-    parse_http_args,
-    print_help,
+    build_config_banner,
+    parse_cli_args,
     signal_handler,
 )
 
 
-class TestParseHttpArgs:
-    """Pin command-line host/port parsing, including odd cases."""
+@pytest.fixture(autouse=True)
+def _reset_parsed_cli_args(monkeypatch):
+    """Each test parses its own argv — never a namespace stored by main()."""
+    monkeypatch.setattr(mod, "_parsed_cli_args", None)
+
+
+class TestParseCliArgs:
+    """Pin command-line parsing through the single argparse parser."""
 
     def test_defaults(self, monkeypatch):
         monkeypatch.delenv("FASTMCP_SERVER_HOST", raising=False)
         monkeypatch.delenv("FASTMCP_SERVER_PORT", raising=False)
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
 
-        assert parse_http_args() == ("localhost", 8000)
+        args = parse_cli_args()
+        assert (args.host, args.port) == ("localhost", 8000)
+        assert args.http is False
+        assert args.force_download is False
 
     def test_env_defaults(self, monkeypatch):
         monkeypatch.setenv("FASTMCP_SERVER_HOST", "0.0.0.0")
         monkeypatch.setenv("FASTMCP_SERVER_PORT", "9000")
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
 
-        assert parse_http_args() == ("0.0.0.0", 9000)
+        args = parse_cli_args()
+        assert (args.host, args.port) == ("0.0.0.0", 9000)
 
     def test_cli_overrides_env(self, monkeypatch):
         monkeypatch.setenv("FASTMCP_SERVER_HOST", "envhost")
         monkeypatch.setenv("FASTMCP_SERVER_PORT", "1111")
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--host", "clihost", "--port", "2222"])
 
-        assert parse_http_args() == ("clihost", 2222)
+        args = parse_cli_args()
+        assert (args.host, args.port) == ("clihost", 2222)
 
-    def test_trailing_port_without_value_is_ignored(self, monkeypatch):
-        """F-CLEAN-006: a trailing --port with no value keeps the default."""
+    def test_trailing_port_without_value_errors(self, monkeypatch, capsys):
+        """F-CLEAN-006 fix: a trailing --port now exits non-zero with usage."""
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--port"])
 
-        assert parse_http_args() == ("localhost", 8000)
+        with pytest.raises(SystemExit) as exc_info:
+            parse_cli_args()
+        assert exc_info.value.code != 0
+        assert "usage" in capsys.readouterr().err.lower()
 
-    def test_trailing_host_without_value_is_ignored(self, monkeypatch):
-        """A trailing --host with no value keeps the default."""
+    def test_trailing_host_without_value_errors(self, monkeypatch, capsys):
+        """A trailing --host with no value exits non-zero with usage."""
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--host"])
 
-        assert parse_http_args() == ("localhost", 8000)
+        with pytest.raises(SystemExit) as exc_info:
+            parse_cli_args()
+        assert exc_info.value.code != 0
+        assert "usage" in capsys.readouterr().err.lower()
 
-    def test_host_consumes_next_token_literally(self, monkeypatch):
-        """F-DEAD-002 class oddity: --host takes the next argv token even
-        when that token is another flag, which then cannot be parsed."""
+    def test_host_no_longer_consumes_next_flag(self, monkeypatch):
+        """F-DEAD-002 fix: --host cannot swallow the next option as a value."""
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--host", "--port"])
 
-        assert parse_http_args() == ("--port", 8000)
+        with pytest.raises(SystemExit) as exc_info:
+            parse_cli_args()
+        assert exc_info.value.code != 0
 
-    def test_invalid_port_exits_1(self, monkeypatch):
+    def test_invalid_port_exits_nonzero(self, monkeypatch, capsys):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--port", "not-a-number"])
 
         with pytest.raises(SystemExit) as exc_info:
-            parse_http_args()
-        assert exc_info.value.code == 1
+            parse_cli_args()
+        assert exc_info.value.code == 2
+        assert "usage" in capsys.readouterr().err.lower()
 
+    def test_invalid_env_port_exits_nonzero(self, monkeypatch):
+        monkeypatch.setenv("FASTMCP_SERVER_PORT", "bogus")
+        monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
 
-class TestPrintHelp:
-    """Pin help output and exit behaviour."""
-
-    def test_prints_usage_and_exits_zero(self, capsys):
         with pytest.raises(SystemExit) as exc_info:
-            print_help()
+            parse_cli_args()
+        assert exc_info.value.code == 2
+
+    def test_unknown_flag_rejected(self, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--bogus"])
+
+        with pytest.raises(SystemExit) as exc_info:
+            parse_cli_args()
+        assert exc_info.value.code != 0
+
+    def test_get_cli_args_tolerates_foreign_argv(self, monkeypatch):
+        """Without main() (embedded/test hosts), only our flags are read."""
+        monkeypatch.delenv("FASTMCP_SERVER_HOST", raising=False)
+        monkeypatch.delenv("FASTMCP_SERVER_PORT", raising=False)
+        monkeypatch.setattr(
+            sys, "argv", ["pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts="]
+        )
+
+        args = mod.get_cli_args()
+        assert (args.http, args.host, args.port) == (False, "localhost", 8000)
+
+
+class TestHelpText:
+    """Pin help output and exit behaviour (argparse's own --help)."""
+
+    def test_help_prints_usage_and_exits_zero(self, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            parse_cli_args(["--help"])
         assert exc_info.value.code == 0
 
         out = capsys.readouterr().out
@@ -88,6 +140,49 @@ class TestPrintHelp:
         assert "--http" in out
         assert "--force-download" in out
         assert "MITRE_CORS_ORIGINS" in out
+
+
+class TestStartupBanner:
+    """Pin the single banner producer and its once-per-startup call."""
+
+    def test_stdio_banner_text(self):
+        banner = build_config_banner(http=False, host="localhost", port=8000)
+        assert "stdio mode" in banner
+        assert "mitre_mcp.mitre_mcp_server" in banner
+        assert "Add this to your MCP client configuration:" in banner
+
+    def test_http_banner_text(self):
+        banner = build_config_banner(http=True, host="h", port=9)
+        assert "Streamable HTTP mode" in banner
+        assert "http://h:9/mcp" in banner
+        assert "Add this to your MCP client configuration:" in banner
+
+    async def test_banner_built_once_per_startup(self, monkeypatch, tmp_path):
+        """One definition, one call per start-up (issue #66)."""
+        spy = MagicMock(wraps=mod.build_config_banner)
+        monkeypatch.setattr(mod, "build_config_banner", spy)
+        paths = {
+            "enterprise": str(tmp_path / "e.json"),
+            "mobile": str(tmp_path / "m.json"),
+            "ics": str(tmp_path / "i.json"),
+            "metadata": str(tmp_path / "md.json"),
+        }
+        monkeypatch.setattr(mod, "download_and_save_attack_data_async", AsyncMock(return_value=paths))
+        _patch_lifespan_deps(monkeypatch, tmp_path)
+        monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
+
+        async with attack_lifespan(MagicMock()):
+            pass
+
+        spy.assert_called_once()
+
+    def test_setup_http_server_does_not_print_banner(self, capfd):
+        """The banner no longer comes out of setup_http_server."""
+        mod.setup_http_server("localhost", 8000)
+
+        captured = capfd.readouterr()
+        assert "Add this to your MCP client configuration" not in captured.err
+        assert "is ready" not in captured.err
 
 
 class TestSignalHandler:
@@ -107,16 +202,18 @@ class TestSignalHandler:
 class TestMain:
     """Pin the entry-point dispatch behaviour."""
 
-    def test_help_flag_calls_print_help(self, monkeypatch):
+    def test_help_flag_prints_usage_and_exits_zero(self, monkeypatch, capsys):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--help"])
-        help_mock = MagicMock()
-        monkeypatch.setattr(mod, "print_help", help_mock)
-        monkeypatch.setattr(mod.mcp, "run", MagicMock())
+        run_mock = MagicMock()
+        monkeypatch.setattr(mod.mcp, "run", run_mock)
         monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
-        mod.main()
+        with pytest.raises(SystemExit) as exc_info:
+            mod.main()
+        assert exc_info.value.code == 0
 
-        help_mock.assert_called_once_with()
+        assert "usage" in capsys.readouterr().out.lower()
+        run_mock.assert_not_called()
 
     def test_registers_sigint_and_sigterm_handlers(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
