@@ -150,28 +150,28 @@ All commands support these global options:
 Import the `MitreMCPClient` class in your Node.js applications:
 
 ```javascript
-const { MitreMCPClient } = require('./mini-mcp-client');
+const { MitreMCPClient } = require("./mini-mcp-client");
 
 async function example() {
-  const client = new MitreMCPClient('localhost', 8000);
+  const client = new MitreMCPClient("localhost", 8000);
 
   try {
     // Get all tactics
-    const tactics = await client.callTool('get_tactics', {
-      domain: 'enterprise-attack'
+    const tactics = await client.callTool("get_tactics", {
+      domain: "enterprise-attack",
     });
 
     console.log(client.formatOutput(tactics));
 
     // Get techniques for a tactic
-    const techniques = await client.callTool('get_techniques_by_tactic', {
-      tactic_shortname: 'initial-access',
-      domain: 'enterprise-attack'
+    const techniques = await client.callTool("get_techniques_by_tactic", {
+      tactic_shortname: "initial-access",
+      domain: "enterprise-attack",
     });
 
     console.log(client.formatOutput(techniques));
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error("Error:", error.message);
   }
 }
 
@@ -183,16 +183,16 @@ example();
 ### Example 1: Express.js API Endpoint
 
 ```javascript
-const express = require('express');
-const { MitreMCPClient } = require('./mini-mcp-client');
+const express = require("express");
+const { MitreMCPClient } = require("./mini-mcp-client");
 
 const app = express();
-const client = new MitreMCPClient('localhost', 8000);
+const client = new MitreMCPClient("localhost", 8000);
 
-app.get('/api/tactics', async (req, res) => {
+app.get("/api/tactics", async (req, res) => {
   try {
-    const result = await client.callTool('get_tactics', {
-      domain: req.query.domain || 'enterprise-attack'
+    const result = await client.callTool("get_tactics", {
+      domain: req.query.domain || "enterprise-attack",
     });
     res.json(result);
   } catch (error) {
@@ -200,11 +200,11 @@ app.get('/api/tactics', async (req, res) => {
   }
 });
 
-app.get('/api/techniques/:tactic', async (req, res) => {
+app.get("/api/techniques/:tactic", async (req, res) => {
   try {
-    const result = await client.callTool('get_techniques_by_tactic', {
+    const result = await client.callTool("get_techniques_by_tactic", {
       tactic_shortname: req.params.tactic,
-      domain: req.query.domain || 'enterprise-attack'
+      domain: req.query.domain || "enterprise-attack",
     });
     res.json(result);
   } catch (error) {
@@ -213,29 +213,29 @@ app.get('/api/techniques/:tactic', async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('API server running on http://localhost:3000');
+  console.log("API server running on http://localhost:3000");
 });
 ```
 
 ### Example 2: Batch Processing
 
 ```javascript
-const { MitreMCPClient } = require('./mini-mcp-client');
+const { MitreMCPClient } = require("./mini-mcp-client");
 
 async function analyzeGroups(groupNames) {
-  const client = new MitreMCPClient('localhost', 8000);
+  const client = new MitreMCPClient("localhost", 8000);
   const results = [];
 
   for (const groupName of groupNames) {
     try {
-      const techniques = await client.callTool('get_techniques_used_by_group', {
+      const techniques = await client.callTool("get_techniques_used_by_group", {
         group_name: groupName,
-        domain: 'enterprise-attack'
+        domain: "enterprise-attack",
       });
 
       results.push({
         group: groupName,
-        techniques: techniques.result.structuredContent.techniques || []
+        techniques: techniques.result.structuredContent.techniques || [],
       });
     } catch (error) {
       console.error(`Error analyzing ${groupName}:`, error.message);
@@ -246,7 +246,7 @@ async function analyzeGroups(groupNames) {
 }
 
 // Usage
-analyzeGroups(['APT29', 'APT28', 'Lazarus Group']).then(results => {
+analyzeGroups(["APT29", "APT28", "Lazarus Group"]).then((results) => {
   console.log(JSON.stringify(results, null, 2));
 });
 ```
@@ -254,53 +254,56 @@ analyzeGroups(['APT29', 'APT28', 'Lazarus Group']).then(results => {
 ### Example 3: Threat Intelligence Dashboard
 
 ```javascript
-const { MitreMCPClient } = require('./mini-mcp-client');
+const { MitreMCPClient } = require("./mini-mcp-client");
 
 class ThreatIntelligence {
-  constructor(host = 'localhost', port = 8000) {
+  constructor(host = "localhost", port = 8000) {
     this.client = new MitreMCPClient(host, port);
   }
 
   async getDashboardData() {
     // Get all data in parallel
     const [tactics, groups, mitigations] = await Promise.all([
-      this.client.callTool('get_tactics', { domain: 'enterprise-attack' }),
-      this.client.callTool('get_groups', {
-        domain: 'enterprise-attack',
-        remove_revoked_deprecated: true
+      this.client.callTool("get_tactics", { domain: "enterprise-attack" }),
+      this.client.callTool("get_groups", {
+        domain: "enterprise-attack",
+        remove_revoked_deprecated: true,
       }),
-      this.client.callTool('get_mitigations', {
-        domain: 'enterprise-attack',
-        remove_revoked_deprecated: true
-      })
+      this.client.callTool("get_mitigations", {
+        domain: "enterprise-attack",
+        remove_revoked_deprecated: true,
+      }),
     ]);
 
     return {
       tacticsCount: tactics.result.structuredContent.tactics.length,
       groupsCount: groups.result.structuredContent.groups.length,
       mitigationsCount: mitigations.result.structuredContent.mitigations.length,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
   }
 
   async getGroupProfile(groupName) {
-    const techniques = await this.client.callTool('get_techniques_used_by_group', {
-      group_name: groupName,
-      domain: 'enterprise-attack'
-    });
+    const techniques = await this.client.callTool(
+      "get_techniques_used_by_group",
+      {
+        group_name: groupName,
+        domain: "enterprise-attack",
+      },
+    );
 
     return {
       group: groupName,
       techniqueCount: techniques.result.structuredContent.techniques.length,
-      techniques: techniques.result.structuredContent.techniques
+      techniques: techniques.result.structuredContent.techniques,
     };
   }
 }
 
 // Usage
 const intel = new ThreatIntelligence();
-intel.getDashboardData().then(data => console.log(data));
-intel.getGroupProfile('APT29').then(profile => console.log(profile));
+intel.getDashboardData().then((data) => console.log(data));
+intel.getGroupProfile("APT29").then((profile) => console.log(profile));
 ```
 
 ## Troubleshooting
@@ -315,6 +318,7 @@ If you see connection errors:
 ```
 
 **Solution:**
+
 1. Check if the mitre-mcp server is running
 2. Verify the host and port match your server configuration
 3. Ensure no firewall is blocking the connection
@@ -362,6 +366,7 @@ node mini-mcp-client.js --debug tactics
 ```
 
 This will show:
+
 - Session initialization and session IDs
 - Tool names and arguments per call
 - Tool-call completion status (`isError`)
@@ -378,16 +383,16 @@ node mini-mcp-client.js --host 192.168.1.100 --port 8000 tactics
 
 ## Comparison with Python Client
 
-| Feature | Node.js | Python |
-|---------|---------|--------|
-| Session Management | ✅ | ✅ |
-| SSE Parsing | ✅ | ✅ |
-| All Tools Support | ✅ | ✅ |
-| CLI Interface | ✅ (commander) | ✅ (argparse) |
-| Debug Mode | ✅ | ✅ |
-| Error Handling | ✅ | ✅ |
-| Module Export | ✅ | ✅ |
-| Package Manager | npm | pip |
+| Feature            | Node.js        | Python        |
+| ------------------ | -------------- | ------------- |
+| Session Management | ✅             | ✅            |
+| SSE Parsing        | ✅             | ✅            |
+| All Tools Support  | ✅             | ✅            |
+| CLI Interface      | ✅ (commander) | ✅ (argparse) |
+| Debug Mode         | ✅             | ✅            |
+| Error Handling     | ✅             | ✅            |
+| Module Export      | ✅             | ✅            |
+| Package Manager    | npm            | pip           |
 
 ## MCP Protocol Details
 
@@ -442,6 +447,7 @@ MIT License - See main project LICENSE file
 ## Support
 
 For issues or questions:
+
 - Check the [Playbook](Playbook.md) for usage examples
 - Review [TROUBLESHOOTING-MCP-HTTP.md](TROUBLESHOOTING-MCP-HTTP.md)
 - Open an issue on the GitHub repository

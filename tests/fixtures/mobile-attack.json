@@ -11,9 +11,7 @@
       "name": "Fixture Mobile Tactic",
       "description": "Test fixture tactic.",
       "x_mitre_shortname": "fixture-mobile",
-      "x_mitre_domains": [
-        "mobile-attack"
-      ],
+      "x_mitre_domains": ["mobile-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {

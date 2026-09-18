@@ -4,15 +4,15 @@ on:
   push:
     branches: [main, develop, claude/*]
     paths-ignore:
-      - 'frontend/**'
-      - '**.md'
-      - 'docs/**'
+      - "frontend/**"
+      - "**.md"
+      - "docs/**"
   pull_request:
     branches: [main, develop]
     paths-ignore:
-      - 'frontend/**'
-      - '**.md'
-      - 'docs/**'
+      - "frontend/**"
+      - "**.md"
+      - "docs/**"
   schedule:
     # Run security checks daily at 2 AM UTC.
     # Keep-alive strategy: this scheduled trigger (plus workflow_dispatch)
@@ -30,10 +30,10 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload Bandit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bandit-security-report
           path: bandit-report.json
@@ -59,26 +59,29 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+
+      - name: Install locked dependencies
         run: |
-          pip install safety uv
+          uv sync --locked --extra dev --python "3.12"
 
       - name: Run Safety check
         run: |
           uv export --frozen --no-emit-project > requirements-scan.txt
-          safety check -r requirements-scan.txt --json --output safety-report.json || true
-          safety check -r requirements-scan.txt
+          uv run --locked safety check -r requirements-scan.txt --json --output safety-report.json
+          uv run --locked safety check -r requirements-scan.txt
 
       - name: Upload Safety results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: safety-dependency-report
           path: safety-report.json
@@ -93,16 +96,16 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
         with:
           languages: python
           queries: security-and-quality
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
 
   dependency-review:
     name: Dependency Review
@@ -111,9 +114,9 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: moderate

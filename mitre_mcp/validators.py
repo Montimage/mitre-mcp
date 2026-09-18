@@ -13,8 +13,7 @@ class ValidationError(ValueError):
 
 
 def validate_technique_id(technique_id: str) -> str:
-    """
-    Validate MITRE ATT&CK technique ID format.
+    """Validate MITRE ATT&CK technique ID format.
 
     Args:
         technique_id: Technique ID (e.g., 'T1055' or 'T1055.001')
@@ -42,8 +41,7 @@ def validate_technique_id(technique_id: str) -> str:
 
 
 def validate_name(name: str, field_name: str = "name", max_length: int = 100) -> str:
-    """
-    Validate entity name (group, mitigation, etc.).
+    """Validate entity name (group, mitigation, etc.).
 
     Args:
         name: Name to validate
@@ -76,8 +74,7 @@ def validate_name(name: str, field_name: str = "name", max_length: int = 100) ->
 
 
 def validate_domain(domain: _StrT) -> _StrT:
-    """
-    Validate MITRE ATT&CK domain.
+    """Validate MITRE ATT&CK domain.
 
     Args:
         domain: Domain name
@@ -99,8 +96,7 @@ def validate_domain(domain: _StrT) -> _StrT:
 
 
 def validate_limit(limit: int, max_limit: int = 1000) -> int:
-    """
-    Validate pagination limit.
+    """Validate pagination limit.
 
     Args:
         limit: Requested limit
@@ -122,8 +118,7 @@ def validate_limit(limit: int, max_limit: int = 1000) -> int:
 
 
 def validate_offset(offset: int) -> int:
-    """
-    Validate pagination offset.
+    """Validate pagination offset.
 
     Args:
         offset: Requested offset

@@ -11,9 +11,7 @@
       "name": "Fixture ICS Tactic",
       "description": "Test fixture tactic.",
       "x_mitre_shortname": "fixture-ics",
-      "x_mitre_domains": [
-        "ics-attack"
-      ],
+      "x_mitre_domains": ["ics-attack"],
       "x_mitre_version": "1.0",
       "external_references": [
         {

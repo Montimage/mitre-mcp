@@ -32,6 +32,7 @@ mitre-mcp --http
 **Step 2:** Add this to your Claude Desktop configuration file:
 
 **Configuration file locations:**
+
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 - Linux: `~/.config/Claude/claude_desktop_config.json`

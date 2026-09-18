@@ -53,7 +53,7 @@ Per the 1.0.0 changelog section (last 0.x was 0.26.0):
   `asyncio_default_fixture_loop_scope` /
   `asyncio_default_test_loop_scope` values; new `asyncio_debug`
   ini/`--asyncio-debug` CLI option; fixed `RuntimeError: There is no
-  current event loop` when a test unsets the loop (`asyncio.run()`).
+current event loop` when a test unsets the loop (`asyncio.run()`).
 - 1.3.0: pytest 9 support (#1279) — first release allowing `pytest<10`;
   Python 3.9 dropped.
 - 1.4.0: overriding the `event_loop_policy` fixture is **deprecated**
@@ -70,8 +70,8 @@ Per the 1.0.0 changelog section (last 0.x was 0.26.0):
   default; this project opts into `auto`.
 - `asyncio_default_fixture_loop_scope` — unset in 0.x-era config.
   1.x emits a `PytestDeprecationWarning` at `pytest_configure` time
-  while unset; today async fixtures inherit the *fixture caching
-  scope*, and a future release flips the default to `"function"`.
+  while unset; today async fixtures inherit the _fixture caching
+  scope_, and a future release flips the default to `"function"`.
   Now pinned explicitly to `"function"` (the future default) — inert
   today because the suite has no async fixtures.
 - `asyncio_default_test_loop_scope` — upstream default is already

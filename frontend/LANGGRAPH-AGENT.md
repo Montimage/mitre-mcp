@@ -48,6 +48,7 @@ Note: The original LangGraph StateGraph implementation was replaced with a simpl
 ### 1. Install Ollama
 
 **macOS/Linux:**
+
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ```
@@ -56,6 +57,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 Download from [ollama.com/download](https://ollama.com/download)
 
 **Verify installation:**
+
 ```bash
 ollama --version
 ```
@@ -69,6 +71,7 @@ ollama pull llama3.2
 ```
 
 **Other recommended models:**
+
 - `llama3.2:3b` - Smaller, faster (3GB)
 - `llama3.2` - Default, balanced (4.7GB)
 - `llama3.1:8b` - More capable (4.7GB)
@@ -101,12 +104,12 @@ The server runs on `http://localhost:11434` by default.
 You can pass configuration when creating the agent:
 
 ```javascript
-import LangGraphAgent from './services/langGraphAgent.js';
+import LangGraphAgent from "./services/langGraphAgent.js";
 
-const agent = new LangGraphAgent('localhost', 8000, {
-  ollamaModel: 'llama3.1:8b',       // Use different model
-  temperature: 0.3,                  // More deterministic
-  ollamaBaseUrl: 'http://localhost:11434'
+const agent = new LangGraphAgent("localhost", 8000, {
+  ollamaModel: "llama3.1:8b", // Use different model
+  temperature: 0.3, // More deterministic
+  ollamaBaseUrl: "http://localhost:11434",
 });
 ```
 
@@ -165,6 +168,7 @@ The agent has access to 9 MCP tools:
 9. **get_techniques_mitigated_by_mitigation** - Get mitigated techniques
 
 Each tool includes:
+
 - Descriptive name and documentation
 - Input schema validation with Zod
 - Proper error handling
@@ -175,12 +179,12 @@ Each tool includes:
 
 Choose based on your hardware and performance needs:
 
-| Model | Size | RAM | Speed | Quality |
-|-------|------|-----|-------|---------|
-| llama3.2:3b | 3GB | 8GB+ | Fast | Good |
-| llama3.2 | 4.7GB | 8GB+ | Medium | Better |
-| llama3.1:8b | 4.7GB | 16GB+ | Slower | Best |
-| qwen2.5:7b | 4.4GB | 16GB+ | Medium | Excellent |
+| Model       | Size  | RAM   | Speed  | Quality   |
+| ----------- | ----- | ----- | ------ | --------- |
+| llama3.2:3b | 3GB   | 8GB+  | Fast   | Good      |
+| llama3.2    | 4.7GB | 8GB+  | Medium | Better    |
+| llama3.1:8b | 4.7GB | 16GB+ | Slower | Best      |
+| qwen2.5:7b  | 4.4GB | 16GB+ | Medium | Excellent |
 
 ### Optimization Tips
 
@@ -196,6 +200,7 @@ Choose based on your hardware and performance needs:
 **Problem:** Agent can't connect to Ollama
 
 **Solutions:**
+
 1. Check if Ollama is running: `ollama list`
 2. Start Ollama: `ollama serve`
 3. Verify port 11434 is not blocked
@@ -206,6 +211,7 @@ Choose based on your hardware and performance needs:
 **Problem:** The specified model isn't available
 
 **Solutions:**
+
 1. List available models: `ollama list`
 2. Pull the model: `ollama pull llama3.2`
 3. Wait for download to complete
@@ -216,6 +222,7 @@ Choose based on your hardware and performance needs:
 **Problem:** Agent takes too long to respond
 
 **Solutions:**
+
 1. Use a smaller model (llama3.2:3b)
 2. Reduce context window
 3. Check system resources (RAM, CPU)
@@ -226,6 +233,7 @@ Choose based on your hardware and performance needs:
 **Problem:** Can't connect to MCP server
 
 **Solutions:**
+
 1. Start MCP server: `mitre-mcp --http --port 8000`
 2. Check server address in config
 3. Verify network connection
@@ -239,7 +247,7 @@ Enable debug logging to see agent decisions:
 
 ```javascript
 // In browser console
-localStorage.setItem('debug', 'langgraph:*');
+localStorage.setItem("debug", "langgraph:*");
 ```
 
 ### Testing Individual Tools
@@ -248,8 +256,8 @@ Test tools directly without the LLM:
 
 ```javascript
 const agent = new LangGraphAgent();
-const result = await agent.mcpClient.callTool('get_tactics', {
-  domain: 'enterprise-attack'
+const result = await agent.mcpClient.callTool("get_tactics", {
+  domain: "enterprise-attack",
 });
 console.log(result);
 ```
@@ -270,21 +278,25 @@ Modify the system prompt in `langGraphAgent.js` line 338 to change agent behavio
 Try these queries to test the agent:
 
 **Basic Lookups:**
+
 - "What is technique T1059?"
 - "Show me all tactics"
 - "List initial access techniques"
 
 **Threat Intelligence:**
+
 - "What techniques does APT29 use?"
 - "Compare APT28 and APT29"
 - "Show me techniques used by FIN7"
 
 **Defense:**
+
 - "What mitigations exist for credential access?"
 - "How can I defend against T1003?"
 - "Show me security controls for persistence"
 
 **Complex Queries:**
+
 - "What are the most common persistence techniques and how can I defend against them?"
 - "Analyze APT29's tactics and recommend detection strategies"
 - "Compare enterprise and mobile attack techniques"

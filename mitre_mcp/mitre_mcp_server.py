@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-MITRE ATT&CK MCP Server.
+"""MITRE ATT&CK MCP Server.
 
 This server provides MCP tools for working with the MITRE ATT&CK framework
 using the mitreattack-python library. Implemented using the official MCP Python SDK.
@@ -51,8 +50,7 @@ from .validators import (
 
 # Set up logging
 def setup_logging() -> logging.Logger:
-    """
-    Set up logging configuration.
+    """Set up logging configuration.
 
     Returns:
         Logger instance
@@ -83,8 +81,7 @@ class AttackContext:
 
 
 def check_disk_space(directory: str, required_mb: int | None = None) -> None:
-    """
-    Check if sufficient disk space is available.
+    """Check if sufficient disk space is available.
 
     Args:
         directory: Directory to check
@@ -118,8 +115,7 @@ def check_disk_space(directory: str, required_mb: int | None = None) -> None:
 
 
 def parse_timestamp(timestamp_str: str) -> datetime:
-    """
-    Parse ISO timestamp string to timezone-aware datetime.
+    """Parse ISO timestamp string to timezone-aware datetime.
 
     Args:
         timestamp_str: ISO format timestamp
@@ -135,8 +131,7 @@ def parse_timestamp(timestamp_str: str) -> datetime:
 
 
 def validate_metadata(metadata: dict) -> dict[str, Any]:
-    """
-    Validate metadata structure.
+    """Validate metadata structure.
 
     Args:
         metadata: Parsed metadata dictionary
@@ -169,8 +164,7 @@ def validate_metadata(metadata: dict) -> dict[str, Any]:
 
 
 def load_metadata(metadata_path: str) -> dict[str, Any] | None:
-    """
-    Safely load and validate metadata.
+    """Safely load and validate metadata.
 
     Args:
         metadata_path: Path to metadata.json
@@ -191,8 +185,7 @@ def load_metadata(metadata_path: str) -> dict[str, Any] | None:
 
 
 def validate_stix_bundle(content: str, domain: str) -> dict:
-    """
-    Validate STIX bundle structure.
+    """Validate STIX bundle structure.
 
     Args:
         content: JSON content
@@ -225,8 +218,7 @@ def validate_stix_bundle(content: str, domain: str) -> dict:
 async def download_domain(
     client: httpx.AsyncClient, domain: str, url: str, output_path: str
 ) -> None:
-    """
-    Download a single MITRE ATT&CK domain asynchronously.
+    """Download a single MITRE ATT&CK domain asynchronously.
 
     Args:
         client: HTTP client
@@ -263,8 +255,7 @@ async def download_domain(
 
 
 async def download_and_save_attack_data_async(data_dir: str, force: bool = False) -> dict:
-    """
-    Download and save MITRE ATT&CK data asynchronously with parallel downloads.
+    """Download and save MITRE ATT&CK data asynchronously with parallel downloads.
 
     Args:
         data_dir: Directory to save the data
@@ -349,8 +340,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
 
 def build_group_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
-    """
-    Build case-insensitive group name index.
+    """Build case-insensitive group name index.
 
     Args:
         data: MITRE ATT&CK data
@@ -679,10 +669,10 @@ def get_techniques(
     limit: int | None = None,
     offset: int = 0,
 ) -> TechniquesPageResult:
-    """
-    Get techniques from the MITRE ATT&CK framework with token-optimized responses.
+    """Get techniques from the MITRE ATT&CK framework with token-optimized responses.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         include_subtechniques: Include subtechniques in the result
         remove_revoked_deprecated: Remove revoked or deprecated objects
@@ -738,10 +728,10 @@ def get_tactics(
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
 ) -> TacticsResult:
-    """
-    Get all tactics from the MITRE ATT&CK framework.
+    """Get all tactics from the MITRE ATT&CK framework.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         remove_revoked_deprecated: Remove revoked or deprecated objects
 
@@ -776,10 +766,10 @@ def get_groups(
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
 ) -> GroupsResult:
-    """
-    Get all groups from the MITRE ATT&CK framework.
+    """Get all groups from the MITRE ATT&CK framework.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         remove_revoked_deprecated: Remove revoked or deprecated objects
 
@@ -815,10 +805,10 @@ def get_software(
     remove_revoked_deprecated: bool = False,
     software_types: list[str] | None = None,
 ) -> SoftwareListResult:
-    """
-    Get all software from the MITRE ATT&CK framework.
+    """Get all software from the MITRE ATT&CK framework.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         remove_revoked_deprecated: Remove revoked or deprecated objects
         software_types: Optional list of ATT&CK object types to include (e.g., ["malware"])
@@ -859,10 +849,10 @@ def get_techniques_by_tactic(
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
 ) -> TechniquesListResult:
-    """
-    Get techniques by tactic.
+    """Get techniques by tactic.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         tactic_shortname: The shortname of the tactic (e.g., 'defense-evasion')
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         remove_revoked_deprecated: Remove revoked or deprecated objects
@@ -891,10 +881,10 @@ def get_techniques_by_tactic(
 def get_techniques_used_by_group(
     ctx: Context, group_name: str, domain: AttackDomain = "enterprise-attack"
 ) -> GroupTechniquesResult:
-    """
-    Get techniques used by a group.
+    """Get techniques used by a group.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         group_name: The name of the group
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
 
@@ -941,10 +931,10 @@ def get_mitigations(
     domain: AttackDomain = "enterprise-attack",
     remove_revoked_deprecated: bool = False,
 ) -> MitigationsResult:
-    """
-    Get all mitigations from the MITRE ATT&CK framework.
+    """Get all mitigations from the MITRE ATT&CK framework.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
         remove_revoked_deprecated: Remove revoked or deprecated objects
 
@@ -976,10 +966,10 @@ def get_mitigations(
 def get_techniques_mitigated_by_mitigation(
     ctx: Context, mitigation_name: str, domain: AttackDomain = "enterprise-attack"
 ) -> MitigationTechniquesResult:
-    """
-    Get techniques mitigated by a mitigation.
+    """Get techniques mitigated by a mitigation.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         mitigation_name: The name of the mitigation
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
 
@@ -1024,10 +1014,10 @@ def get_techniques_mitigated_by_mitigation(
 def get_technique_by_id(
     ctx: Context, technique_id: str, domain: AttackDomain = "enterprise-attack"
 ) -> TechniqueResult:
-    """
-    Get a technique by its MITRE ATT&CK ID.
+    """Get a technique by its MITRE ATT&CK ID.
 
     Args:
+        ctx: FastMCP request context (injected by the server)
         technique_id: The MITRE ATT&CK ID of the technique (e.g., 'T1055')
         domain: Domain to query (enterprise-attack, mobile-attack, or ics-attack)
 

@@ -84,4 +84,4 @@ use — the config needs no changes.
 - `frontend/package-lock.json`: regenerated via `npm install`.
 - Verified: `npm ci`, `npm run lint`, `npm run build`,
   `npm audit --audit-level=high` all exit 0 on Node 24+; `npm ls
-  eslint @eslint/js` shows 10.x for both with zero new lint errors.
+eslint @eslint/js` shows 10.x for both with zero new lint errors.

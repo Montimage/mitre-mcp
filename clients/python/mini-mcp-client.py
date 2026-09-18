@@ -20,8 +20,8 @@ import asyncio
 import json
 import logging
 import sys
-from contextlib import AsyncExitStack
-from typing import Any, Dict, Optional
+from contextlib import AsyncExitStack, suppress
+from typing import Any
 
 from mcp import Client, MCPError
 from mcp.types import Implementation
@@ -38,7 +38,7 @@ class MitreMCPClient:
         self.base_url = f"http://{host}:{port}/mcp"
         self.port = port
         self.debug = debug
-        self._client: Optional[Client] = None
+        self._client: Client | None = None
         self._exit_stack = AsyncExitStack()
 
     def _debug(self, message: str) -> None:
@@ -75,12 +75,9 @@ class MitreMCPClient:
         """Drop the current session so the next call re-initializes."""
         if self._client is not None:
             self._client = None
-            try:
+            with suppress(Exception):
                 await self._exit_stack.aclose()
-            except Exception:
-                pass  # session teardown is best-effort
-            finally:
-                self._exit_stack = AsyncExitStack()
+            self._exit_stack = AsyncExitStack()
 
     async def test_connection(self) -> bool:
         """Test if the server is reachable and answers the MCP handshake."""
@@ -102,8 +99,8 @@ class MitreMCPClient:
         return isinstance(exc, MCPError) and "session terminated" in str(exc.error.message).lower()
 
     async def call_tool(
-        self, tool_name: str, arguments: Optional[Dict[str, Any]] = None, _is_retry: bool = False
-    ) -> Dict[str, Any]:
+        self, tool_name: str, arguments: dict[str, Any] | None = None, _is_retry: bool = False
+    ) -> dict[str, Any]:
         """
         Call a mitre-mcp tool via the MCP SDK.
 
@@ -138,7 +135,8 @@ class MitreMCPClient:
             else:
                 print(f"❌ Error: {e}", file=sys.stderr)
                 print(
-                    f"   Make sure mitre-mcp server is running: mitre-mcp --http --port {self.port}",
+                    "   Make sure mitre-mcp server is running: "
+                    f"mitre-mcp --http --port {self.port}",
                     file=sys.stderr,
                 )
             raise
@@ -150,14 +148,14 @@ class MitreMCPClient:
             )
         }
 
-    def format_output(self, result: Dict[str, Any], pretty: bool = True) -> str:
+    def format_output(self, result: dict[str, Any], pretty: bool = True) -> str:
         """Format the result for display."""
         if pretty:
             return json.dumps(result, indent=2)
         return json.dumps(result)
 
 
-async def cmd_techniques(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_techniques(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get techniques, optionally filtered by tactic."""
     if args.tactic:
         return await client.call_tool(
@@ -182,7 +180,7 @@ async def cmd_techniques(client: MitreMCPClient, args: argparse.Namespace) -> Di
         )
 
 
-async def cmd_technique(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_technique(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get details for a specific technique by ID."""
     return await client.call_tool(
         "get_technique_by_id",
@@ -190,12 +188,12 @@ async def cmd_technique(client: MitreMCPClient, args: argparse.Namespace) -> Dic
     )
 
 
-async def cmd_tactics(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_tactics(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get all tactics."""
     return await client.call_tool("get_tactics", {"domain": args.domain})
 
 
-async def cmd_groups(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_groups(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get all threat groups."""
     return await client.call_tool(
         "get_groups",
@@ -206,7 +204,7 @@ async def cmd_groups(client: MitreMCPClient, args: argparse.Namespace) -> Dict[s
     )
 
 
-async def cmd_group(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_group(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get techniques used by a specific threat group."""
     return await client.call_tool(
         "get_techniques_used_by_group",
@@ -214,7 +212,7 @@ async def cmd_group(client: MitreMCPClient, args: argparse.Namespace) -> Dict[st
     )
 
 
-async def cmd_software(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_software(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get software (malware/tools)."""
     software_types = []
     if args.malware:
@@ -234,7 +232,7 @@ async def cmd_software(client: MitreMCPClient, args: argparse.Namespace) -> Dict
     )
 
 
-async def cmd_mitigations(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
+async def cmd_mitigations(client: MitreMCPClient, args: argparse.Namespace) -> dict[str, Any]:
     """Get mitigations, optionally for a specific mitigation name."""
     if args.name:
         return await client.call_tool(

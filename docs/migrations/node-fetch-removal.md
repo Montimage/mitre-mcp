@@ -20,18 +20,18 @@ in the client.
 
 ## Behavioural differences audited (node-fetch 2 → native fetch)
 
-These matter only to *direct* calls; none remain after the SDK port.
+These matter only to _direct_ calls; none remain after the SDK port.
 
-| Area | node-fetch 2.x | Native fetch (undici) |
-|---|---|---|
-| Module type | CommonJS (`require`) | Global, no import |
-| Timeout | `timeout` ms option | `AbortSignal.timeout(ms)` |
-| Size cap | `size` option | none — stream/abort manually |
-| Body streams | Node streams | WHATWG web streams |
-| `res.headers` | `Headers` (node-fetch) | Standard `Headers` |
-| Errors | `FetchError` w/ `code` | `TypeError`, `cause` chain |
-| Redirect | `follow`/`manual` opts | `redirect: 'manual'` etc. |
-| Agent | `http.Agent` option | `dispatcher` (undici) |
+| Area          | node-fetch 2.x         | Native fetch (undici)        |
+| ------------- | ---------------------- | ---------------------------- |
+| Module type   | CommonJS (`require`)   | Global, no import            |
+| Timeout       | `timeout` ms option    | `AbortSignal.timeout(ms)`    |
+| Size cap      | `size` option          | none — stream/abort manually |
+| Body streams  | Node streams           | WHATWG web streams           |
+| `res.headers` | `Headers` (node-fetch) | Standard `Headers`           |
+| Errors        | `FetchError` w/ `code` | `TypeError`, `cause` chain   |
+| Redirect      | `follow`/`manual` opts | `redirect: 'manual'` etc.    |
+| Agent         | `http.Agent` option    | `dispatcher` (undici)        |
 
 ## Verification
 

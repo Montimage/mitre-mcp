@@ -87,11 +87,11 @@ Per the 9.0.0 changelog:
 
 Declared dev pins (`pyproject.toml` `[project.optional-dependencies].dev`):
 
-| Plugin          | Pin             | PyPI `pytest` bound        | pytest 9 OK? |
-|-----------------|-----------------|----------------------------|--------------|
-| pytest-asyncio  | `>=0.21,<1.0.0` | 0.x all `pytest<9`         | **No**       |
-| pytest-cov      | `>=4.1,<5.0.0`  | `pytest>=4.6`              | Yes (resolver) |
-| pytest-mock     | `>=3.11,<4.0.0` | `pytest>=6.2.5`            | Yes          |
+| Plugin         | Pin             | PyPI `pytest` bound | pytest 9 OK?   |
+| -------------- | --------------- | ------------------- | -------------- |
+| pytest-asyncio | `>=0.21,<1.0.0` | 0.x all `pytest<9`  | **No**         |
+| pytest-cov     | `>=4.1,<5.0.0`  | `pytest>=4.6`       | Yes (resolver) |
+| pytest-mock    | `>=3.11,<4.0.0` | `pytest>=6.2.5`     | Yes            |
 
 - **pytest-asyncio**: every 0.x release (incl. 0.26.0, the last 0.x)
   declares `pytest<9`. pytest-asyncio 1.3.0 is the first release
