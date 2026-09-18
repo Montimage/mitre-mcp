@@ -4,7 +4,7 @@
  * Wraps the official @modelcontextprotocol/client SDK's Client and
  * StreamableHTTPClientTransport (see docs/migrations/ts-mcp-client-choice.md).
  * The SDK handles protocol-version negotiation, SSE framing, the required
- * Accept header, and mcp-session-id propagation; this class preserves the
+ * Accept header, and session-id propagation; this class preserves the
  * public interface the UI was built against, including the single
  * expired-session retry added for server session loss.
  */
@@ -70,7 +70,7 @@ export default class MitreMCPClient {
    * Initialize an MCP session with the server
    *
    * This must be called before any tool calls. The SDK transport performs
-   * protocol-version negotiation and captures the mcp-session-id response
+   * protocol-version negotiation and captures the session-id response
    * header automatically.
    *
    * @returns {Promise<boolean>} True on success

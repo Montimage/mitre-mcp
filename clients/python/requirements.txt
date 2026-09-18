@@ -1,4 +1,4 @@
 # Mini MCP Client (Python) - Dependencies
 
-# HTTP client
-httpx>=0.25.0
+# Official MCP Python SDK (client + streamable-HTTP transport)
+mcp>=2.2,<3

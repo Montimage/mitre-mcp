@@ -7,12 +7,11 @@ Reference implementations for integrating with the mitre-mcp server via HTTP.
 ### 🐍 Python Client
 **Location:** [`python/`](python/)
 
-A complete Python implementation with CLI and library support.
+A complete Python implementation with CLI and library support, built on the official `mcp` Python SDK.
 
 **Features:**
 - Complete CLI with all MCP tools
-- Session management
-- SSE response parsing
+- Official MCP SDK client (protocol negotiation, session management, SSE transport)
 - Debug mode
 - Error handling
 - Can be used as a library
@@ -31,12 +30,11 @@ python mini-mcp-client.py --help
 ### 🟢 Node.js Client
 **Location:** [`nodejs/`](nodejs/)
 
-A complete Node.js/JavaScript implementation with CLI and module export.
+A complete Node.js/JavaScript implementation with CLI and module export, built on the official `@modelcontextprotocol/client` TypeScript SDK.
 
 **Features:**
 - Complete CLI with all MCP tools
-- Session management
-- SSE response parsing
+- Official MCP SDK client (protocol negotiation, session management, SSE transport)
 - Debug mode
 - Error handling
 - Module export for use in Node.js apps
@@ -113,12 +111,12 @@ const result = await client.callTool('get_tactics', { domain: 'enterprise-attack
 
 ## MCP Protocol Implementation
 
-Both clients correctly implement the MCP HTTP protocol:
+Both clients delegate the MCP streamable-HTTP protocol to the official SDKs:
 
-1. **✅ Headers** - Include both `application/json` and `text/event-stream` in Accept header
-2. **✅ Session Management** - Initialize session before tool calls
-3. **✅ SSE Parsing** - Extract JSON from Server-Sent Events format
-4. **✅ Error Handling** - Proper handling of 406 and 400 errors
+1. **✅ Headers** - The SDKs send the required `Accept` header automatically
+2. **✅ Session Management** - The SDKs run the initialize handshake (including `notifications/initialized`) and propagate the session id; both clients additionally retry once when the server reports an expired session
+3. **✅ SSE Parsing** - Handled inside the SDK transports
+4. **✅ Timeouts** - Each `tools/call` carries a 30s request timeout
 
 ## Testing
 
@@ -144,7 +142,7 @@ node mini-mcp-client.js --debug tactics
 To add a client in another language:
 
 1. Create a new directory: `clients/<language>/`
-2. Implement the three key requirements:
+2. Build on the official MCP SDK for that language — it provides:
    - Proper HTTP headers
    - Session management
    - SSE response parsing
@@ -156,12 +154,12 @@ To add a client in another language:
 
 ### Python Client
 - Python 3.11+
-- httpx
+- `mcp>=2.2,<3` (official MCP Python SDK)
 - See [python/requirements.txt](python/requirements.txt)
 
 ### Node.js Client
-- Node.js 14.0+
-- node-fetch
+- Node.js 24+
+- `@modelcontextprotocol/client` (official MCP TypeScript SDK)
 - commander
 - See [nodejs/package.json](nodejs/package.json)
 

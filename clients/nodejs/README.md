@@ -1,22 +1,22 @@
 # Mini MCP Client (Node.js)
 
-A simple, standalone Node.js client for interacting with the mitre-mcp server via HTTP/JSON-RPC. This client serves as both a practical tool and a reference implementation for building your own JavaScript/Node.js integrations.
+A simple, standalone Node.js client for interacting with the mitre-mcp server via the official MCP TypeScript SDK (`@modelcontextprotocol/client`). This client serves as both a practical tool and a reference implementation for building your own JavaScript/Node.js integrations.
 
 ## Features
 
 - ✅ **Complete CLI** - Command-line interface for all mitre-mcp tools
-- ✅ **HTTP/JSON-RPC** - Uses the recommended HTTP transport mode with proper MCP headers
+- ✅ **Official SDK** - Built on `@modelcontextprotocol/client` (streamable-HTTP transport, session handling, protocol negotiation)
 - ✅ **Error Handling** - Proper error messages and connection troubleshooting
 - ✅ **Pretty Output** - JSON formatting with optional pretty-printing
 - ✅ **All Tools Supported** - Covers all 9 MCP tools
 - ✅ **Configurable** - Customize host, port, and domain
-- ✅ **Lightweight** - Only requires `node-fetch` and `commander`
+- ✅ **Lightweight** - Only requires `@modelcontextprotocol/client` and `commander`
 - ✅ **Debug Mode** - Detailed request/response logging for troubleshooting
 - ✅ **Module Export** - Use as a library in your Node.js apps
 
 ## Prerequisites
 
-1. Node.js 14.0 or higher
+1. Node.js 24 or higher
 2. npm or yarn
 3. A running mitre-mcp server in HTTP mode
 
@@ -310,7 +310,8 @@ intel.getGroupProfile('APT29').then(profile => console.log(profile));
 If you see connection errors:
 
 ```
-❌ HTTP Error: connect ECONNREFUSED
+❌ Error: Version negotiation probe failed: fetch failed
+   Make sure mitre-mcp server is running: mitre-mcp --http --port 8000
 ```
 
 **Solution:**
@@ -320,27 +321,22 @@ If you see connection errors:
 
 ### 406 Not Acceptable
 
-**Cause:** Missing required headers
+**Cause:** Missing required headers (only relevant for hand-rolled transports)
 
-**Solution:** This is already fixed in the client. The client includes:
-```javascript
-headers: {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json, text/event-stream'  // Both required!
-}
-```
+**Solution:** This client uses the official SDK transport, which always sends
+`Accept: application/json, text/event-stream`.
 
 ### 400 Bad Request: Missing session ID
 
 **Cause:** Server requires session initialization
 
-**Solution:** The client automatically handles this. Session is initialized on first tool call.
+**Solution:** The SDK automatically handles this. The session is initialized on first tool call, and the client retries once if the server reports an expired session.
 
 ### JSON Parsing Errors
 
 **Cause:** SSE response format not being parsed
 
-**Solution:** The client automatically detects and parses SSE format responses.
+**Solution:** The SDK transport detects and parses SSE format responses automatically.
 
 ## NPM Scripts
 
@@ -366,10 +362,9 @@ node mini-mcp-client.js --debug tactics
 ```
 
 This will show:
-- Request payloads
-- Response headers
-- Response bodies
-- Session IDs
+- Session initialization and session IDs
+- Tool names and arguments per call
+- Tool-call completion status (`isError`)
 
 ### Testing Different Servers
 
@@ -396,11 +391,12 @@ node mini-mcp-client.js --host 192.168.1.100 --port 8000 tactics
 
 ## MCP Protocol Details
 
-The client correctly implements the MCP HTTP protocol:
+The client delegates the MCP streamable-HTTP protocol to the official SDK:
 
-1. **Headers** - Includes both `application/json` and `text/event-stream`
-2. **Session** - Initializes session before tool calls
-3. **SSE Parsing** - Extracts JSON from Server-Sent Events format
+1. **Headers** - The SDK sends the required `Accept` header automatically
+2. **Session** - The SDK runs the initialize handshake (including `notifications/initialized`) and propagates the session id
+3. **SSE Parsing** - Handled inside the SDK transport
+4. **Timeouts** - Each `tools/call` carries a 30s request timeout
 
 See [../../API-INTEGRATION.md](../../API-INTEGRATION.md) for protocol details.
 
@@ -428,7 +424,7 @@ node mini-mcp-client.js mitigations --name "Multi-factor Authentication"
 
 ```bash
 node mini-mcp-client.js tactics > tactics.json
-node mini-mcp-client.js groups --no-pretty | jq '.result.structuredContent.groups[].name'
+node mini-mcp-client.js --no-pretty groups | jq '.result.structuredContent.groups[].name'
 ```
 
 ## Related Documentation
