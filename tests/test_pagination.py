@@ -37,9 +37,7 @@ def _ctx_with_lists(domain_lists, attack=None):
         enterprise_attack=attack,
         mobile_attack=attack,
         ics_attack=attack,
-        groups_index={},
-        mitigations_index={},
-        techniques_by_mitre_id={},
+        domain_indices={},
         domain_lists=domain_lists,
     )
     return ctx, attack
@@ -269,9 +267,15 @@ class TestPageSizeCap:
 
     def test_descriptions_truncated_in_list_tools(self, mock_context):
         long_desc = "x" * (Config.MAX_DESCRIPTION_LENGTH + 100)
-        group = dict(mock_context.request_context.lifespan_context.groups_index["apt28"])
+        group = dict(
+            mock_context.request_context.lifespan_context.domain_indices["enterprise-attack"].groups[
+                "apt28"
+            ]
+        )
         group["description"] = long_desc
-        mock_context.request_context.lifespan_context.groups_index["apt28"] = group
+        mock_context.request_context.lifespan_context.domain_indices[
+            "enterprise-attack"
+        ].groups["apt28"] = group
         mock_context.request_context.lifespan_context.enterprise_attack.get_groups.return_value = [
             group
         ]

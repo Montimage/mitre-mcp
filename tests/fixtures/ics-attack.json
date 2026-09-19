@@ -20,6 +20,25 @@
           "url": "https://attack.mitre.org/tactics/TA0098"
         }
       ]
+    },
+    {
+      "type": "intrusion-set",
+      "id": "intrusion-set--00000000-0000-4000-8000-000000000195",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Fixture ICS Group",
+      "description": "Test fixture group.",
+      "revoked": false,
+      "aliases": ["ICSAlias"],
+      "x_mitre_domains": ["ics-attack"],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "G9002",
+          "url": "https://attack.mitre.org/groups/G9002"
+        }
+      ]
     }
   ]
 }

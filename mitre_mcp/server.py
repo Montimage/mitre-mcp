@@ -46,9 +46,11 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
         logger.info("MITRE ATT&CK data initialized successfully.")
 
         logger.info("Building lookup indices...")
-        groups_index = entry.build_group_index(enterprise_attack)
-        mitigations_index = entry.build_mitigation_index(enterprise_attack)
-        techniques_index = entry.build_technique_index(enterprise_attack)
+        domain_indices = {
+            "enterprise-attack": entry.build_domain_indices(enterprise_attack),
+            "mobile-attack": entry.build_domain_indices(mobile_attack),
+            "ics-attack": entry.build_domain_indices(ics_attack),
+        }
         logger.info("Lookup indices built successfully.")
 
         logger.info("Precomputing per-domain lists...")
@@ -65,9 +67,7 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
             enterprise_attack=enterprise_attack,
             mobile_attack=mobile_attack,
             ics_attack=ics_attack,
-            groups_index=groups_index,
-            mitigations_index=mitigations_index,
-            techniques_by_mitre_id=techniques_index,
+            domain_indices=domain_indices,
             domain_lists=domain_lists,
         )
     except Exception as e:
@@ -87,8 +87,8 @@ mcp = MCPServer(
     instructions=(
         "Query MITRE ATT&CK with the provided tools. Pass the 'domain' "
         "argument as 'enterprise-attack', 'mobile-attack', or 'ics-attack' "
-        "to select the dataset (default 'enterprise-attack'). Name- and "
-        "ID-indexed lookups are fastest on the enterprise domain."
+        "to select the dataset (default 'enterprise-attack'). Name-, alias- "
+        "and ID-indexed lookups are available on every domain."
     ),
     version=__version__,
     lifespan=attack_lifespan,

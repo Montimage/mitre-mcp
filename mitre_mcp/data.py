@@ -46,6 +46,23 @@ class DomainLists:
     mitigations: tuple[dict[str, Any], ...]
 
 
+@dataclass(frozen=True)
+class DomainIndices:
+    """Precomputed O(1) lookup indices for one domain (F-BUG-015, F-PERF-011).
+
+    Built once per domain at load by ``build_domain_indices`` so the
+    name/alias/ID lookups never fall back to scanning query results:
+
+    - ``groups`` maps lowercase names AND aliases to group objects
+    - ``mitigations`` maps lowercase names to mitigation objects
+    - ``techniques_by_mitre_id`` maps MITRE ATT&CK IDs to techniques
+    """
+
+    groups: dict[str, dict[str, Any]]
+    mitigations: dict[str, dict[str, Any]]
+    techniques_by_mitre_id: dict[str, dict[str, Any]]
+
+
 # Define our application context
 @dataclass
 class AttackContext:
@@ -54,10 +71,9 @@ class AttackContext:
     enterprise_attack: MitreAttackData
     mobile_attack: MitreAttackData
     ics_attack: MitreAttackData
-    # Lookup indices for O(1) searches
-    groups_index: dict[str, dict[str, Any]]
-    mitigations_index: dict[str, dict[str, Any]]
-    techniques_by_mitre_id: dict[str, dict[str, Any]]
+    # O(1) lookup indices, keyed by domain name — one set per domain so
+    # name, alias and ID lookups never scan query results (F-PERF-011)
+    domain_indices: dict[str, DomainIndices] = field(default_factory=dict)
     # Precomputed per-domain lists, keyed by domain name (F-PERF-005)
     domain_lists: dict[str, DomainLists] = field(default_factory=dict)
 
@@ -321,65 +337,66 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
     return paths
 
 
-def build_group_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
-    """Build case-insensitive group name index.
+def build_domain_indices(data: MitreAttackData) -> DomainIndices:
+    """Build one domain's O(1) lookup indices (F-BUG-015, F-PERF-011).
+
+    Called once per domain at load — every domain gets the same index
+    coverage, so group, mitigation and technique-ID lookups on mobile and
+    ICS use the index exactly like enterprise instead of scanning query
+    results. The group index keys lowercase names AND aliases (aliases
+    never overwrite a primary name); the mitigation index keys lowercase
+    names; the technique index keys the MITRE ATT&CK external ID.
 
     Args:
-        data: MITRE ATT&CK data
+        data: MITRE ATT&CK data for one domain
 
     Returns:
-        Dictionary mapping lowercase names to group objects
+        The domain's lookup indices
     """
-    index = {}
-    groups = data.get_groups()
-
-    for group in groups:
+    # Case-insensitive group index — primary names and aliases.
+    groups: dict[str, dict[str, Any]] = {}
+    group_list = data.get_groups()
+    for group in group_list:
         name = group.get("name", "").lower()
         if name:
-            index[name] = group
-
-        # Also index aliases
+            groups[name] = group
         for alias in group.get("aliases", []):
             alias_lower = alias.lower()
-            if alias_lower not in index:  # Don't overwrite primary names
-                index[alias_lower] = group
+            if alias_lower not in groups:  # Don't overwrite primary names
+                groups[alias_lower] = group
 
-    logger.info("Built group index: %d entries for %d groups", len(index), len(groups))
-    return index
-
-
-def build_mitigation_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
-    """Build case-insensitive mitigation name index."""
-    index = {}
-    mitigations = data.get_mitigations()
-
-    for mitigation in mitigations:
+    # Case-insensitive mitigation index.
+    mitigations: dict[str, dict[str, Any]] = {}
+    mitigation_list = data.get_mitigations()
+    for mitigation in mitigation_list:
         name = mitigation.get("name", "").lower()
         if name:
-            index[name] = mitigation
+            mitigations[name] = mitigation
 
-    logger.info(
-        "Built mitigation index: %d entries for %d mitigations", len(index), len(mitigations)
-    )
-    return index
-
-
-def build_technique_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
-    """Build MITRE ID to technique index."""
-    by_id = {}
-    techniques = data.get_techniques()
-
-    for technique in techniques:
-        # Index by MITRE ATT&CK ID
+    # MITRE ATT&CK ID to technique index.
+    techniques: dict[str, dict[str, Any]] = {}
+    technique_list = data.get_techniques()
+    for technique in technique_list:
         for ref in technique.get("external_references", []):
             if ref.get("source_name") == "mitre-attack":
                 mitre_id = ref.get("external_id", "")
                 if mitre_id:
-                    by_id[mitre_id] = technique
+                    techniques[mitre_id] = technique
                     break
 
-    logger.info("Built technique index: %d entries for %d techniques", len(by_id), len(techniques))
-    return by_id
+    indices = DomainIndices(
+        groups=groups,
+        mitigations=mitigations,
+        techniques_by_mitre_id=techniques,
+    )
+    logger.info(
+        "Built domain indices: %d group keys (%d groups), %d mitigations, %d techniques",
+        len(indices.groups),
+        len(group_list),
+        len(indices.mitigations),
+        len(indices.techniques_by_mitre_id),
+    )
+    return indices
 
 
 def build_domain_lists(data: MitreAttackData) -> DomainLists:

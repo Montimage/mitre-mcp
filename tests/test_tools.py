@@ -93,6 +93,13 @@ class TestGetTechniqueByID:
         with pytest.raises(ToolError, match="Invalid domain"):
             get_technique_by_id(mock_context, "T1055", domain="bad")
 
+    def test_index_lookup_on_every_domain(self, mock_context):
+        """F-PERF-011: ID lookup uses the index on mobile and ICS too —
+        the mock shares one index set across domains."""
+        for domain in ("enterprise-attack", "mobile-attack", "ics-attack"):
+            result = get_technique_by_id(mock_context, "T1055", domain=domain)
+            assert result["technique"]["mitre_id"] == "T1055", domain
+
 
 class TestGetTactics:
     """Test get_tactics tool."""
@@ -210,6 +217,15 @@ class TestGetTechniquesUsedByGroup:
         """Test invalid domain."""
         with pytest.raises(ToolError):
             get_techniques_used_by_group(mock_context, group_name="APT28", domain="invalid")
+
+    def test_alias_lookup_on_every_domain(self, mock_context):
+        """F-BUG-015: alias lookup works on mobile and ICS, not only
+        enterprise — the mock shares one index set across domains."""
+        for domain in ("enterprise-attack", "mobile-attack", "ics-attack"):
+            result = get_techniques_used_by_group(
+                mock_context, group_name="fancy bear", domain=domain
+            )
+            assert result["group"]["name"] == "APT28", domain
 
 
 class TestGetMitigations:

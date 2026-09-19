@@ -139,9 +139,7 @@ def mock_context(mock_attack_data):
         enterprise_attack: Any
         mobile_attack: Any
         ics_attack: Any
-        groups_index: dict[str, Any]
-        mitigations_index: dict[str, Any]
-        techniques_by_mitre_id: dict[str, Any]
+        domain_indices: dict[str, Any]
 
     @dataclass
     class MockRequestContext:
@@ -151,20 +149,23 @@ def mock_context(mock_attack_data):
     class MockContext:
         request_context: MockRequestContext
 
-    # Build simple indices
-    groups_index = {"apt28": mock_attack_data.get_groups()[0]}
-    mitigations_index = {
-        "application isolation and sandboxing": mock_attack_data.get_mitigations()[0]
+    # One shared index set per domain — the mock serves the same objects
+    # for all three domains. Built by the real builder so the group index
+    # carries the sample group's aliases too (F-BUG-015).
+    from mitre_mcp.data import build_domain_indices
+
+    indices = build_domain_indices(mock_attack_data)
+    domain_indices = {
+        "enterprise-attack": indices,
+        "mobile-attack": indices,
+        "ics-attack": indices,
     }
-    techniques_index = {"T1055": mock_attack_data.get_techniques()[0]}
 
     lifespan_ctx = MockLifespanContext(
         enterprise_attack=mock_attack_data,
         mobile_attack=mock_attack_data,
         ics_attack=mock_attack_data,
-        groups_index=groups_index,
-        mitigations_index=mitigations_index,
-        techniques_by_mitre_id=techniques_index,
+        domain_indices=domain_indices,
     )
 
     request_ctx = MockRequestContext(lifespan_context=lifespan_ctx)
