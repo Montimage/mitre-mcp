@@ -17,6 +17,35 @@ export const DEFAULT_MCP_PORT = Number(import.meta.env.VITE_MCP_DEFAULT_PORT) ||
 export const MCP_CONFIG_STORAGE_KEY = 'mcp-server-config';
 
 /**
+ * True when *host* (a hostname, or a full URL) names the loopback interface.
+ * Used to keep local MCP/LLM endpoints on http:// — mitre-mcp has no TLS, and
+ * browsers exempt localhost from mixed-content blocking.
+ */
+export const isLoopbackHost = (host) => {
+  let h = String(host ?? '').trim().toLowerCase();
+  if (!h) return false;
+  if (/^https?:\/\//i.test(h)) {
+    try {
+      h = new URL(h).hostname;
+    } catch {
+      return false;
+    }
+  }
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+};
+
+/**
+ * True when this page is served from a non-loopback origin (GitHub Pages,
+ * Netlify, …). Those origins cannot fetch localhost: Chrome treats it as
+ * private-network / loopback address space and, on HTTPS pages, a
+ * scheme-relative URL would incorrectly upgrade the local server to HTTPS.
+ */
+export const pageCannotReachLoopback = () => {
+  if (typeof window === 'undefined') return false;
+  return !isLoopbackHost(window.location.hostname);
+};
+
+/**
  * Load the saved MCP server config merged over the build defaults.
  *
  * @returns {{ host: string, port: number }} Never throws — a corrupt saved
@@ -71,8 +100,12 @@ export const buildMcpServerUrl = (host, port) => {
   if (!h) return null;
   if (/^https?:\/\//i.test(h)) return h;
   try {
-    // Scheme-relative so an HTTPS-served UI keeps HTTPS (mixed content), the
-    // same rule mcpClient applies when dialing.
+    // Loopback has no TLS in this project and is mixed-content-exempt, so
+    // pin http://. Other hosts stay scheme-relative so an HTTPS-served UI
+    // is not blocked as mixed content (same rule mcpClient applies).
+    if (isLoopbackHost(h)) {
+      return new URL(`http://${h}:${port}/mcp`).href;
+    }
     return new URL(`//${h}:${port}/mcp`, window.location.origin).href;
   } catch {
     return null;

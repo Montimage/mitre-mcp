@@ -6,7 +6,7 @@
  * `errors` and render inline beneath their input; an invalid form blocks the
  * save in the parent, so these messages are the user's only signal.
  */
-import { buildMcpServerUrl } from '../../../services/mcpConfig.js';
+import { buildMcpServerUrl, isLoopbackHost, pageCannotReachLoopback } from '../../../services/mcpConfig.js';
 import StatusBanner from './StatusBanner.jsx';
 
 export default function McpServerForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
@@ -68,9 +68,17 @@ export default function McpServerForm({ config, onChange, testing, testResult, o
             {serverUrl}
           </code>
         </p>
-        {config.host === 'localhost' && Number(config.port) === 8000 && (
+        {import.meta.env.DEV && isLoopbackHost(config.host) && Number(config.port) === 8000 && (
           <p className="text-xs text-green-700">
             <span className="font-medium">Note:</span> In development, requests are sent through this app's local proxy (/mcp) so the browser can reach the server.
+          </p>
+        )}
+        {pageCannotReachLoopback() && isLoopbackHost(config.host) && (
+          <p role="alert" className="text-xs text-red-700">
+            <span className="font-medium">This hosted page cannot reach a local MCP server.</span>{' '}
+            The browser blocks public sites from calling localhost (and would also try HTTPS, which mitre-mcp does not speak). Open the local UI at{' '}
+            <code className="border border-rule bg-paper px-1.5 py-0.5 font-mono text-ink">http://localhost:5173</code>
+            {' '}instead.
           </p>
         )}
       </div>

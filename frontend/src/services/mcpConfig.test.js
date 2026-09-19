@@ -10,6 +10,8 @@ import {
   buildMcpServerUrl,
   getMcpServerAddress,
   getMcpServerConfig,
+  isLoopbackHost,
+  pageCannotReachLoopback,
   MCP_CONFIG_STORAGE_KEY,
 } from './mcpConfig.js';
 
@@ -29,6 +31,32 @@ describe('mcpConfig', () => {
 
   it('buildMcpServerUrl returns null for an empty host instead of a malformed URL', () => {
     expect(buildMcpServerUrl('', 8000)).toBeNull();
+  });
+
+  it('isLoopbackHost recognises hostnames and loopback URLs', () => {
+    expect(isLoopbackHost('localhost')).toBe(true);
+    expect(isLoopbackHost('127.0.0.1')).toBe(true);
+    expect(isLoopbackHost('http://localhost:20128/v1')).toBe(true);
+    expect(isLoopbackHost('mcp.example.com')).toBe(false);
+  });
+
+  it('buildMcpServerUrl pins loopback to http when the page is https', () => {
+    const previous = Object.getOwnPropertyDescriptor(window, 'location');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'https://montimage.github.io',
+        hostname: 'montimage.github.io',
+        protocol: 'https:',
+      },
+    });
+    try {
+      expect(buildMcpServerUrl('localhost', 8000)).toBe('http://localhost:8000/mcp');
+      expect(buildMcpServerUrl('mcp.example.com', 9000)).toBe('https://mcp.example.com:9000/mcp');
+      expect(pageCannotReachLoopback()).toBe(true);
+    } finally {
+      if (previous) Object.defineProperty(window, 'location', previous);
+    }
   });
 
   it('getMcpServerConfig falls back to defaults and merges a saved config', () => {

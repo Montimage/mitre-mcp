@@ -9,6 +9,7 @@
  * expired-session retry added for server session loss.
  */
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { isLoopbackHost } from './mcpConfig.js';
 
 export default class MitreMCPClient {
   /**
@@ -31,6 +32,14 @@ export default class MitreMCPClient {
       // Full URL supplied in settings — use verbatim so HTTPS endpoints work
       this.baseUrl = host;
       console.log(`[MCP Client] Using configured URL: ${this.baseUrl}`);
+    } else if (isLoopbackHost(host)) {
+      // mitre-mcp --http has no TLS. Pin http:// so an HTTPS-hosted UI
+      // (GitHub Pages) does not rewrite localhost to https://localhost:8000
+      // and fail with net::ERR_SSL_PROTOCOL_ERROR. Browsers exempt
+      // loopback from mixed content; they still block the fetch via
+      // private-network access — the settings form warns about that.
+      this.baseUrl = `http://${host}:${portNum}/mcp`;
+      console.log(`[MCP Client] Using loopback URL: ${this.baseUrl}`);
     } else {
       // Scheme-relative URL inherits the page's scheme: an HTTPS-served UI
       // reaches the backend over HTTPS instead of being blocked as mixed

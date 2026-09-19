@@ -76,6 +76,12 @@ describe('MitreMCPClient', () => {
       const client = new MitreMCPClient('localhost', '8000');
       expect(client.baseUrl).toBe('/mcp');
     });
+
+    it('uses http for loopback outside dev so an HTTPS page does not rewrite it to TLS', () => {
+      vi.stubEnv('DEV', false);
+      const client = new MitreMCPClient('localhost', 8000);
+      expect(client.baseUrl).toBe('http://localhost:8000/mcp');
+    });
   });
 
   describe('initializeSession', () => {
