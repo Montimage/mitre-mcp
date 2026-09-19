@@ -342,9 +342,24 @@ export default class LangGraphAgent {
         if (toolCalls.length > 0) {
           console.log(`[Agent] LLM requested ${toolCalls.length} tool call(s)`, toolCalls);
 
-          // Request user approval if callback provided
+          // Request user approval if callback provided. The calls handed to
+          // the approval UI carry the display metadata discovered via
+          // tools/list — the human-readable title, the plain-language
+          // description and the readOnlyHint flag — so the card can be
+          // proportionate for read-only lookups (F-UX-010). Execution below
+          // still uses the provider's original tool_calls.
           if (onToolCallRequest) {
-            const approved = await onToolCallRequest(toolCalls);
+            const approvalCalls = toolCalls.map((toolCall) => {
+              const def = this.toolDefinitions.find((d) => d.name === toolCall.name);
+              const annotations = def?.annotations ?? {};
+              return {
+                ...toolCall,
+                title: def?.title || annotations.title || toolCall.name,
+                description: def?.description || '',
+                readOnly: annotations.readOnlyHint === true
+              };
+            });
+            const approved = await onToolCallRequest(approvalCalls);
             if (!approved) {
               const cancelledResponse = "Tool execution was cancelled by user.";
               this.conversationHistory.push({

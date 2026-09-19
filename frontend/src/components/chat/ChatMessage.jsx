@@ -10,7 +10,7 @@ import remarkBreaks from 'remark-breaks';
 // Memoised (F-PERF-012): the chat re-renders on every state change, so a
 // message whose props are unchanged must not re-render with them. Keys on
 // the message list are stable ids — see ChatBox.
-const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, decision }) {
+const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, onAlwaysAllow, decision }) {
   const [copied, setCopied] = useState(false);
 
   // Format timestamp
@@ -36,41 +36,66 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
 
   // Handle tool-approval type message
   if (type === 'tool-approval' && toolCalls) {
+    // F-UX-010: proportionate approval. A batch where every call is a
+    // read-only lookup gets a calm informational card — the warning
+    // styling is kept for calls that could change something. The agent
+    // attaches title/description/readOnly from tools/list metadata; a
+    // call without metadata falls back to its raw name and the warning
+    // treatment, exactly as before.
+    const allReadOnly = toolCalls.length > 0 && toolCalls.every((tc) => tc.readOnly === true);
+    const palette = allReadOnly
+      ? { card: 'bg-blue-50 border-blue-400', icon: 'text-blue-600', header: 'text-blue-800', time: 'text-blue-700', inner: 'border-blue-300', divider: 'border-blue-300' }
+      : { card: 'bg-yellow-50 border-yellow-400', icon: 'text-yellow-600', header: 'text-yellow-800', time: 'text-yellow-700', inner: 'border-yellow-300', divider: 'border-yellow-300' };
+
     return (
-      <div className="max-w-[90%] mr-auto bg-yellow-50 border-2 border-yellow-400 p-4 mb-3 shadow-md">
+      <div className={`max-w-[90%] mr-auto border-2 p-4 mb-3 shadow-md ${palette.card}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span className="text-sm font-semibold uppercase tracking-wide text-yellow-800">
-              Tool Execution Request
+            {allReadOnly ? (
+              <svg className={`w-5 h-5 ${palette.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className={`w-5 h-5 ${palette.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )}
+            <span className={`text-sm font-semibold uppercase tracking-wide ${palette.header}`}>
+              {allReadOnly ? 'Read-only lookup' : 'Tool Execution Request'}
             </span>
           </div>
-          <span className="text-xs text-yellow-700">{formatTime(timestamp)}</span>
+          <span className={`text-xs ${palette.time}`}>{formatTime(timestamp)}</span>
         </div>
 
-        {/* Tool Call Details */}
+        {/* Tool Call Details — plain-language first, raw JSON tucked behind a disclosure */}
         <p className="text-sm text-gray-700 mb-3">
-          The agent wants to execute the following tool{toolCalls.length > 1 ? 's' : ''}:
+          {allReadOnly
+            ? 'The agent wants to look up data — read-only tools cannot change anything:'
+            : `The agent wants to execute the following tool${toolCalls.length > 1 ? 's' : ''}:`}
         </p>
 
         <div className="space-y-2 mb-4">
           {toolCalls.map((toolCall, index) => (
-            <div key={toolCall.id ?? index} className="border border-yellow-300 bg-white p-3 rounded">
-              <div className="font-medium text-sm text-black mb-1">
-                📋 {toolCall.name}
+            <div key={toolCall.id ?? index} className={`border ${palette.inner} bg-white p-3 rounded`}>
+              <div className="font-medium text-sm text-black">
+                {toolCall.title || toolCall.name}
               </div>
-              <div className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded mt-1">
-                {JSON.stringify(toolCall.args || {}, null, 2)}
-              </div>
+              {toolCall.description && (
+                <div className="text-xs text-gray-600 mt-0.5">{toolCall.description}</div>
+              )}
+              <details className="mt-1">
+                <summary className="text-xs text-gray-500 cursor-pointer select-none">Arguments</summary>
+                <div className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded mt-1">
+                  {JSON.stringify(toolCall.args || {}, null, 2)}
+                </div>
+              </details>
             </div>
           ))}
         </div>
 
         {/* Approval Buttons or Decision */}
-        <div className="pt-3 border-t border-yellow-300">
+        <div className={`pt-3 border-t ${palette.divider}`}>
           {decision ? (
             // Show decision
             <div className={`px-4 py-2 text-sm font-medium text-center ${
@@ -81,7 +106,9 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
               {decision === 'approved' ? '✓ Approved by user' : '✗ Denied by user'}
             </div>
           ) : (
-            // Show buttons
+            // Show buttons — "Always allow lookups" is only meaningful on an
+            // all-read-only batch: it also opts the session into auto-approving
+            // later read-only lookups (F-UX-010).
             <div className="flex gap-3">
               <button
                 onClick={onApprove}
@@ -89,6 +116,14 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
               >
                 ✓ Approve
               </button>
+              {allReadOnly && onAlwaysAllow && (
+                <button
+                  onClick={onAlwaysAllow}
+                  className="flex-1 px-4 py-2 bg-white text-blue-800 text-sm font-medium border border-blue-400 hover:bg-blue-100 transition-colors"
+                >
+                  Always allow lookups
+                </button>
+              )}
               <button
                 onClick={onDeny}
                 className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 text-sm font-medium hover:bg-gray-400 transition-colors"

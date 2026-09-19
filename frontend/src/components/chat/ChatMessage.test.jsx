@@ -84,5 +84,65 @@ describe('ChatMessage', () => {
       rerender(<ChatMessage type="tool-approval" toolCalls={toolCalls} decision="denied" />);
       expect(screen.getByText('✗ Denied by user')).toBeTruthy();
     });
+
+    it('F-UX-010: an all-read-only batch gets an informational card showing the tool title, not the raw name', () => {
+      const readOnlyCalls = [{
+        id: 'c1',
+        name: 'get_tactics',
+        title: 'Get Tactics',
+        description: 'List the ATT&CK tactics',
+        args: { domain: 'enterprise-attack' },
+        readOnly: true,
+      }];
+      render(
+        <ChatMessage type="tool-approval" toolCalls={readOnlyCalls} onApprove={vi.fn()} onDeny={vi.fn()} onAlwaysAllow={vi.fn()} />
+      );
+
+      expect(screen.getByText('Read-only lookup')).toBeTruthy();
+      // The human title is the tool's label — the raw name is not rendered.
+      expect(screen.getByText('Get Tactics')).toBeTruthy();
+      expect(screen.queryByText(/get_tactics/)).toBeNull();
+      // The plain-language description leads; the JSON arguments stay
+      // available behind a disclosure instead of dominating the card.
+      expect(screen.getByText('List the ATT&CK tactics')).toBeTruthy();
+      expect(screen.getByText('Arguments')).toBeTruthy();
+      expect(screen.getByText(/enterprise-attack/)).toBeTruthy();
+    });
+
+    it('F-UX-010: "Always allow lookups" is offered on read-only batches and fires its callback', () => {
+      const onAlwaysAllow = vi.fn();
+      const readOnlyCalls = [
+        { id: 'c1', name: 'get_tactics', title: 'Get Tactics', args: {}, readOnly: true },
+      ];
+      render(
+        <ChatMessage type="tool-approval" toolCalls={readOnlyCalls} onApprove={vi.fn()} onDeny={vi.fn()} onAlwaysAllow={onAlwaysAllow} />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /always allow lookups/i }));
+      expect(onAlwaysAllow).toHaveBeenCalledTimes(1);
+    });
+
+    it('F-UX-010: a non-read-only call keeps the warning card and gets no always-allow choice', () => {
+      const calls = [{ id: 'c1', name: 'run_query', args: {}, readOnly: false }];
+      render(
+        <ChatMessage type="tool-approval" toolCalls={calls} onApprove={vi.fn()} onDeny={vi.fn()} onAlwaysAllow={vi.fn()} />
+      );
+
+      expect(screen.getByText('Tool Execution Request')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /always allow lookups/i })).toBeNull();
+    });
+
+    it('F-UX-010: a mixed batch keeps the warning card — always-allow only applies to all-read-only batches', () => {
+      const calls = [
+        { id: 'c1', name: 'get_tactics', title: 'Get Tactics', args: {}, readOnly: true },
+        { id: 'c2', name: 'run_query', args: {}, readOnly: false },
+      ];
+      render(
+        <ChatMessage type="tool-approval" toolCalls={calls} onApprove={vi.fn()} onDeny={vi.fn()} onAlwaysAllow={vi.fn()} />
+      );
+
+      expect(screen.getByText('Tool Execution Request')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /always allow lookups/i })).toBeNull();
+    });
   });
 });
