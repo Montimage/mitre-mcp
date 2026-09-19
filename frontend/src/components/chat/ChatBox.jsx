@@ -74,7 +74,14 @@ const LLM_STATUS_TEXT = {
 let messageIdCounter = 0;
 const makeMessage = (msg) => ({ id: `msg-${++messageIdCounter}`, ...msg });
 
-export default function ChatBox({ onSetupStatusChange }) {
+// Dedicated chat fragment — distinct from the landing embed's id="chat"
+// (`#chat`). Hash routing so GitHub Pages reloads without a 404.html fallback.
+const DEDICATED_CHAT_HASH = '#/chat';
+
+export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
+  // `full` fills the dedicated-page viewport; `embedded` (default) keeps the
+  // in-page 500px / 70dvh message-pane cap (F-UX-019, F-UX-020).
+  const isFullLayout = layout === 'full';
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -621,10 +628,13 @@ export default function ChatBox({ onSetupStatusChange }) {
   };
 
   return (
-    <div className="w-full border border-rule bg-paper-card shadow-sheet-lifted">
+    <div className={isFullLayout
+      ? 'flex h-full min-h-0 w-full flex-col border border-rule bg-paper-card shadow-sheet-lifted'
+      : 'w-full border border-rule bg-paper-card shadow-sheet-lifted'}
+    >
       {/* Header — flex-wrap lets the controls drop below the title on
           narrow screens instead of overflowing (F-UX-019). */}
-      <div className="border-b border-ink bg-black px-5 py-4 text-white">
+      <div className="shrink-0 border-b border-ink bg-black px-5 py-4 text-white">
         <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-2">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass">AI-Powered</p>
@@ -668,6 +678,18 @@ export default function ChatBox({ onSetupStatusChange }) {
               </div>
             </div>
 
+            {/* Open in page — embedded only (F-UX-020). The dedicated
+                view is already `#/chat`, so the control is omitted there. */}
+            {!isFullLayout && (
+              <a
+                href={DEDICATED_CHAT_HASH}
+                className="px-3 py-1.5 min-h-11 sm:min-h-0 inline-flex items-center border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
+                title="Open chat in a dedicated page"
+              >
+                Open in page
+              </a>
+            )}
+
             {/* Clear Chat Button — min-h-11 keeps the tap target at least
                 44px tall on small screens (F-UX-019). */}
             <button
@@ -695,7 +717,7 @@ export default function ChatBox({ onSetupStatusChange }) {
           chat is usable but the LLM will not answer until configured
           (F-UX-002). The settings action is the fix path. */}
       {simulationMode ? (
-        <div role="status" className="flex items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
           <p className="text-xs text-ink">
             No mitre-mcp server connected — answers are curated samples, not live ATT&CK data.
           </p>
@@ -707,7 +729,7 @@ export default function ChatBox({ onSetupStatusChange }) {
           </button>
         </div>
       ) : llmStatus === 'not-configured' ? (
-        <div role="status" className="flex items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
           <p className="text-xs text-ink">
             The LLM provider is not set up yet{llmSetupError ? ` — ${llmSetupError.split('\n')[0]}` : '.'}
           </p>
@@ -777,12 +799,16 @@ export default function ChatBox({ onSetupStatusChange }) {
       )}
 
       {/* Messages Container — aria-live so appended messages are announced.
-          Height caps at 70% of the dynamic viewport below the 500px desktop
-          size so the input stays reachable on small screens (F-UX-019). */}
+          Embedded height caps at 70% of the dynamic viewport below the 500px
+          desktop size so the input stays reachable on small screens
+          (F-UX-019). Full layout fills the remaining dedicated-page
+          viewport instead (F-UX-020). */}
       <div
         ref={messagesContainerRef}
         aria-live="polite"
-        className="h-[min(500px,70dvh)] overflow-y-auto border-b border-rule bg-paper p-4"
+        className={isFullLayout
+          ? 'min-h-0 flex-1 overflow-y-auto border-b border-rule bg-paper p-4'
+          : 'h-[min(500px,70dvh)] overflow-y-auto border-b border-rule bg-paper p-4'}
       >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-500">
@@ -857,16 +883,19 @@ export default function ChatBox({ onSetupStatusChange }) {
         )}
       </div>
 
-      {/* Input */}
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        isLoading={isLoading}
-        modelInfo={
-          simulationMode
-            ? { provider: 'Simulation', model: 'sample answers', accent: 'border-l-brass' }
-            : getModelDisplayInfo(serverConfig)
-        }
-      />
+      {/* Input — shrink-0 so the full-layout pane, not the composer, yields
+          when the viewport is short (F-UX-020). */}
+      <div className="shrink-0">
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          isLoading={isLoading}
+          modelInfo={
+            simulationMode
+              ? { provider: 'Simulation', model: 'sample answers', accent: 'border-l-brass' }
+              : getModelDisplayInfo(serverConfig)
+          }
+        />
+      </div>
     </div>
   );
 }
