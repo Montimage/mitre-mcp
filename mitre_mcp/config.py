@@ -54,8 +54,11 @@ class Config:
     )
 
     # Timeouts and limits
-    DOWNLOAD_TIMEOUT_SECONDS = _env_int("MITRE_DOWNLOAD_TIMEOUT", 30)
-    CACHE_EXPIRY_DAYS = _env_int("MITRE_CACHE_EXPIRY_DAYS", 1)
+    # 120 s: a ~40 MB bundle over a slow link needs headroom (F-PERF-004)
+    DOWNLOAD_TIMEOUT_SECONDS = _env_int("MITRE_DOWNLOAD_TIMEOUT", 120)
+    # 14 days: ATT&CK releases ~twice a year; conditional GETs keep
+    # refreshes cheap when the window does expire (F-PERF-004)
+    CACHE_EXPIRY_DAYS = _env_int("MITRE_CACHE_EXPIRY_DAYS", 14)
     REQUIRED_DISK_SPACE_MB = _env_int("MITRE_REQUIRED_SPACE_MB", 200)
 
     # Pagination
@@ -93,12 +96,19 @@ class Config:
 
     @classmethod
     def get_data_dir(cls) -> str:
-        """Get data directory path."""
+        """Get data directory path.
+
+        ``MITRE_DATA_DIR`` overrides; otherwise a per-user cache directory
+        outside the installed package — ``$XDG_CACHE_HOME/mitre-mcp`` when
+        set, else ``~/.cache/mitre-mcp`` — so read-only installs work and
+        reinstalling the package does not wipe the cache (F-BUG-014).
+        """
         if cls.DATA_DIR:
             return cls.DATA_DIR
 
-        # Default: relative to package
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+        xdg_cache = os.environ.get("XDG_CACHE_HOME")
+        base = xdg_cache if xdg_cache else os.path.join(os.path.expanduser("~"), ".cache")
+        return os.path.join(base, "mitre-mcp")
 
     @classmethod
     def validate(cls) -> None:
