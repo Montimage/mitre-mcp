@@ -8,32 +8,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
-
-// IndexedDB helper to get API keys
-const getApiKey = async (keyName) => {
-  return new Promise((resolve) => {
-    const request = indexedDB.open('mitre-mcp-config', 1);
-    request.onerror = () => resolve('');
-    request.onsuccess = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('api-keys')) {
-        resolve('');
-        return;
-      }
-      const transaction = db.transaction(['api-keys'], 'readonly');
-      const store = transaction.objectStore('api-keys');
-      const getRequest = store.get(keyName);
-      getRequest.onerror = () => resolve('');
-      getRequest.onsuccess = () => resolve(getRequest.result?.value || '');
-    };
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('api-keys')) {
-        db.createObjectStore('api-keys', { keyPath: 'id' });
-      }
-    };
-  });
-};
+import { getApiKey } from '../../services/storage';
 
 // Helper to get display name for LLM provider and model
 const getModelDisplayInfo = (config) => {

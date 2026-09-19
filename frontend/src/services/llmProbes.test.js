@@ -1,0 +1,94 @@
+/**
+ * Tests for frontend/src/services/llmProbes.js — the "test connection" probes.
+ *
+ * `fetch` is stubbed and the MCP client module is mocked so no real network
+ * happens; each probe is asserted to resolve a `{ type, message }` object.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from './llmProbes.js';
+
+const mcp = vi.hoisted(() => ({ testConnection: vi.fn() }));
+
+vi.mock('./mcpClient.js', () => ({
+  default: class {
+    testConnection(...args) { return mcp.testConnection(...args); }
+  },
+}));
+
+const jsonResponse = (body, { ok = true, status = 200 } = {}) => ({
+  ok,
+  status,
+  json: async () => body,
+});
+
+describe('llmProbes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mcp.testConnection.mockResolvedValue(true);
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  describe('probeMcpServer', () => {
+    it('reports success when the client connects', async () => {
+      const result = await probeMcpServer({ host: 'localhost', port: 8000 });
+      expect(result.type).toBe('success');
+    });
+
+    it('reports error when the client cannot connect', async () => {
+      mcp.testConnection.mockResolvedValue(false);
+      const result = await probeMcpServer({ host: 'localhost', port: 8000 });
+      expect(result.type).toBe('error');
+    });
+  });
+
+  describe('probeOllama', () => {
+    it('reports success when the configured model is present', async () => {
+      fetch.mockResolvedValue(jsonResponse({ models: [{ name: 'llama3.1:8b' }] }));
+      const result = await probeOllama({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'llama3.1:8b' });
+      expect(result.type).toBe('success');
+    });
+
+    it('reports error listing available models when the model is missing', async () => {
+      fetch.mockResolvedValue(jsonResponse({ models: [{ name: 'other:1b' }] }));
+      const result = await probeOllama({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'llama3.1:8b' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('not found');
+    });
+
+    it('reports error when the server is unreachable', async () => {
+      fetch.mockRejectedValue(new Error('connection refused'));
+      const result = await probeOllama({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'llama3.1:8b' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('Cannot connect to Ollama');
+    });
+  });
+
+  describe('probeGemini', () => {
+    it('requires an API key before any network call', async () => {
+      const result = await probeGemini({ geminiApiKey: '', geminiModel: 'gemini-2.5-flash' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('API key is required');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('reports success when the configured model is present', async () => {
+      fetch.mockResolvedValue(jsonResponse({ models: [{ name: 'models/gemini-2.5-flash' }] }));
+      const result = await probeGemini({ geminiApiKey: 'key', geminiModel: 'gemini-2.5-flash' });
+      expect(result.type).toBe('success');
+    });
+  });
+
+  describe('probeOpenRouter', () => {
+    it('requires an API key before any network call', async () => {
+      const result = await probeOpenRouter({ openrouterApiKey: '', openrouterModel: 'anthropic/claude-3.5-sonnet' });
+      expect(result.type).toBe('error');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('reports success when the configured model id is present', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'anthropic/claude-3.5-sonnet' }] }));
+      const result = await probeOpenRouter({ openrouterApiKey: 'key', openrouterModel: 'anthropic/claude-3.5-sonnet' });
+      expect(result.type).toBe('success');
+    });
+  });
+});

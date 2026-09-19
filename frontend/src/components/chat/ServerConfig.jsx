@@ -2,8 +2,19 @@
  * ServerConfig Component
  *
  * Allows users to configure MCP server and LLM settings (Ollama, Gemini, or OpenRouter)
+ *
+ * Orchestrates the settings dialog: holds the form state and persistence, and
+ * delegates the per-section UI to `config/` form components, the IndexedDB
+ * reads/writes to `services/storage.js`, and the "test connection" network
+ * calls to `services/llmProbes.js`.
  */
 import { useState, useEffect } from 'react';
+import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
+import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
+import McpServerForm from './config/McpServerForm.jsx';
+import OllamaForm from './config/OllamaForm.jsx';
+import GeminiForm from './config/GeminiForm.jsx';
+import OpenRouterForm from './config/OpenRouterForm.jsx';
 
 const LLM_PROVIDERS = {
   OLLAMA: 'ollama',
@@ -11,70 +22,29 @@ const LLM_PROVIDERS = {
   OPENROUTER: 'openrouter'
 };
 
-// IndexedDB helper functions for secure API key storage
-const DB_NAME = 'mitre-mcp-config';
-const PROBE_TIMEOUT_MS = 10000;
-const DB_VERSION = 1;
-const STORE_NAME = 'api-keys';
-
-const openDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-  });
-};
-
-const saveApiKey = async (keyName, value) => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.put({ id: keyName, value });
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
-};
-
-const getApiKey = async (keyName) => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(keyName);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result?.value || '');
-  });
-};
-
-const deleteApiKey = async (keyName) => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(keyName);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+const DEFAULT_CONFIG = {
+  host: 'localhost',
+  port: 8000,
+  llmProvider: LLM_PROVIDERS.OLLAMA,
+  ollamaBaseUrl: 'http://localhost:11434',
+  ollamaModel: 'llama3.1:8b',
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.5-flash',
+  openrouterApiKey: '',
+  openrouterModel: 'anthropic/claude-3.5-sonnet'
 };
 
 export default function ServerConfig({ onConfigChange, initialConfig }) {
   const [config, setConfig] = useState({
-    host: initialConfig?.host || 'localhost',
-    port: initialConfig?.port || 8000,
-    llmProvider: initialConfig?.llmProvider || LLM_PROVIDERS.OLLAMA,
-    ollamaBaseUrl: initialConfig?.ollamaBaseUrl || 'http://localhost:11434',
-    ollamaModel: initialConfig?.ollamaModel || 'llama3.1:8b',
-    geminiApiKey: initialConfig?.geminiApiKey || '',
-    geminiModel: initialConfig?.geminiModel || 'gemini-2.5-flash',
-    openrouterApiKey: initialConfig?.openrouterApiKey || '',
-    openrouterModel: initialConfig?.openrouterModel || 'anthropic/claude-3.5-sonnet'
+    host: initialConfig?.host || DEFAULT_CONFIG.host,
+    port: initialConfig?.port || DEFAULT_CONFIG.port,
+    llmProvider: initialConfig?.llmProvider || DEFAULT_CONFIG.llmProvider,
+    ollamaBaseUrl: initialConfig?.ollamaBaseUrl || DEFAULT_CONFIG.ollamaBaseUrl,
+    ollamaModel: initialConfig?.ollamaModel || DEFAULT_CONFIG.ollamaModel,
+    geminiApiKey: initialConfig?.geminiApiKey || DEFAULT_CONFIG.geminiApiKey,
+    geminiModel: initialConfig?.geminiModel || DEFAULT_CONFIG.geminiModel,
+    openrouterApiKey: initialConfig?.openrouterApiKey || DEFAULT_CONFIG.openrouterApiKey,
+    openrouterModel: initialConfig?.openrouterModel || DEFAULT_CONFIG.openrouterModel
   });
 
   const [testing, setTesting] = useState(false);
@@ -154,229 +124,24 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     setSaving(false);
   };
 
-  const handleTestConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
-
+  // Run a probe, toggling its `testing` flag and storing its result object.
+  const runProbe = async (probe, setTestingFlag, setResult) => {
+    setTestingFlag(true);
+    setResult(null);
     try {
-      console.log('[ServerConfig] Testing MCP connection to:', `${config.host}:${config.port}`);
-
-      // Dynamically import to avoid issues if not yet installed
-      const { default: MitreMCPClient } = await import('../../services/mcpClient.js');
-
-      const client = new MitreMCPClient(config.host, config.port);
-      console.log('[ServerConfig] Client created, testing connection...');
-
-      const success = await client.testConnection();
-
-      if (success) {
-        setTestResult({
-          type: 'success',
-          message: 'Connection successful! MCP server is responding.'
-        });
-      } else {
-        setTestResult({
-          type: 'error',
-          message: 'Connection failed. Please check server address and ensure mitre-mcp is running.'
-        });
-      }
-    } catch (error) {
-      console.error('[ServerConfig] Connection test error:', error);
-      setTestResult({
-        type: 'error',
-        message: `Connection error: ${error.message}\n\nCheck browser console for details.`
-      });
+      setResult(await probe(config));
     } finally {
-      setTesting(false);
+      setTestingFlag(false);
     }
   };
 
-  const handleTestOllama = async () => {
-    setTestingOllama(true);
-    setOllamaTestResult(null);
-
-    try {
-      console.log('[ServerConfig] Testing Ollama connection:', config.ollamaBaseUrl);
-
-      // Use proxy in dev mode for default localhost:11434 to avoid CORS
-      const isDefaultOllama = config.ollamaBaseUrl === 'http://localhost:11434';
-      const ollamaUrl = (import.meta.env.DEV && isDefaultOllama)
-        ? '/ollama/api/tags'
-        : `${config.ollamaBaseUrl}/api/tags`;
-
-      console.log('[ServerConfig] Fetching from:', ollamaUrl);
-
-      // Test if Ollama is running by fetching tags
-      const response = await fetch(ollamaUrl, {
-        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ollama server returned ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('[ServerConfig] Ollama models:', data.models);
-
-      // Check if the configured model exists
-      const modelExists = data.models?.some(m => m.name === config.ollamaModel);
-
-      if (modelExists) {
-        setOllamaTestResult({
-          type: 'success',
-          message: `Ollama is running! Model "${config.ollamaModel}" is available.`
-        });
-      } else {
-        const availableModels = data.models?.map(m => m.name).join(', ') || 'none';
-        setOllamaTestResult({
-          type: 'error',
-          message: `Model "${config.ollamaModel}" not found. Available models: ${availableModels}\n\nRun: ollama pull ${config.ollamaModel}`
-        });
-      }
-    } catch (error) {
-      console.error('[ServerConfig] Ollama test error:', error);
-      setOllamaTestResult({
-        type: 'error',
-        message: `Cannot connect to Ollama: ${error.message}\n\nMake sure Ollama is running: ollama serve`
-      });
-    } finally {
-      setTestingOllama(false);
-    }
-  };
-
-  const handleTestGemini = async () => {
-    setTestingGemini(true);
-    setGeminiTestResult(null);
-
-    try {
-      const apiKey = config.geminiApiKey;
-
-      if (!apiKey) {
-        setGeminiTestResult({
-          type: 'error',
-          message: 'Gemini API key is required. Enter it above.'
-        });
-        return;
-      }
-
-      console.log('[ServerConfig] Testing Gemini connection...');
-
-      // Test Gemini API by listing models
-      const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models',
-        {
-          headers: { 'x-goog-api-key': apiKey },
-          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || `API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('[ServerConfig] Gemini models:', data.models);
-
-      // Check if the configured model exists
-      const modelExists = data.models?.some(m => m.name.includes(config.geminiModel.replace('gemini-', '')));
-
-      if (modelExists) {
-        setGeminiTestResult({
-          type: 'success',
-          message: `Gemini API is working! Model "${config.geminiModel}" is available.`
-        });
-      } else {
-        const availableModels = data.models?.map(m => m.name.split('/').pop()).join(', ') || 'none';
-        setGeminiTestResult({
-          type: 'error',
-          message: `Model "${config.geminiModel}" not found. Available models: ${availableModels}`
-        });
-      }
-    } catch (error) {
-      console.error('[ServerConfig] Gemini test error:', error);
-      setGeminiTestResult({
-        type: 'error',
-        message: `Cannot connect to Gemini API: ${error.message}\n\nMake sure your API key is valid.`
-      });
-    } finally {
-      setTestingGemini(false);
-    }
-  };
-
-  const handleTestOpenRouter = async () => {
-    setTestingOpenRouter(true);
-    setOpenrouterTestResult(null);
-
-    try {
-      const apiKey = config.openrouterApiKey;
-
-      if (!apiKey) {
-        setOpenrouterTestResult({
-          type: 'error',
-          message: 'OpenRouter API key is required. Enter it above.'
-        });
-        return;
-      }
-
-      console.log('[ServerConfig] Testing OpenRouter connection...');
-
-      // Test OpenRouter API by fetching models
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'MITRE MCP Chat'
-        },
-        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || `API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('[ServerConfig] OpenRouter models count:', data.data?.length);
-
-      // Check if the configured model exists
-      const modelExists = data.data?.some(m => m.id === config.openrouterModel);
-
-      if (modelExists) {
-        setOpenrouterTestResult({
-          type: 'success',
-          message: `OpenRouter API is working! Model "${config.openrouterModel}" is available.`
-        });
-      } else {
-        setOpenrouterTestResult({
-          type: 'error',
-          message: `Model "${config.openrouterModel}" not found. Please check the model ID on openrouter.ai/models`
-        });
-      }
-    } catch (error) {
-      console.error('[ServerConfig] OpenRouter test error:', error);
-      setOpenrouterTestResult({
-        type: 'error',
-        message: `Cannot connect to OpenRouter API: ${error.message}\n\nMake sure your API key is valid.`
-      });
-    } finally {
-      setTestingOpenRouter(false);
-    }
-  };
+  const handleTestConnection = () => runProbe(probeMcpServer, setTesting, setTestResult);
+  const handleTestOllama = () => runProbe(probeOllama, setTestingOllama, setOllamaTestResult);
+  const handleTestGemini = () => runProbe(probeGemini, setTestingGemini, setGeminiTestResult);
+  const handleTestOpenRouter = () => runProbe(probeOpenRouter, setTestingOpenRouter, setOpenrouterTestResult);
 
   const handleReset = async () => {
-    const defaultConfig = {
-      host: 'localhost',
-      port: 8000,
-      llmProvider: LLM_PROVIDERS.OLLAMA,
-      ollamaBaseUrl: 'http://localhost:11434',
-      ollamaModel: 'llama3.1:8b',
-      geminiApiKey: '',
-      geminiModel: 'gemini-2.5-flash',
-      openrouterApiKey: '',
-      openrouterModel: 'anthropic/claude-3.5-sonnet'
-    };
-    setConfig(defaultConfig);
+    setConfig({ ...DEFAULT_CONFIG });
     localStorage.removeItem('mcp-server-config');
 
     // Clear API keys from IndexedDB
@@ -398,93 +163,13 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     <div className="bg-gray-50 p-6">
       <div className="max-w-3xl mx-auto">
         {/* MCP Server Configuration */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wide">
-            MCP Server Configuration
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            {/* Host Input */}
-            <div>
-              <label htmlFor="host" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                Host
-              </label>
-              <input
-                id="host"
-                type="text"
-                value={config.host}
-                onChange={(e) => handleChange('host', e.target.value)}
-                className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                placeholder="localhost"
-              />
-            </div>
-
-            {/* Port Input */}
-            <div>
-              <label htmlFor="port" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                Port
-              </label>
-              <input
-                id="port"
-                type="number"
-                value={config.port}
-                onChange={(e) => handleChange('port', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                placeholder="8000"
-                min="1"
-                max="65535"
-              />
-            </div>
-          </div>
-
-          {/* Connection URL Preview */}
-          <div className="mb-4 space-y-2">
-            <p className="text-xs text-gray-600">
-              <span className="font-medium">Server URL:</span>{' '}
-              <code className="bg-white px-2 py-1 border border-gray-300 text-xs font-mono">
-                http://{config.host}:{config.port}/mcp
-              </code>
-            </p>
-            {config.host === 'localhost' && config.port === 8000 && (
-              <p className="text-xs text-green-700">
-                <span className="font-medium">Note:</span> Using Vite proxy (/mcp) to avoid CORS issues
-              </p>
-            )}
-          </div>
-
-          {/* Status Message */}
-          {testResult && (
-            <div
-              className={`mb-4 p-3 text-xs border ${
-                testResult.type === 'success'
-                  ? 'bg-white text-gray-900 border-gray-400'
-                  : testResult.type === 'error'
-                  ? 'bg-gray-100 text-gray-900 border-gray-400'
-                  : 'bg-gray-50 text-gray-900 border-gray-300'
-              }`}
-            >
-              {testResult.message}
-            </div>
-          )}
-
-          {/* MCP Test Button */}
-          <div className="mb-2">
-            <button
-              onClick={handleTestConnection}
-              disabled={testing}
-              className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
-            >
-              {testing ? 'Testing MCP...' : 'Test MCP Connection'}
-            </button>
-          </div>
-
-          {/* Help Text */}
-          <div className="text-xs text-gray-600">
-            <p>
-              Run: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">mitre-mcp --http --port {config.port}</code>
-            </p>
-          </div>
-        </div>
+        <McpServerForm
+          config={config}
+          onChange={handleChange}
+          testing={testing}
+          testResult={testResult}
+          onTest={handleTestConnection}
+        />
 
         {/* Divider */}
         <div className="border-t border-gray-300 my-6"></div>
@@ -537,267 +222,33 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
             </div>
           </div>
 
-          {/* Ollama Configuration */}
+          {/* Per-provider Configuration */}
           {config.llmProvider === LLM_PROVIDERS.OLLAMA && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                {/* Ollama Base URL */}
-                <div>
-                  <label htmlFor="ollamaBaseUrl" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    Ollama Server URL
-                  </label>
-                  <input
-                    id="ollamaBaseUrl"
-                    type="text"
-                    value={config.ollamaBaseUrl}
-                    onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="http://localhost:11434"
-                  />
-                </div>
-
-                {/* Ollama Model */}
-                <div>
-                  <label htmlFor="ollamaModel" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    Model Name
-                  </label>
-                  <input
-                    id="ollamaModel"
-                    type="text"
-                    value={config.ollamaModel}
-                    onChange={(e) => handleChange('ollamaModel', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="llama3.1:8b"
-                  />
-                </div>
-              </div>
-
-              {/* Ollama Status Message */}
-              {ollamaTestResult && (
-                <div
-                  className={`mb-4 p-3 text-xs border whitespace-pre-line ${
-                    ollamaTestResult.type === 'success'
-                      ? 'bg-white text-gray-900 border-gray-400'
-                      : 'bg-gray-100 text-gray-900 border-gray-400'
-                  }`}
-                >
-                  {ollamaTestResult.message}
-                </div>
-              )}
-
-              {/* Ollama Test Button */}
-              <div className="mb-2">
-                <button
-                  onClick={handleTestOllama}
-                  disabled={testingOllama}
-                  className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
-                >
-                  {testingOllama ? 'Testing Ollama...' : 'Test Ollama Connection'}
-                </button>
-              </div>
-
-              {/* Ollama Help Text */}
-              <div className="text-xs text-gray-600 space-y-1">
-                <p>
-                  Start Ollama: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">ollama serve</code>
-                </p>
-                <p>
-                  Pull model: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">ollama pull {config.ollamaModel}</code>
-                </p>
-              </div>
-            </>
+            <OllamaForm
+              config={config}
+              onChange={handleChange}
+              testing={testingOllama}
+              testResult={ollamaTestResult}
+              onTest={handleTestOllama}
+            />
           )}
-
-          {/* Gemini Configuration */}
           {config.llmProvider === LLM_PROVIDERS.GEMINI && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                {/* Gemini API Key */}
-                <div>
-                  <label htmlFor="geminiApiKey" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    Gemini API Key
-                  </label>
-                  <input
-                    id="geminiApiKey"
-                    type="password"
-                    value={config.geminiApiKey}
-                    onChange={(e) => handleChange('geminiApiKey', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="Enter API key"
-                  />
-                </div>
-
-                {/* Gemini Model */}
-                <div>
-                  <label htmlFor="geminiModel" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    Model Name
-                  </label>
-                  <select
-                    id="geminiModel"
-                    value={config.geminiModel}
-                    onChange={(e) => handleChange('geminiModel', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm bg-white"
-                  >
-                    <optgroup label="Gemini 3 (Latest)">
-                      <option value="gemini-3-pro">gemini-3-pro (Most Intelligent)</option>
-                      <option value="gemini-3-deep-think">gemini-3-deep-think (Deep Reasoning)</option>
-                    </optgroup>
-                    <optgroup label="Gemini 2.5">
-                      <option value="gemini-2.5-pro">gemini-2.5-pro (Powerful)</option>
-                      <option value="gemini-2.5-flash">gemini-2.5-flash (Fast + Thinking)</option>
-                      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Cost Effective)</option>
-                    </optgroup>
-                    <optgroup label="Gemini 2.0">
-                      <option value="gemini-2.0-flash">gemini-2.0-flash (Balanced)</option>
-                      <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (Low Latency)</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
-
-              {/* Gemini Status Message */}
-              {geminiTestResult && (
-                <div
-                  className={`mb-4 p-3 text-xs border whitespace-pre-line ${
-                    geminiTestResult.type === 'success'
-                      ? 'bg-white text-gray-900 border-gray-400'
-                      : 'bg-gray-100 text-gray-900 border-gray-400'
-                  }`}
-                >
-                  {geminiTestResult.message}
-                </div>
-              )}
-
-              {/* Gemini Test Button */}
-              <div className="mb-2">
-                <button
-                  onClick={handleTestGemini}
-                  disabled={testingGemini}
-                  className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
-                >
-                  {testingGemini ? 'Testing Gemini...' : 'Test Gemini API'}
-                </button>
-              </div>
-
-              {/* Gemini Help Text */}
-              <div className="text-xs text-gray-600 space-y-1">
-                <p>
-                  Get API key: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google AI Studio</a>
-                </p>
-              </div>
-            </>
+            <GeminiForm
+              config={config}
+              onChange={handleChange}
+              testing={testingGemini}
+              testResult={geminiTestResult}
+              onTest={handleTestGemini}
+            />
           )}
-
-          {/* OpenRouter Configuration */}
           {config.llmProvider === LLM_PROVIDERS.OPENROUTER && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                {/* OpenRouter API Key */}
-                <div>
-                  <label htmlFor="openrouterApiKey" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    OpenRouter API Key
-                  </label>
-                  <input
-                    id="openrouterApiKey"
-                    type="password"
-                    value={config.openrouterApiKey}
-                    onChange={(e) => handleChange('openrouterApiKey', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                    placeholder="Enter API key"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Stored securely in browser IndexedDB</p>
-                </div>
-
-                {/* OpenRouter Model */}
-                <div>
-                  <label htmlFor="openrouterModel" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                    Model ID
-                  </label>
-                  <select
-                    id="openrouterModel"
-                    value={config.openrouterModel}
-                    onChange={(e) => handleChange('openrouterModel', e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm bg-white"
-                  >
-                    <optgroup label="Anthropic">
-                      <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
-                      <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                      <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku</option>
-                    </optgroup>
-                    <optgroup label="OpenAI">
-                      <option value="openai/gpt-4o">GPT-4o</option>
-                      <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-                      <option value="openai/o1-preview">o1 Preview</option>
-                    </optgroup>
-                    <optgroup label="Google">
-                      <option value="google/gemini-2.5-flash-preview">Gemini 2.5 Flash</option>
-                      <option value="google/gemini-2.5-pro-preview">Gemini 2.5 Pro</option>
-                    </optgroup>
-                    <optgroup label="Meta">
-                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                      <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
-                    </optgroup>
-                    <optgroup label="Mistral">
-                      <option value="mistralai/mistral-large">Mistral Large</option>
-                      <option value="mistralai/mistral-small-3.1-24b-instruct">Mistral Small 3.1</option>
-                    </optgroup>
-                    <optgroup label="DeepSeek">
-                      <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat V3</option>
-                      <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-                    </optgroup>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Or enter custom model ID from <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">openrouter.ai/models</a>
-                  </p>
-                </div>
-              </div>
-
-              {/* Custom Model Input */}
-              <div className="mb-4">
-                <label htmlFor="openrouterModelCustom" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-                  Or Enter Custom Model ID
-                </label>
-                <input
-                  id="openrouterModelCustom"
-                  type="text"
-                  value={config.openrouterModel}
-                  onChange={(e) => handleChange('openrouterModel', e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
-                  placeholder="e.g., anthropic/claude-3.5-sonnet"
-                />
-              </div>
-
-              {/* OpenRouter Status Message */}
-              {openrouterTestResult && (
-                <div
-                  className={`mb-4 p-3 text-xs border whitespace-pre-line ${
-                    openrouterTestResult.type === 'success'
-                      ? 'bg-white text-gray-900 border-gray-400'
-                      : 'bg-gray-100 text-gray-900 border-gray-400'
-                  }`}
-                >
-                  {openrouterTestResult.message}
-                </div>
-              )}
-
-              {/* OpenRouter Test Button */}
-              <div className="mb-2">
-                <button
-                  onClick={handleTestOpenRouter}
-                  disabled={testingOpenRouter}
-                  className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
-                >
-                  {testingOpenRouter ? 'Testing OpenRouter...' : 'Test OpenRouter API'}
-                </button>
-              </div>
-
-              {/* OpenRouter Help Text */}
-              <div className="text-xs text-gray-600 space-y-1">
-                <p>
-                  Get API key: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">OpenRouter Dashboard</a>
-                </p>
-              </div>
-            </>
+            <OpenRouterForm
+              config={config}
+              onChange={handleChange}
+              testing={testingOpenRouter}
+              testResult={openrouterTestResult}
+              onTest={handleTestOpenRouter}
+            />
           )}
         </div>
 
