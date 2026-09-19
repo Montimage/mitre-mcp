@@ -102,7 +102,7 @@ npm test
 | `MITRE_DEFAULT_PAGE_SIZE` | Default page size for tool results                                                                                                                   |
 | `MITRE_MAX_PAGE_SIZE`     | Maximum page size for tool results                                                                                                                   |
 | `MITRE_MAX_DESC_LENGTH`   | Maximum description length returned by tools                                                                                                         |
-| `MITRE_DATA_DIR`          | Data directory override (unset means auto-detect)                                                                                                    |
+| `MITRE_DATA_DIR`          | Data directory override (unset means the per-user default `$XDG_CACHE_HOME/mitre-mcp`, or `~/.cache/mitre-mcp`)                                        |
 | `MITRE_LOG_LEVEL`         | Logging level                                                                                                                                        |
 | `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode (defaults to localhost dev origins; add a hosted UI origin explicitly; credentials never allowed) |
 
