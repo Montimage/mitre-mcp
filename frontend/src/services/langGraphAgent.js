@@ -62,19 +62,37 @@ export default class LangGraphAgent {
     // Determine LLM provider
     this.llmProvider = config.llmProvider || LLM_PROVIDERS.OLLAMA;
 
+    // The provider init validates synchronously — a missing API key still
+    // throws out of the constructor — and returns a promise for the
+    // dynamically imported SDK model, so only the selected provider's chunk
+    // is ever fetched (F-PERF-007).
+    let llmInit;
     if (this.llmProvider === LLM_PROVIDERS.GEMINI) {
-      initGemini(this, config);
+      llmInit = initGemini(this, config);
     } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
-      initOpenRouter(this, config);
+      llmInit = initOpenRouter(this, config);
     } else {
-      initOllama(this, config);
+      llmInit = initOllama(this, config);
     }
+
+    this.llm = null;
+    this.llmWithTools = null;
+    this.llmReady = Promise.resolve(llmInit).then((llm) => {
+      this.llm = llm;
+      // ??= so a test that stubbed llmWithTools before the SDK resolved is
+      // not clobbered when the import lands.
+      this.llmWithTools ??= llm;
+      return llm;
+    });
+    // Swallow only the *unobserved* rejection — awaiters still see it via
+    // llmReady — so an agent that is constructed but never queried cannot
+    // raise an unhandled-rejection warning if the SDK fails to load.
+    this.llmReady.catch(() => {});
 
     // Tool surface is discovered from the server's tools/list at runtime —
     // starts empty and is populated lazily on first use (see ensureTools)
     this.tools = [];
     this.toolDefinitions = [];
-    this.llmWithTools = this.llm;
     this.toolsReady = null;
 
     this.conversationHistory = [];
@@ -92,6 +110,9 @@ export default class LangGraphAgent {
    * @returns {Promise<Array>} LangChain tools (possibly empty)
    */
   async ensureTools() {
+    // The provider SDK resolves asynchronously from the constructor — wait
+    // for it before anything touches this.llm (bindTools in createMCPTools).
+    await this.llmReady;
     if (!this.toolsReady) {
       // createMCPTools never rejects — it resolves true/false
       this.toolsReady = this.createMCPTools();

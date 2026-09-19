@@ -76,6 +76,9 @@ describe('LangGraphAgent', () => {
         tools: [{ name: 'get_tactics', description: 'List tactics', inputSchema: { type: 'object', properties: {} } }],
       });
       const agent = makeAgent();
+      // The provider SDK resolves asynchronously — llm is null until
+      // llmReady settles, so wait before stubbing bindTools on it.
+      await agent.llmReady;
       agent.llm.bindTools = vi.fn().mockReturnValue('bound-llm');
 
       await agent.ensureTools();
@@ -90,6 +93,7 @@ describe('LangGraphAgent', () => {
     it('keeps the bare LLM when discovery finds no tools', async () => {
       mcp.listTools.mockResolvedValue({ tools: [] });
       const agent = makeAgent();
+      await agent.llmReady;
       agent.llm.bindTools = vi.fn();
 
       await agent.ensureTools();
