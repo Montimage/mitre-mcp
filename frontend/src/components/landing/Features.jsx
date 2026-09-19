@@ -2,6 +2,11 @@
  * Features Section Component
  *
  * Showcases key features of the MITRE ATT&CK Intelligence Assistant
+ *
+ * Design: an index of numbered entries rather than a card grid. Each entry
+ * is separated by hairlines only — the brass index number and a serif title
+ * carry the hierarchy, so six items read as one ruled page instead of six
+ * floating boxes.
  */
 export default function Features() {
   const features = [
@@ -38,58 +43,64 @@ export default function Features() {
   ];
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-gray-200">
+    <section className="border-b border-rule bg-paper px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
       <div className="max-w-7xl mx-auto">
-        {/* Section Header */}
-        <div className="mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
+        {/* Section Header — filed number, serif heading, ruled underline:
+            the same three-part masthead every section repeats. */}
+        <div className="max-w-2xl">
+          <p className="dossier-eyebrow mb-5">02 — Capabilities</p>
+          <h2 className="font-display text-4xl sm:text-5xl font-semibold text-ink">
             Powerful Features
           </h2>
-          <div className="h-1 w-20 bg-black mb-6"></div>
-          <p className="text-lg text-gray-700 max-w-2xl">
+          <div className="dossier-rule mt-6 mb-6" />
+          <p className="text-lg leading-relaxed text-gray-600">
             Everything you need to interact with MITRE ATT&CK framework through natural language
           </p>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Features Index — a ruled grid: hairlines between entries, no
+            card borders or shadows. The hover state lifts the paper a shade
+            and slides the index number, so the whole row reads as one
+            target without pretending to be clickable. */}
+        <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-rule">
           {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-white border-2 border-gray-300 p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
+            <article
+              key={feature.title}
+              className="group border-b border-r border-rule p-7 lg:p-8 transition-colors duration-300 hover:bg-paper-sunk/60"
             >
-              {/* Title */}
-              <h3 className="text-lg font-bold text-black mb-3">
+              <span className="block font-mono text-[11px] tracking-[0.18em] text-brass-700 transition-transform duration-300 group-hover:translate-x-1">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+
+              <h3 className="mt-4 font-display text-2xl font-semibold leading-snug text-ink">
                 {feature.title}
               </h3>
 
-              {/* Description */}
-              <p className="text-sm text-gray-700 mb-4 leading-relaxed">
+              <p className="mt-3 text-sm leading-relaxed text-gray-600">
                 {feature.description}
               </p>
 
-              {/* Highlights */}
-              <ul className="space-y-2">
-                {feature.highlights.map((highlight, idx) => (
-                  <li key={idx} className="flex items-start text-xs text-gray-600">
-                    <span className="text-black mr-2 font-bold">—</span>
+              <ul className="mt-5 space-y-1.5 border-t border-rule pt-4">
+                {feature.highlights.map((highlight) => (
+                  <li key={highlight} className="flex items-start gap-2.5 text-xs text-gray-500">
+                    <span aria-hidden="true" className="mt-1.5 h-1 w-1 shrink-0 rotate-45 bg-brass" />
                     <span>{highlight}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </article>
           ))}
         </div>
 
-        {/* Additional Info */}
-        <div className="mt-16">
-          <div className="border-2 border-gray-300 p-8 max-w-3xl mx-auto shadow-md bg-gray-50">
-            <p className="text-sm text-gray-700 leading-relaxed">
-              <span className="font-bold text-black">Built with modern technologies:</span>
-              {" "}React.js, Vite, Tailwind CSS, LangGraphJS, and the Model Context Protocol (MCP) for
-              seamless integration with MITRE ATT&CK data.
-            </p>
-          </div>
+        {/* Colophon — the stack, set as a footnote rather than a callout
+            box: small caps label, serif sentence, hairline above. */}
+        <div className="mt-16 border-t border-rule pt-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-gray-500">Built with</p>
+          <p className="mt-3 max-w-3xl font-display text-xl leading-relaxed text-gray-600">
+            React.js, Vite, Tailwind CSS, LangGraphJS, and the{' '}
+            <span className="text-ink">Model Context Protocol</span> — for seamless integration with
+            MITRE ATT&CK data.
+          </p>
         </div>
       </div>
     </section>

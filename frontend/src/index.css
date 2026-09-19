@@ -1,5 +1,154 @@
 @import "tailwindcss";
 
+/**
+ * "Ivory Dossier" design system.
+ *
+ * Editorial/print vocabulary: warm paper canvas, ink text, hairline rules,
+ * and the Montimage brass (#E9AB34, lifted from the logo) as the single
+ * accent. Brass is never a fill behind text — it carries rules, dots, and
+ * micro-labels only; `--color-brass-700` is the darkened tint used whenever
+ * the accent has to be legible at body size (5.4:1 on paper).
+ *
+ * Two Tailwind defaults are deliberately re-pointed rather than avoided:
+ *   - `--color-black` becomes warm ink, so the `bg-black` CTAs the landing
+ *     tests pin (Navbar F-UX-012) render as ink instead of pure #000.
+ *   - the `gray` ramp becomes a warm neutral ramp, so every `text-gray-*`
+ *     still in the tree reads as part of the paper palette.
+ */
+@theme {
+  /* Typefaces — self-hosted through @fontsource-variable (see main.jsx). */
+  --font-sans: "Libre Franklin Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Newsreader Variable", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  /* Paper — the canvas, the recessed band, and the raised card. */
+  --color-paper: #faf8f4;
+  --color-paper-sunk: #f2eee5;
+  --color-paper-card: #ffffff;
+
+  /* Ink — warm near-black, re-pointing Tailwind's `black`. */
+  --color-black: #14120e;
+  --color-ink: #14120e;
+  --color-ink-soft: #423c33;
+
+  /* Rules — hairlines do the work that 2px borders used to. */
+  --color-rule: #e3ddd1;
+  --color-rule-strong: #cdc5b4;
+
+  /* Brass — the Montimage accent. */
+  --color-brass-100: #f7edd6;
+  --color-brass-300: #f0cd82;
+  --color-brass: #e9ab34;
+  --color-brass-700: #8a5e12;
+
+  /* Warm neutral ramp replacing Tailwind's cool grays. On paper, gray-500
+     is the lightest tint that still clears WCAG AA for small text (4.7:1);
+     gray-400 (2.6:1) is for non-text use — borders, dots, disabled fills —
+     and for light-on-ink text, where it measures 6.8:1. */
+  --color-gray-50: #faf8f4;
+  --color-gray-100: #f2eee5;
+  --color-gray-200: #e3ddd1;
+  --color-gray-300: #cdc5b4;
+  --color-gray-400: #a49b89;
+  --color-gray-500: #786f60;
+  --color-gray-600: #5e574b;
+  --color-gray-700: #423c33;
+  --color-gray-800: #2b261f;
+  --color-gray-900: #1b1813;
+
+  /* Print-like elevation: shadows are wide and faint, never a drop halo. */
+  --shadow-sheet: 0 1px 2px rgb(20 18 14 / 0.04), 0 8px 24px -12px rgb(20 18 14 / 0.12);
+  --shadow-sheet-lifted: 0 1px 2px rgb(20 18 14 / 0.05), 0 18px 44px -20px rgb(20 18 14 / 0.22);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  /* Newsreader reads better slightly tighter than its default tracking at
+     display sizes; the optical-size axis is left to the font. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+
+  /* One visible focus treatment for the whole app — a brass ring. Scoped
+     to elements a user actually tabs to: containers focused in script
+     (the settings dialog carries tabindex="-1") must not sprout a ring. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--color-brass-700);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* The mono micro-label that files each section: "01 — PLAYBOOKS". */
+  .dossier-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-brass-700);
+  }
+
+  /* Group heading for long forms and cards — the eyebrow's mono voice at a
+     size that still outranks the field values beneath it. The 11px eyebrow
+     is for section numbers and category captions only. */
+  .dossier-section {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+
+  /* Hairline under a section heading: a short brass segment running into a
+     long neutral rule — the page's recurring "ruled paper" motif. */
+  .dossier-rule {
+    display: flex;
+    align-items: center;
+    height: 1px;
+  }
+
+  .dossier-rule::before {
+    content: "";
+    width: 2.5rem;
+    height: 1px;
+    background-color: var(--color-brass);
+  }
+
+  .dossier-rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--color-rule);
+  }
+}
+
 @layer utilities {
   .animate-fadeIn {
     animation: fadeIn 0.3s ease-in;
@@ -13,6 +162,68 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* Page-load reveal: opacity + a short rise, staggered by inline
+     animation-delay at the call site. Starts hidden, so any element using
+     it must be above the fold or it will pop in on scroll-free pages.
+     The fill mode is `backwards`, never `both`: `both` leaves the final
+     `transform: translateY(0)` applied, and any non-`none` transform makes
+     the element a containing block for `position: fixed` descendants —
+     which would trap the chat's settings dialog inside the chat column. */
+  .reveal {
+    animation: reveal 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  }
+
+  /* Opacity-only variant for any element that hosts a fixed-position
+     descendant, so no transform is applied even mid-animation. */
+  .reveal-fade {
+    animation: revealFade 0.7s ease-out backwards;
+  }
+
+  @keyframes revealFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Paper grain: a faint dot lattice that keeps large ivory fields from
+     reading as flat #FFF. Cheap enough to sit on a full-page background. */
+  .bg-grain {
+    background-image: radial-gradient(rgb(20 18 14 / 0.045) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* Ruled-paper backdrop for the hero: horizontal hairlines at the body
+     leading, fading out before they reach the fold. */
+  .bg-ledger {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--color-rule) 0 1px,
+      transparent 1px 28px
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .reveal-fade,
+    .animate-fadeIn {
+      animation: none;
     }
   }
 }

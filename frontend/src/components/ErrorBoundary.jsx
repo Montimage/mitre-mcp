@@ -27,22 +27,23 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-4">
-          <div className="border-2 border-gray-300 bg-white p-6 max-w-md w-full">
-            <h1 className="text-lg font-bold text-black mb-2 uppercase tracking-wide">
+        <div className="flex min-h-screen items-center justify-center bg-paper bg-grain p-4">
+          <div className="w-full max-w-md border border-rule bg-paper-card p-8 shadow-sheet">
+            <h1 className="font-display text-2xl font-semibold text-ink">
               Something went wrong
             </h1>
-            <p className="text-sm text-gray-700 mb-4">
+            <div className="dossier-rule my-5" />
+            <p className="mb-4 text-sm leading-relaxed text-gray-600">
               The application hit an unexpected error. Reload to try again.
             </p>
             {this.state.error?.message && (
-              <p className="text-xs text-gray-500 font-mono mb-4 break-words">
+              <p className="mb-5 break-words border border-rule bg-paper p-3 font-mono text-xs text-gray-500">
                 {this.state.error.message}
               </p>
             )}
             <button
               onClick={this.handleReload}
-              className="px-4 py-2 bg-black text-white text-sm hover:bg-gray-800"
+              className="bg-black px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800"
             >
               Reload
             </button>
