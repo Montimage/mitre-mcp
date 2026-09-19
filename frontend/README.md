@@ -22,12 +22,8 @@ A modern React.js landing page with integrated AI-powered chatbox for interactin
 
 ## Prerequisites
 
-1. **Node.js**: Version 16 or higher
-2. **mitre-mcp Server**: Running on your machine
-   ```bash
-   pip install mitre-mcp
-   mitre-mcp --http --port 8000
-   ```
+1. **Node.js**: Version 24 or higher
+2. **mitre-mcp server** running on this machine (see [Local setup](#local-setup))
 
 ## Installation
 
@@ -41,7 +37,7 @@ A modern React.js landing page with integrated AI-powered chatbox for interactin
 2. **Install dependencies**:
 
    ```bash
-   npm install
+   npm ci
    ```
 
 3. **Configure environment** (optional):
@@ -49,6 +45,60 @@ A modern React.js landing page with integrated AI-powered chatbox for interactin
    cp .env.example .env
    # Edit .env if you need custom server configuration
    ```
+
+## Local setup
+
+The hosted UI at <https://montimage.github.io/mitre-mcp/> cannot reach a
+server or LLM on your machine. The browser treats GitHub Pages as a public
+origin and blocks loopback (`localhost` / `127.0.0.1`): MCP calls become
+`https://localhost:8000/mcp` (`net::ERR_SSL_PROTOCOL_ERROR`, because
+`mitre-mcp --http` has no TLS), and LLM probes fail with CORS / “Permission
+was denied for this request to access the `loopback` address space.”
+
+Run **both** processes locally and open **http://localhost:5173/**.
+
+**Terminal 1 — MCP server** (from the repository root):
+
+```bash
+uv sync --locked --extra dev
+source .venv/bin/activate
+mitre-mcp --http
+```
+
+Wait for `MCP Endpoint: http://localhost:8000/mcp`. The first start
+downloads ATT&CK data into `~/.cache/mitre-mcp`.
+
+**Terminal 2 — this UI:**
+
+```bash
+npm ci
+npm run dev
+```
+
+Then open http://localhost:5173/ (Vite proxies `/mcp` to
+`http://localhost:8000` in development).
+
+### Settings
+
+Click **Configure** in the chat header:
+
+| Setting | Local value |
+| ------- | ----------- |
+| MCP host / port | `localhost` / `8000` |
+| LLM provider | Ollama, Gemini, OpenRouter, or **OpenAI-compatible** |
+
+**OpenAI-compatible** (LM Studio, llama.cpp, vLLM, or any chat-completions
+API):
+
+- Endpoint URL: `http://localhost:<port>/v1` (example: `http://localhost:20128/v1`)
+- Model: an id listed by `GET /v1/models`
+- API key: optional — leave empty for keyless local servers
+
+The endpoint must send CORS headers that allow `http://localhost:5173`.
+
+If Ollama is not running, do not leave the Ollama provider selected. The
+default probe goes to `localhost:11434`; Vite then logs
+`http proxy error: /api/tags` (`ECONNREFUSED`).
 
 ## Development
 
@@ -86,28 +136,7 @@ npm run preview
 
 ## Usage
 
-### 1. Start mitre-mcp Server
-
-Before using the application, start the mitre-mcp server:
-
-```bash
-mitre-mcp --http --port 8000
-```
-
-### 2. Open the Application
-
-Navigate to `http://localhost:5173` in your browser.
-
-### 3. Configure Server Connection
-
-Click the "⚙️ Configure" button in the chatbox header to:
-
-- Set the server host (default: localhost)
-- Set the server port (default: 8000)
-- Test the connection
-- Save your configuration
-
-### 4. Start Chatting
+### Start chatting
 
 Ask questions in natural language:
 
@@ -220,6 +249,22 @@ Users can configure the server at runtime using the UI:
 2. Check server address in configuration
 3. Ensure no firewall blocking localhost:8000
 4. Check browser console for detailed errors
+
+**Problem**: `POST https://localhost:8000/mcp net::ERR_SSL_PROTOCOL_ERROR`
+
+You opened the GitHub Pages UI. It inherits the page scheme (HTTPS) and
+talks to `https://localhost:8000`, but the server is plain HTTP. Use
+http://localhost:5173 instead.
+
+**Problem**: CORS / “loopback address space” on `http://localhost:<port>/v1/models`
+
+Same cause: a public origin cannot fetch localhost. Use the local UI and
+an OpenAI-compatible endpoint on `http://localhost:<port>/v1`.
+
+**Problem**: Vite logs `http proxy error: /api/tags` (`ECONNREFUSED`)
+
+Ollama is selected but nothing is listening on port 11434. Switch the
+provider in Settings, or start Ollama.
 
 ### Build Errors
 
