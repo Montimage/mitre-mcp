@@ -9,6 +9,7 @@ import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
 import { getApiKey } from '../../services/storage';
+import { probeLlmProvider } from '../../services/llmProbes';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig';
 
 // Helper to get display name for LLM provider and model
@@ -49,6 +50,9 @@ export default function ChatBox() {
   const [toolApprovalResolver, setToolApprovalResolver] = useState(null);
   const [mcpServerStatus, setMcpServerStatus] = useState('unknown'); // 'connected', 'disconnected', 'unknown'
   const [llmStatus, setLlmStatus] = useState('unknown'); // 'ready', 'not-configured', 'unknown'
+  // Why the LLM is not ready (probe or construction message) — surfaced in the
+  // "not set up yet" banner and the send-path error (F-UX-002, F-UX-004).
+  const [llmSetupError, setLlmSetupError] = useState(null);
 
   const settingsButtonRef = useRef(null);
   const settingsDialogRef = useRef(null);
@@ -146,10 +150,32 @@ export default function ChatBox() {
       setServerConfig(config);
 
       // Create agent instance with full config
+      let llmReady = false;
       try {
         const newAgent = new LangGraphAgent(config.host, config.port, config);
         setAgent(newAgent);
-        setLlmStatus('ready');
+
+        // Probe the configured provider before claiming the LLM is ready —
+        // the constructor only proves the config validates; it says nothing
+        // about reachability or the model being installed (F-UX-002).
+        try {
+          const llmProbe = await probeLlmProvider(config);
+          if (cancelled) return;
+          if (llmProbe.type === 'success') {
+            llmReady = true;
+            setLlmStatus('ready');
+            setLlmSetupError(null);
+          } else {
+            setLlmStatus('not-configured');
+            setLlmSetupError(llmProbe.message);
+          }
+        } catch (probeError) {
+          // Probes resolve result objects and never throw — a rejection here
+          // is a bug, but still means "not ready", not a crashed init.
+          if (cancelled) return;
+          setLlmStatus('not-configured');
+          setLlmSetupError(probeError.message);
+        }
 
         // Test MCP server connection
         try {
@@ -170,12 +196,13 @@ export default function ChatBox() {
         if (cancelled) return;
         console.error('Failed to initialize agent:', error);
         setLlmStatus('not-configured');
+        setLlmSetupError(error.message);
         setMcpServerStatus('unknown');
       }
 
-      if (cancelled) return;
+      if (cancelled || !llmReady) return;
 
-      // Add welcome message
+      // Add welcome message — only once the provider actually answered.
       setMessages([{
         type: 'system',
         message: 'Welcome to the MITRE ATT&CK Intelligence Assistant! Ask me anything about tactics, techniques, groups, or mitigations.',
@@ -197,49 +224,67 @@ export default function ChatBox() {
     }
   }, [messages]);
 
-  // Handle config change
+  // Handle config change.
+  //
+  // The agent is rebuilt BEFORE the live config is swapped: when the build
+  // fails, `serverConfig` (and the provider badge it drives) keeps describing
+  // the still-working agent, and the caller keeps the settings dialog open
+  // with the error shown inside it (F-UX-005). Returns `{ ok, error? }` so
+  // the dialog can make that stay-open/show-error decision.
   const handleConfigChange = async (newConfig) => {
-    setServerConfig(newConfig);
-
-    // Recreate agent with new config including all LLM settings
+    let newAgent;
     try {
-      const newAgent = new LangGraphAgent(newConfig.host, newConfig.port, newConfig);
-      setAgent(newAgent);
-      setLlmStatus('ready');
-
-      // Test MCP server connection
-      try {
-        const connected = await newAgent.testConnection();
-        if (connected) {
-          setMcpServerStatus('connected');
-        } else {
-          console.warn('MCP server not reachable');
-          setMcpServerStatus('disconnected');
-        }
-      } catch (error) {
-        console.warn('MCP server not reachable:', error);
-        setMcpServerStatus('disconnected');
-      }
-
-      // Get model display info
-      const modelInfo = getModelDisplayInfo(newConfig);
-
-      // Add system message
-      setMessages(prev => [...prev, {
-        type: 'system',
-        message: `Configuration updated:\n- MCP Server: ${newConfig.host}:${newConfig.port}\n- LLM Provider: ${modelInfo.provider}\n- Model: ${modelInfo.model}`,
-        timestamp: new Date().toISOString()
-      }]);
+      newAgent = new LangGraphAgent(newConfig.host, newConfig.port, newConfig);
     } catch (error) {
       console.error('Failed to create agent:', error);
-      setLlmStatus('not-configured');
-      setMcpServerStatus('unknown');
-      setMessages(prev => [...prev, {
-        type: 'error',
-        message: `Failed to initialize LLM: ${error.message}`,
-        timestamp: new Date().toISOString()
-      }]);
+      return { ok: false, error: error.message };
     }
+
+    // Build succeeded — now it is safe to swap the live config and agent.
+    setAgent(newAgent);
+    setServerConfig(newConfig);
+
+    // Probe the new provider so the LLM dot tells the truth here too
+    // (F-UX-002). A failed probe marks the dot but does not fail the save.
+    try {
+      const llmProbe = await probeLlmProvider(newConfig);
+      if (llmProbe.type === 'success') {
+        setLlmStatus('ready');
+        setLlmSetupError(null);
+      } else {
+        setLlmStatus('not-configured');
+        setLlmSetupError(llmProbe.message);
+      }
+    } catch (probeError) {
+      setLlmStatus('not-configured');
+      setLlmSetupError(probeError.message);
+    }
+
+    // Test MCP server connection
+    try {
+      const connected = await newAgent.testConnection();
+      if (connected) {
+        setMcpServerStatus('connected');
+      } else {
+        console.warn('MCP server not reachable');
+        setMcpServerStatus('disconnected');
+      }
+    } catch (error) {
+      console.warn('MCP server not reachable:', error);
+      setMcpServerStatus('disconnected');
+    }
+
+    // Get model display info
+    const modelInfo = getModelDisplayInfo(newConfig);
+
+    // Add system message
+    setMessages(prev => [...prev, {
+      type: 'system',
+      message: `Configuration updated:\n- MCP Server: ${newConfig.host}:${newConfig.port}\n- LLM Provider: ${modelInfo.provider}\n- Model: ${modelInfo.model}`,
+      timestamp: new Date().toISOString()
+    }]);
+
+    return { ok: true };
   };
 
   // Handle tool approval
@@ -262,9 +307,13 @@ export default function ChatBox() {
   // Handle sending message
   const handleSendMessage = async (text) => {
     if (!agent) {
+      // Name the real cause (missing key, unreachable provider) instead of
+      // telling the user to refresh — a refresh fails the same way, so the
+      // actionable path is opening Settings (F-UX-004).
       setMessages(prev => [...prev, {
         type: 'error',
-        message: 'Agent not initialized. Please refresh the page.',
+        message: `The agent is not set up${llmSetupError ? `: ${llmSetupError}` : '.'} Open Settings to configure the LLM provider.`,
+        action: 'open-settings',
         timestamp: new Date().toISOString()
       }]);
       return;
@@ -398,6 +447,23 @@ export default function ChatBox() {
         </div>
       </div>
 
+      {/* Not-set-up banner — the provider probe failed at init/rebuild, so the
+          chat is usable but the LLM will not answer until configured
+          (F-UX-002). The settings action is the fix path. */}
+      {llmStatus === 'not-configured' && (
+        <div role="status" className="bg-yellow-50 border-b-2 border-yellow-400 px-4 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs text-yellow-900">
+            The LLM provider is not set up yet{llmSetupError ? ` — ${llmSetupError.split('\n')[0]}` : '.'}
+          </p>
+          <button
+            onClick={() => setShowConfig(true)}
+            className="shrink-0 px-3 py-1 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+          >
+            Open Settings
+          </button>
+        </div>
+      )}
+
       {/* Settings Modal */}
       {showConfig && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -431,11 +497,16 @@ export default function ChatBox() {
                 </button>
               </div>
 
-              {/* Modal Content */}
+              {/* Modal Content — the dialog only closes when the agent rebuild
+                  succeeded; on failure ServerConfig shows the error inside the
+                  dialog and the live config/badge stay untouched (F-UX-005). */}
               <ServerConfig
-                onConfigChange={(config) => {
-                  handleConfigChange(config);
-                  closeSettings();
+                onConfigChange={async (config) => {
+                  const result = await handleConfigChange(config);
+                  if (result.ok) {
+                    closeSettings();
+                  }
+                  return result;
                 }}
                 onDirtyChange={setSettingsDirty}
                 initialConfig={serverConfig}
@@ -458,16 +529,29 @@ export default function ChatBox() {
         ) : (
           <>
             {messages.map((msg, index) => (
-              <ChatMessage
-                key={index}
-                message={msg.message}
-                type={msg.type}
-                timestamp={msg.timestamp}
-                toolCalls={msg.toolCalls}
-                decision={msg.decision}
-                onApprove={() => handleToolApproval(true)}
-                onDeny={() => handleToolApproval(false)}
-              />
+              <div key={index}>
+                <ChatMessage
+                  message={msg.message}
+                  type={msg.type}
+                  timestamp={msg.timestamp}
+                  toolCalls={msg.toolCalls}
+                  decision={msg.decision}
+                  onApprove={() => handleToolApproval(true)}
+                  onDeny={() => handleToolApproval(false)}
+                />
+                {/* Error messages can carry a fix action — "Open Settings"
+                    points at the real remedy (F-UX-004). */}
+                {msg.action === 'open-settings' && (
+                  <div className="mr-auto mb-3 -mt-1 max-w-[85%]">
+                    <button
+                      onClick={() => setShowConfig(true)}
+                      className="px-3 py-1.5 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+                    >
+                      Open Settings
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
             {isLoading && (
               <div className="flex items-center space-x-2 text-gray-600 p-4 text-sm">
