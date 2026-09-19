@@ -19,8 +19,7 @@ def sample_technique() -> dict[str, Any]:
         "type": "attack-pattern",
         "name": "Process Injection",
         "description": (
-            "Adversaries may inject code into processes in order to "
-            "evade process-based defenses."
+            "Adversaries may inject code into processes in order to evade process-based defenses."
         ),
         "external_references": [
             {

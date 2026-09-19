@@ -47,7 +47,31 @@ export const contentText = (content) => {
 };
 
 /**
+ * Maximum characters of a tool result sent to the model (~16 KB).
+ *
+ * Results are re-sent to the LLM on every agent-loop iteration, so a large
+ * payload (e.g. a full `get_software` listing) would flood the prompt each
+ * round — oversized results are truncated at this fixed cap (F-PERF-008).
+ */
+export const MAX_TOOL_RESULT_CHARS = 16000;
+
+/**
+ * Truncate a tool-result string to MAX_TOOL_RESULT_CHARS, appending a marker
+ * so the model knows the payload was cut.
+ *
+ * @param {*} text - Serialised tool result
+ * @returns {string} Original string, or a truncated copy with a marker
+ */
+const capToolResult = (text) => {
+  if (typeof text !== 'string' || text.length <= MAX_TOOL_RESULT_CHARS) return text;
+  return `${text.slice(0, MAX_TOOL_RESULT_CHARS)}\n…[truncated — ${text.length} chars exceeds the ${MAX_TOOL_RESULT_CHARS}-char cap]`;
+};
+
+/**
  * Format an MCP tool result for LLM consumption
+ *
+ * JSON payloads are serialised compactly (no indentation) and every return
+ * path is capped at MAX_TOOL_RESULT_CHARS (F-PERF-008).
  *
  * @param {Object} result - Raw MCP result envelope
  * @returns {string} Formatted string result
@@ -61,14 +85,15 @@ export const formatToolResult = (result) => {
       try {
         parsedData = JSON.parse(data);
       } catch {
-        return data;
+        return capToolResult(data);
       }
     } else {
       parsedData = data;
     }
 
-    // Return JSON string for LLM to process
-    return JSON.stringify(parsedData, null, 2);
+    // Compact JSON string for LLM to process — pretty-printing used to add
+    // ~17 KB of indentation on large results
+    return capToolResult(JSON.stringify(parsedData));
   } catch (error) {
     console.error('Error formatting tool result:', error);
     return JSON.stringify({ error: error.message });

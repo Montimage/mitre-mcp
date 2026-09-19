@@ -9,11 +9,13 @@ A simple, standalone Python client demonstrating how to integrate with the mitre
 ```python
 from mcp import Client
 
+
 async def call_mcp_tool(tool_name: str, arguments: dict):
     """Call an MCP tool via the SDK's streamable-HTTP transport."""
     async with Client("http://localhost:8000/mcp") as client:
         result = await client.call_tool(tool_name, arguments)
         return result.model_dump(mode="json", by_alias=True, exclude_none=True)
+
 
 # Example usage
 result = await call_mcp_tool("get_tactics", {"domain": "enterprise-attack"})
@@ -223,22 +225,22 @@ You can import and use the `MitreMCPClient` class in your own scripts:
 import asyncio
 from mini_mcp_client import MitreMCPClient
 
+
 async def my_analysis():
     client = MitreMCPClient(host="localhost", port=8000)
 
     # Get tactics
-    tactics = await client.call_tool("get_tactics", {
-        "domain": "enterprise-attack"
-    })
+    tactics = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})
 
     # Get techniques for a tactic
-    techniques = await client.call_tool("get_techniques_by_tactic", {
-        "tactic_shortname": "initial-access",
-        "domain": "enterprise-attack"
-    })
+    techniques = await client.call_tool(
+        "get_techniques_by_tactic",
+        {"tactic_shortname": "initial-access", "domain": "enterprise-attack"},
+    )
 
     print(client.format_output(tactics))
     print(client.format_output(techniques))
+
 
 asyncio.run(my_analysis())
 ```
@@ -249,15 +251,15 @@ asyncio.run(my_analysis())
 import asyncio
 from mini_mcp_client import MitreMCPClient
 
+
 async def analyze_apt_group(group_name: str):
     """Analyze techniques used by an APT group."""
     client = MitreMCPClient()
 
     # Get group's techniques
-    result = await client.call_tool("get_techniques_used_by_group", {
-        "group_name": group_name,
-        "domain": "enterprise-attack"
-    })
+    result = await client.call_tool(
+        "get_techniques_used_by_group", {"group_name": group_name, "domain": "enterprise-attack"}
+    )
 
     # Process results
     if "result" in result:
@@ -266,6 +268,7 @@ async def analyze_apt_group(group_name: str):
         print(techniques)
 
     return result
+
 
 # Run analysis
 asyncio.run(analyze_apt_group("APT29"))
@@ -366,17 +369,10 @@ mini-mcp-client.py
 ### Adding a New Command
 
 ```python
-async def cmd_my_command(
-    client: MitreMCPClient, args: argparse.Namespace
-) -> Dict[str, Any]:
+async def cmd_my_command(client: MitreMCPClient, args: argparse.Namespace) -> Dict[str, Any]:
     """Your custom command."""
-    return await client.call_tool(
-        "your_tool_name",
-        {
-            "param1": args.param1,
-            "param2": args.param2
-        }
-    )
+    return await client.call_tool("your_tool_name", {"param1": args.param1, "param2": args.param2})
+
 
 # Add to argparse subparsers in main()
 my_parser = subparsers.add_parser("mycommand", help="My custom command")

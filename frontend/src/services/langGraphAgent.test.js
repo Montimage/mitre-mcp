@@ -6,7 +6,7 @@
  * approval callback, and content normalisation (F-BUG-007 regression).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import LangGraphAgent, { LLM_PROVIDERS } from './langGraphAgent.js';
+import LangGraphAgent, { LLM_PROVIDERS, MAX_HISTORY_MESSAGES } from './langGraphAgent.js';
 
 // Hoisted fakes shared with the mocked MitreMCPClient below.
 const mcp = vi.hoisted(() => ({
@@ -259,6 +259,46 @@ describe('LangGraphAgent', () => {
       expect(response).toMatch(/I encountered an error/);
       expect(response).toMatch(/Ollama is running locally/);
       expect(agent.getHistory().at(-1).role).toBe('error');
+    });
+
+    it('F-BUG-021: error-role history entries are not replayed to the model', async () => {
+      const agent = makeAgent();
+      const invoke = vi.fn().mockResolvedValue({ content: 'ok' });
+      stubReadyAgent(agent, { invoke });
+      agent.conversationHistory.push({
+        role: 'error',
+        content: 'previous provider failure',
+        timestamp: new Date()
+      });
+
+      await agent.processQuery('next question');
+
+      const sentMessages = invoke.mock.calls[0][0];
+      expect(sentMessages.every(m => m.role !== 'error')).toBe(true);
+      expect(sentMessages.some(m => m.content === 'previous provider failure')).toBe(false);
+      // Sanity: the new user turn is still there
+      expect(sentMessages.at(-1)).toMatchObject({ role: 'user', content: 'next question' });
+    });
+
+    it('F-PERF-008: history sent to the model is bounded to the most recent entries', async () => {
+      const agent = makeAgent();
+      const invoke = vi.fn().mockResolvedValue({ content: 'ok' });
+      stubReadyAgent(agent, { invoke });
+      for (let i = 0; i < MAX_HISTORY_MESSAGES + 30; i++) {
+        agent.conversationHistory.push({
+          role: i % 2 ? 'assistant' : 'user',
+          content: `turn ${i}`,
+          timestamp: new Date()
+        });
+      }
+
+      await agent.processQuery('latest');
+
+      const sentMessages = invoke.mock.calls[0][0];
+      const nonSystem = sentMessages.filter(m => m.role !== 'system');
+      expect(nonSystem.length).toBeLessThanOrEqual(MAX_HISTORY_MESSAGES);
+      expect(nonSystem.at(-1).content).toBe('latest');
+      expect(nonSystem.some(m => m.content === 'turn 0')).toBe(false);
     });
   });
 

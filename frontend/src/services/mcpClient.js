@@ -42,7 +42,10 @@ export default class MitreMCPClient {
     this.sessionId = null;
     this.sessionInitialized = false;
     this.requestId = 0;
-    this.debug = true; // Enable debug by default in dev mode
+    // Debug logging defaults on in dev builds only — in production it stays
+    // off so tool-result payloads are never written to the console
+    // (F-PERF-013). setDebug() can still toggle it at runtime.
+    this.debug = import.meta.env.DEV;
   }
 
   /**

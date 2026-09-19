@@ -522,10 +522,8 @@ Always use type hints:
 ```python
 from typing import Dict, List, Optional, Any
 
-def process_data(
-    data: Dict[str, Any],
-    limit: Optional[int] = None
-) -> List[str]:
+
+def process_data(data: Dict[str, Any], limit: Optional[int] = None) -> List[str]:
     """Process data with type hints."""
     pass
 ```

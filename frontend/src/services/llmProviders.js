@@ -39,7 +39,7 @@ export const initOllama = (agent, config) => {
   agent.ollamaConfig = {
     model: config.ollamaModel || 'llama3.1:8b',
     baseUrl: finalOllamaUrl,
-    temperature: config.temperature || 0.7
+    temperature: config.temperature ?? 0.7
   };
 
   console.log('[LangGraphAgent] Ollama config:', {
@@ -68,7 +68,7 @@ export const initGemini = (agent, config) => {
   agent.geminiConfig = {
     model: config.geminiModel || 'gemini-2.5-flash',
     apiKey: apiKey,
-    temperature: config.temperature || 0.7
+    temperature: config.temperature ?? 0.7
   };
 
   console.log('[LangGraphAgent] Gemini config:', {
@@ -96,7 +96,7 @@ export const initOpenRouter = (agent, config) => {
 
   agent.openrouterConfig = {
     model: config.openrouterModel || 'anthropic/claude-3.5-sonnet',
-    temperature: config.temperature || 0.7
+    temperature: config.temperature ?? 0.7
   };
 
   console.log('[LangGraphAgent] OpenRouter config:', {
