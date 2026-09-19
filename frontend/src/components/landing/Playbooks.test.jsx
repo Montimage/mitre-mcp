@@ -22,6 +22,7 @@ import { MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 const mocks = vi.hoisted(() => ({
   testConnection: vi.fn(),
   processQuery: vi.fn(),
+  probeLlmProvider: vi.fn(),
 }));
 
 vi.mock('../../services/langGraphAgent.js', () => ({
@@ -32,6 +33,10 @@ vi.mock('../../services/langGraphAgent.js', () => ({
     clearHistory() {}
   },
   LLM_PROVIDERS: { OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' },
+}));
+
+vi.mock('../../services/llmProbes.js', () => ({
+  probeLlmProvider: (...args) => mocks.probeLlmProvider(...args),
 }));
 
 const WELCOME = /Welcome to the MITRE ATT&CK Intelligence Assistant/;
@@ -45,6 +50,7 @@ describe('Playbooks', () => {
     vi.clearAllMocks();
     mocks.testConnection.mockResolvedValue(true);
     mocks.processQuery.mockResolvedValue('agent answer');
+    mocks.probeLlmProvider.mockResolvedValue({ type: 'success', message: 'Ollama is running!' });
     localStorage.clear();
     // jsdom does not implement scrollIntoView.
     window.HTMLElement.prototype.scrollIntoView = vi.fn();

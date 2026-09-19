@@ -122,6 +122,29 @@ export const probeGemini = async ({ geminiApiKey, geminiModel }) => {
 };
 
 /**
+ * Probe whichever LLM provider the config selects.
+ *
+ * Used by ChatBox on agent init/rebuild so the LLM status dot only goes green
+ * when the provider actually answers — a constructor that merely validates
+ * the config says nothing about reachability or the model being installed.
+ * Missing-key configs resolve an error result here too, so the caller can
+ * surface the cause instead of discovering it on first send.
+ *
+ * @param {Object} config - Full settings object (reads llmProvider + provider fields)
+ * @returns {Promise<{type: string, message: string}>}
+ */
+export const probeLlmProvider = (config) => {
+  const provider = config?.llmProvider || 'ollama';
+  if (provider === 'gemini') {
+    return probeGemini(config);
+  }
+  if (provider === 'openrouter') {
+    return probeOpenRouter(config);
+  }
+  return probeOllama(config);
+};
+
+/**
  * Probe the OpenRouter API by listing models and checking the configured model.
  *
  * @param {{openrouterApiKey: string, openrouterModel: string}} config

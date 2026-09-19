@@ -5,7 +5,7 @@
  * happens; each probe is asserted to resolve a `{ type, message }` object.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from './llmProbes.js';
+import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter, probeLlmProvider } from './llmProbes.js';
 
 const mcp = vi.hoisted(() => ({ testConnection: vi.fn() }));
 
@@ -89,6 +89,29 @@ describe('llmProbes', () => {
       fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'anthropic/claude-3.5-sonnet' }] }));
       const result = await probeOpenRouter({ openrouterApiKey: 'key', openrouterModel: 'anthropic/claude-3.5-sonnet' });
       expect(result.type).toBe('success');
+    });
+  });
+
+  describe('probeLlmProvider', () => {
+    it('routes to the Ollama probe when no provider is set', async () => {
+      fetch.mockResolvedValue(jsonResponse({ models: [{ name: 'llama3.1:8b' }] }));
+      const result = await probeLlmProvider({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'llama3.1:8b' });
+      expect(result.type).toBe('success');
+      expect(fetch).toHaveBeenCalled();
+    });
+
+    it('routes to the Gemini probe when gemini is selected', async () => {
+      const result = await probeLlmProvider({ llmProvider: 'gemini', geminiApiKey: '', geminiModel: 'gemini-2.5-flash' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('API key is required');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('routes to the OpenRouter probe when openrouter is selected', async () => {
+      const result = await probeLlmProvider({ llmProvider: 'openrouter', openrouterApiKey: '', openrouterModel: 'x' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('OpenRouter API key is required');
+      expect(fetch).not.toHaveBeenCalled();
     });
   });
 });

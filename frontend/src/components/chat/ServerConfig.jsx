@@ -147,8 +147,10 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
             openrouterApiKey: openrouterKey || parsed.openrouterApiKey || ''
           };
           // Persisted state is the clean baseline — loading it is not an edit.
+          // Merge over the defaults so a partial saved config never leaves a
+          // controlled input's value undefined.
           snapshotRef.current = { ...DEFAULT_CONFIG, ...loaded };
-          setConfig(loaded);
+          setConfig({ ...DEFAULT_CONFIG, ...loaded });
         } catch (error) {
           console.error('Failed to load saved config:', error);
         }
@@ -226,9 +228,23 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
     setConfig(cleanConfig);
     setDirty(false);
 
-    // Notify parent component (with full config including API keys)
+    // Notify parent component (with full config including API keys).
+    // The parent rebuilds the agent first and reports back — a failed build
+    // keeps this dialog open with the cause shown here instead of closing
+    // over a silently-broken swap (F-UX-005).
     if (onConfigChange) {
-      onConfigChange(cleanConfig);
+      try {
+        const result = await onConfigChange(cleanConfig);
+        if (result && result.ok === false) {
+          setSaveError(`Could not apply the new settings: ${result.error || 'agent rebuild failed'}`);
+          setSaving(false);
+          return;
+        }
+      } catch (error) {
+        setSaveError(`Could not apply the new settings: ${error.message}`);
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
@@ -273,9 +289,19 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
     setSaveError(null);
 
     // The live agent must drop the old keys — apply the defaults, not just
-    // the wiped storage (F-BUG-019).
+    // the wiped storage (F-BUG-019). A failed rebuild surfaces inside the
+    // dialog the same way a failed save does (F-UX-005).
     if (onConfigChange) {
-      onConfigChange({ ...DEFAULT_CONFIG });
+      try {
+        const result = await onConfigChange({ ...DEFAULT_CONFIG });
+        if (result && result.ok === false) {
+          setSaveError(`Could not apply the defaults: ${result.error || 'agent rebuild failed'}`);
+          return;
+        }
+      } catch (error) {
+        setSaveError(`Could not apply the defaults: ${error.message}`);
+        return;
+      }
     }
 
     setTestResult({

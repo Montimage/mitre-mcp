@@ -160,6 +160,20 @@ describe('ServerConfig', () => {
     await waitFor(() => expect(onDirtyChange).toHaveBeenCalledWith(true));
   });
 
+  it('a failed agent rebuild reported by the parent surfaces the error inside the dialog', async () => {
+    // F-UX-005 (#93): the parent rebuilds the agent before swapping the live
+    // config; when the build fails it reports { ok: false } and the dialog
+    // stays open with the cause shown in the alert region.
+    const onConfigChange = vi.fn().mockResolvedValue({ ok: false, error: 'Gemini SDK failed to load' });
+    render(<ServerConfig onConfigChange={onConfigChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Gemini SDK failed to load');
+    expect(onConfigChange).toHaveBeenCalled();
+  });
+
   it('a valid save persists config, clears dirty and notifies the parent', async () => {
     const onConfigChange = vi.fn();
     const onDirtyChange = vi.fn();
