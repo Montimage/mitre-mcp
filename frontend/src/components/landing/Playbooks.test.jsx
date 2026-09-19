@@ -32,7 +32,12 @@ vi.mock('../../services/langGraphAgent.js', () => ({
     processQuery(...args) { return mocks.processQuery(...args); }
     clearHistory() {}
   },
-  LLM_PROVIDERS: { OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' },
+  LLM_PROVIDERS: {
+    OLLAMA: 'ollama',
+    GEMINI: 'gemini',
+    OPENROUTER: 'openrouter',
+    OPENAI_COMPATIBLE: 'openai-compatible',
+  },
 }));
 
 vi.mock('../../services/llmProbes.js', () => ({
