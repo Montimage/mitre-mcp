@@ -2,13 +2,14 @@
  * LLM provider construction for the browser agent
  *
  * Validates the provider-specific config and records it on the agent
- * (`ollamaConfig`, `geminiConfig`, `openrouterConfig`), then builds the
- * LangChain chat model on `agent.llm`. Also owns the provider-hinted error
- * message shown when the agent loop fails.
+ * (`ollamaConfig`, `geminiConfig`, `openrouterConfig`,
+ * `openaiCompatibleConfig`), then builds the LangChain chat model on
+ * `agent.llm`. Also owns the provider-hinted error message shown when the
+ * agent loop fails.
  *
  * Each provider SDK is loaded with a dynamic `import()` so the bundle only
  * downloads the one provider the configuration selects — the landing page
- * never fetches the other two (F-PERF-007). The init functions stay
+ * never fetches the other three (F-PERF-007). The init functions stay
  * synchronous up to the dynamic import so missing-API-key validation still
  * throws synchronously from the agent constructor; the returned promise
  * resolves to the constructed chat model.
@@ -32,7 +33,30 @@ export const DEFAULT_OLLAMA_MODEL = 'llama3.1:8b';
 export const LLM_PROVIDERS = {
   OLLAMA: 'ollama',
   GEMINI: 'gemini',
-  OPENROUTER: 'openrouter'
+  OPENROUTER: 'openrouter',
+  OPENAI_COMPATIBLE: 'openai-compatible'
+};
+
+/**
+ * Normalize an OpenAI-compatible endpoint URL for the SDK and the probe.
+ *
+ * Both expect the API root — where `/models` and `/chat/completions` live —
+ * which conventionally ends in `/v1` (LM Studio, vLLM, llama.cpp, LiteLLM,
+ * Ollama's OpenAI shim). A bare origin gets `/v1` appended so
+ * `http://localhost:1234` and `http://localhost:1234/v1` both work; an
+ * explicit path — `/v1` or a custom root like `/openai` — is kept as given.
+ * Unparseable input passes through untouched: the settings validation and
+ * the probe report it better than a throw here would.
+ */
+export const normalizeOpenAiBaseUrl = (url) => {
+  const trimmed = String(url ?? '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  try {
+    const { pathname } = new URL(trimmed);
+    return pathname === '' || pathname === '/' ? `${trimmed}/v1` : trimmed;
+  } catch {
+    return trimmed;
+  }
 };
 
 /**
@@ -148,6 +172,57 @@ export const initOpenRouter = (agent, config) => {
 };
 
 /**
+ * Initialize an OpenAI-compatible LLM on the agent
+ *
+ * Any endpoint speaking the OpenAI chat-completions API (LM Studio, vLLM,
+ * llama.cpp, LiteLLM, a hosted gateway) works through ChatOpenAI with a
+ * custom baseURL. Unlike the other cloud providers the API key is OPTIONAL:
+ * the SDK throws when apiKey is absent, so the literal 'not-needed' is sent
+ * for keyless endpoints — an unauthenticated gateway accepts any Bearer
+ * value, and a key-requiring one simply fails with 401 which the error hint
+ * names.
+ *
+ * @param {Object} agent - Agent instance to configure
+ * @param {Object} config - Configuration options
+ * @returns {Promise<*>} Resolves to the constructed ChatOpenAI (also on agent.llm)
+ */
+export const initOpenAiCompatible = (agent, config) => {
+  const baseUrl = normalizeOpenAiBaseUrl(config.openaiCompatibleBaseUrl);
+  const model = String(config.openaiCompatibleModel ?? '').trim();
+
+  if (!baseUrl) {
+    throw new Error('Endpoint URL is required. Provide openaiCompatibleBaseUrl in the settings dialog.');
+  }
+  if (!model) {
+    throw new Error('Model name is required. Provide openaiCompatibleModel in the settings dialog.');
+  }
+
+  agent.openaiCompatibleConfig = {
+    model,
+    baseUrl,
+    temperature: config.temperature ?? 0.7
+  };
+
+  console.log('[LangGraphAgent] OpenAI-compatible config:', {
+    model: agent.openaiCompatibleConfig.model,
+    baseUrl: agent.openaiCompatibleConfig.baseUrl,
+    hasApiKey: Boolean(config.openaiCompatibleApiKey)
+  });
+
+  // Dynamic import: the SDK chunk is fetched only when this provider is selected.
+  return import('@langchain/openai').then(({ ChatOpenAI }) => {
+    agent.llm = new ChatOpenAI({
+      model: agent.openaiCompatibleConfig.model,
+      temperature: agent.openaiCompatibleConfig.temperature,
+      // The SDK refuses a missing key; unauthenticated endpoints accept any.
+      apiKey: config.openaiCompatibleApiKey || 'not-needed',
+      configuration: { baseURL: agent.openaiCompatibleConfig.baseUrl }
+    });
+    return agent.llm;
+  });
+};
+
+/**
  * One-line actionable hint for the configured provider (F-UX-009)
  *
  * Deliberately short: it names the thing to check — the key, the model, the
@@ -163,6 +238,10 @@ export const buildProviderErrorHint = (agent) => {
   }
   if (agent.llmProvider === LLM_PROVIDERS.OPENROUTER) {
     return `Check that the OpenRouter API key is valid, has credits, and the ${agent.openrouterConfig?.model || 'anthropic/claude-3.5-sonnet'} model is available.`;
+  }
+  if (agent.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE) {
+    const cfg = agent.openaiCompatibleConfig;
+    return `Check that ${cfg?.baseUrl || 'the endpoint'} is reachable and the ${cfg?.model || 'configured'} model is available — and the API key, if the endpoint requires one.`;
   }
   const model = agent.ollamaConfig?.model || 'llama3.1:8b';
   return `Check that Ollama is running locally and the ${model} model is installed (ollama pull ${model}).`;
