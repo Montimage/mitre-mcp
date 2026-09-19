@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from mitre_mcp.config import Config
 from mitre_mcp.mitre_mcp_server import (
     check_disk_space,
     download_and_save_attack_data_async,

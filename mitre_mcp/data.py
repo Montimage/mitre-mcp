@@ -246,7 +246,7 @@ def _unlink_quietly(path: str) -> None:
     try:
         os.unlink(path)
     except OSError:
-        pass
+        pass  # Temp file missing or already gone — nothing to clean up.
 
 
 def _write_json_atomic(path: str, payload: dict) -> None:
@@ -382,6 +382,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
     # Check if we need to download new data
     need_download = force
+    metadata: dict[str, Any] | None = None
     if not need_download:
         metadata = load_metadata(paths["metadata"])
         if metadata is None:
