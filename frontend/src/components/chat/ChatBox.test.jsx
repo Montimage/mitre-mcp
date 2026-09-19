@@ -263,4 +263,26 @@ describe('ChatBox', () => {
     expect(screen.getByLabelText(/chat message/i)).toBeTruthy();
     expect(container.querySelector('[aria-live="polite"]')).toBeTruthy();
   });
+
+  it('F-UX-014: Tab is trapped inside the dialog — focus cycles within it', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog');
+    const closeButton = screen.getByRole('button', { name: /close settings/i });
+    const resetButton = screen.getByRole('button', { name: /reset to defaults/i });
+
+    // Focus moved into the dialog on open.
+    expect(document.activeElement).toBe(dialog);
+
+    // Tab past the last control wraps to the first.
+    resetButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+
+    // Shift+Tab from the first control wraps to the last.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(resetButton);
+  });
 });

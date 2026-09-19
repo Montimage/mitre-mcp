@@ -75,12 +75,33 @@ export default function ChatBox() {
     }
   }, [showConfig]);
 
-  // Esc closes the dialog — through the same unsaved-changes guard.
+  // Esc closes the dialog — through the same unsaved-changes guard. Tab is
+  // trapped inside: aria-modal promises the page behind is inert, so focus
+  // must cycle within the dialog instead of reaching background controls.
   useEffect(() => {
     if (!showConfig) return;
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         requestCloseSettings();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = settingsDialogRef.current;
+      if (!dialog) return;
+      const focusables = dialog.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey) {
+        if (document.activeElement === first || !dialog.contains(document.activeElement)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last || !dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener('keydown', onKeyDown);
