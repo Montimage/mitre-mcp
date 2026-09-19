@@ -88,8 +88,10 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-14 flex flex-col gap-2 border-t border-gray-800 pt-8 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+        {/* Bottom Bar — legal text uses the footer's muted gray-400: on the
+            ink ground gray-500 measures 3.78:1, below the 4.5:1 AA floor for
+            12px text; gray-400 is 6.8:1 and matches the rest of the footer. */}
+        <div className="mt-14 flex flex-col gap-2 border-t border-gray-800 pt-8 text-xs text-gray-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© {currentYear} Montimage. Released under MIT License.</p>
           <p>MITRE ATT&CK® is a registered trademark of The MITRE Corporation.</p>
         </div>
