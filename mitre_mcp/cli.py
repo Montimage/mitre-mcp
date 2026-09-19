@@ -33,6 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
             "  MITRE_CORS_ORIGINS   CORS allowed origins (default: localhost origins)\n"
             "                       use a comma-separated list for specific domains,\n"
             '                       e.g. "https://example.com,http://localhost:5173"\n'
+            "  MITRE_HTTP_AUTH_TOKEN\n"
+            "                       bearer token required on HTTP requests\n"
+            "                       (unset leaves HTTP mode unauthenticated)\n"
             "  FASTMCP_SERVER_HOST  default bind host (overridden by --host)\n"
             "  FASTMCP_SERVER_PORT  default bind port (overridden by --port)"
         ),

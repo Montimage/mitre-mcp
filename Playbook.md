@@ -55,6 +55,11 @@ mitre-mcp --http
 mitre-mcp --http --host 0.0.0.0 --port 8080
 ```
 
+> **Security:** a non-loopback bind is unauthenticated by default — set
+> `MITRE_HTTP_AUTH_TOKEN` to require `Authorization: Bearer <token>` on
+> every request, or put an authenticating reverse proxy in front (see
+> `README.md` → *Custom host and port* for an nginx example).
+
 **Benefits:**
 
 - Better concurrency - multiple clients can connect simultaneously

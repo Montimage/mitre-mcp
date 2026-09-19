@@ -85,6 +85,12 @@ class Config:
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
     )
 
+    # Optional bearer token for HTTP mode (F-SEC-005). When set, every
+    # HTTP request must carry ``Authorization: Bearer <token>``; unset or
+    # empty leaves HTTP mode unauthenticated. Recommended — together with
+    # an authenticating reverse proxy — for any non-loopback bind.
+    HTTP_AUTH_TOKEN = os.getenv("MITRE_HTTP_AUTH_TOKEN", None)
+
     @classmethod
     def get_data_urls(cls) -> dict[str, str]:
         """Get all data source URLs."""
