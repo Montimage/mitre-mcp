@@ -19,6 +19,7 @@ import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
 import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 import McpServerForm from './config/McpServerForm.jsx';
+import StatusBanner from './config/StatusBanner.jsx';
 import OllamaForm from './config/OllamaForm.jsx';
 import GeminiForm from './config/GeminiForm.jsx';
 import OpenRouterForm from './config/OpenRouterForm.jsx';
@@ -411,12 +412,8 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
         {/* Divider */}
         <div className="border-t border-gray-300 my-6"></div>
 
-        {/* Save Error */}
-        {saveError && (
-          <div role="alert" className="mb-4 p-3 text-xs border bg-gray-100 text-gray-900 border-gray-400">
-            {saveError}
-          </div>
-        )}
+        {/* Save Error — same alert+icon treatment as the probe banners (F-UX-008) */}
+        <StatusBanner result={saveError ? { type: 'error', message: saveError } : null} />
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2">

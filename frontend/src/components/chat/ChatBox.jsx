@@ -41,6 +41,23 @@ const getModelDisplayInfo = (config) => {
   }
 };
 
+// Text for the header status pills (F-UX-016): the dot's colour is only a
+// hint — the state must also read as words, both on screen and to assistive
+// tech (each pill is a role="status" live region). 'unknown' is the
+// pre-probe state: the LLM probe always settles so it reads "Checking…",
+// while MCP can stay unchecked on a failed agent build, so it reads
+// "Not checked".
+const MCP_STATUS_TEXT = {
+  connected: 'Connected',
+  disconnected: 'Offline',
+  unknown: 'Not checked'
+};
+const LLM_STATUS_TEXT = {
+  ready: 'Ready',
+  'not-configured': 'Not set up',
+  unknown: 'Checking…'
+};
+
 // Stable message ids (F-PERF-012): the list is keyed by id, not index, so a
 // message keeps its identity as the array grows and the memoised
 // ChatMessage components are never remounted by reordering.
@@ -499,24 +516,28 @@ export default function ChatBox({ onSetupStatusChange }) {
           <div className="flex items-center space-x-3">
             {/* Status Indicators */}
             <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800 border border-gray-600">
-              {/* MCP Server Status */}
-              <div className="flex items-center gap-1.5" title={`MCP Server: ${mcpServerStatus}`}>
+              {/* MCP Server Status — the state also reads as words; the dot is
+                  only a colour hint (F-UX-016). role="status" announces the
+                  probe outcome when it lands. */}
+              <div role="status" className="flex items-center gap-1.5" title={`MCP Server: ${mcpServerStatus}`}>
                 <div className={`w-2 h-2 rounded-full ${
                   mcpServerStatus === 'connected' ? 'bg-green-500' :
                   mcpServerStatus === 'disconnected' ? 'bg-red-500' :
                   'bg-gray-400'
                 }`}></div>
                 <span className="text-xs text-gray-300">MCP</span>
+                <span className="text-xs text-gray-400">{MCP_STATUS_TEXT[mcpServerStatus] || mcpServerStatus}</span>
               </div>
 
               {/* LLM Status */}
-              <div className="flex items-center gap-1.5" title={`LLM: ${llmStatus}`}>
+              <div role="status" className="flex items-center gap-1.5" title={`LLM: ${llmStatus}`}>
                 <div className={`w-2 h-2 rounded-full ${
                   llmStatus === 'ready' ? 'bg-green-500' :
                   llmStatus === 'not-configured' ? 'bg-red-500' :
                   'bg-gray-400'
                 }`}></div>
                 <span className="text-xs text-gray-300">LLM</span>
+                <span className="text-xs text-gray-400">{LLM_STATUS_TEXT[llmStatus] || llmStatus}</span>
               </div>
             </div>
 

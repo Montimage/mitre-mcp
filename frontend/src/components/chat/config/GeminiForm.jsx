@@ -4,6 +4,8 @@
  * API key + model select and the Gemini "test connection" control.
  * Per-field validation errors arrive via `errors` and render inline.
  */
+import StatusBanner from './StatusBanner.jsx';
+
 export default function GeminiForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
     <>
@@ -55,18 +57,8 @@ export default function GeminiForm({ config, onChange, testing, testResult, onTe
         </div>
       </div>
 
-      {/* Gemini Status Message */}
-      {testResult && (
-        <div
-          className={`mb-4 p-3 text-xs border whitespace-pre-line ${
-            testResult.type === 'success'
-              ? 'bg-white text-gray-900 border-gray-400'
-              : 'bg-gray-100 text-gray-900 border-gray-400'
-          }`}
-        >
-          {testResult.message}
-        </div>
-      )}
+      {/* Gemini Status Message — semantics + icon come from StatusBanner (F-UX-008) */}
+      <StatusBanner result={testResult} />
 
       {/* Gemini Test Button */}
       <div className="mb-2">

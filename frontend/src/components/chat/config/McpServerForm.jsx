@@ -7,6 +7,7 @@
  * save in the parent, so these messages are the user's only signal.
  */
 import { buildMcpServerUrl } from '../../../services/mcpConfig.js';
+import StatusBanner from './StatusBanner.jsx';
 
 export default function McpServerForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   const serverUrl = buildMcpServerUrl(config.host, config.port)
@@ -69,25 +70,13 @@ export default function McpServerForm({ config, onChange, testing, testResult, o
         </p>
         {config.host === 'localhost' && Number(config.port) === 8000 && (
           <p className="text-xs text-green-700">
-            <span className="font-medium">Note:</span> Using Vite proxy (/mcp) to avoid CORS issues
+            <span className="font-medium">Note:</span> In development, requests are sent through this app's local proxy (/mcp) so the browser can reach the server.
           </p>
         )}
       </div>
 
-      {/* Status Message */}
-      {testResult && (
-        <div
-          className={`mb-4 p-3 text-xs border ${
-            testResult.type === 'success'
-              ? 'bg-white text-gray-900 border-gray-400'
-              : testResult.type === 'error'
-              ? 'bg-gray-100 text-gray-900 border-gray-400'
-              : 'bg-gray-50 text-gray-900 border-gray-300'
-          }`}
-        >
-          {testResult.message}
-        </div>
-      )}
+      {/* Status Message — semantics + icon come from StatusBanner (F-UX-008) */}
+      <StatusBanner result={testResult} />
 
       {/* MCP Test Button */}
       <div className="mb-2">
