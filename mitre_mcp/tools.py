@@ -535,9 +535,7 @@ def get_techniques_mitigated_by_mitigation(
 
     # O(1) index lookup on every domain (F-PERF-011).
     indices = _domain_indices(ctx, domain)
-    mitigation = (
-        indices.mitigations.get(mitigation_name.lower()) if indices is not None else None
-    )
+    mitigation = indices.mitigations.get(mitigation_name.lower()) if indices is not None else None
 
     if not mitigation:
         raise ToolError(f"Mitigation '{mitigation_name}' not found")
@@ -575,9 +573,7 @@ def get_technique_by_id(
 
     # O(1) index lookup on every domain (F-PERF-011).
     indices = _domain_indices(ctx, domain)
-    technique = (
-        indices.techniques_by_mitre_id.get(technique_id) if indices is not None else None
-    )
+    technique = indices.techniques_by_mitre_id.get(technique_id) if indices is not None else None
 
     if not technique:
         raise ToolError(f"Technique '{technique_id}' not found")
