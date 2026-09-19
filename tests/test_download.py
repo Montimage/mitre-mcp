@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from mitre_mcp.data import _conditional_headers, _validate_bundle_file, _write_json_atomic
 from mitre_mcp.mitre_mcp_server import (
     check_disk_space,
     download_and_save_attack_data_async,
@@ -93,6 +94,19 @@ class TestCheckDiskSpace:
 
         with pytest.raises(RuntimeError, match="Insufficient disk space"):
             check_disk_space(temp_data_dir, required_mb=200)
+
+    def test_disk_usage_failure_warns_and_returns(self, temp_data_dir, monkeypatch, caplog):
+        """A failed ``shutil.disk_usage`` warns but never aborts the run."""
+
+        def _raise(_path):
+            raise OSError("no such device")
+
+        monkeypatch.setattr("shutil.disk_usage", _raise)
+
+        with caplog.at_level(logging.WARNING):
+            check_disk_space(temp_data_dir, required_mb=1)  # must not raise
+
+        assert "Could not check disk space" in caplog.text
 
 
 class TestParseTimestamp:
@@ -551,3 +565,63 @@ class TestConditionalRefresh:
         for path, content in cache_before.items():
             with open(path, "rb") as f:
                 assert f.read() == content
+
+
+class TestValidateBundleFile:
+    """``_validate_bundle_file`` — the file-reading variant used post-download."""
+
+    def test_invalid_json_raises_value_error(self, temp_data_dir):
+        path = os.path.join(temp_data_dir, "bad.json")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("{not json")
+
+        with pytest.raises(ValueError, match="Invalid JSON for enterprise"):
+            _validate_bundle_file(path, "enterprise")
+
+    def test_valid_bundle_returns_dict(self, temp_data_dir, sample_stix_bundle):
+        path = os.path.join(temp_data_dir, "bundle.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(sample_stix_bundle, f)
+
+        result = _validate_bundle_file(path, "enterprise")
+        assert result["type"] == "bundle"
+
+
+class TestWriteJsonAtomic:
+    """``_write_json_atomic`` — the crash-safe cache writer (F-BUG-028)."""
+
+    def test_write_failure_removes_tmp_and_raises(self, temp_data_dir):
+        path = os.path.join(temp_data_dir, "metadata.json")
+
+        with pytest.raises(TypeError):
+            _write_json_atomic(path, {"bad": object()})
+
+        assert not os.path.exists(f"{path}.tmp")
+        assert not os.path.exists(path)
+
+    def test_success_writes_valid_json(self, temp_data_dir):
+        path = os.path.join(temp_data_dir, "metadata.json")
+
+        _write_json_atomic(path, {"ok": 1})
+
+        with open(path, encoding="utf-8") as f:
+            assert json.load(f) == {"ok": 1}
+        assert not os.path.exists(f"{path}.tmp")
+
+
+class TestConditionalHeaders:
+    """``_conditional_headers`` — stored validators → conditional-GET headers."""
+
+    def test_none_returns_empty(self):
+        assert _conditional_headers(None) == {}
+
+    def test_etag_only(self):
+        assert _conditional_headers({"etag": '"v1"'}) == {"If-None-Match": '"v1"'}
+
+    def test_last_modified_only(self):
+        headers = _conditional_headers({"last_modified": "Wed, 01 Jan 2025 00:00:00 GMT"})
+        assert headers == {"If-Modified-Since": "Wed, 01 Jan 2025 00:00:00 GMT"}
+
+    def test_both_validators(self):
+        headers = _conditional_headers({"etag": '"v1"', "last_modified": "yesterday"})
+        assert headers == {"If-None-Match": '"v1"', "If-Modified-Since": "yesterday"}

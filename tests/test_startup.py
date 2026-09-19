@@ -20,6 +20,7 @@ longer installs SIGINT/SIGTERM handlers — uvicorn owns them in HTTP mode
 and stdio mode relies on default ``KeyboardInterrupt`` propagation.
 """
 
+import argparse
 import signal
 import sys
 from unittest.mock import AsyncMock, MagicMock
@@ -128,6 +129,13 @@ class TestParseCliArgs:
 
         args = mod.get_cli_args()
         assert (args.http, args.host, args.port) == (False, "localhost", 8000)
+
+    def test_get_cli_args_returns_stored_namespace(self, monkeypatch):
+        """main() stores its parse; get_cli_args reuses it verbatim."""
+        sentinel = argparse.Namespace(http=True, host="example.test", port=1)
+        monkeypatch.setattr(mod, "_parsed_cli_args", sentinel)
+
+        assert mod.get_cli_args() is sentinel
 
 
 class TestHelpText:

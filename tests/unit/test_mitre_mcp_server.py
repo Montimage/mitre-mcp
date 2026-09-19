@@ -16,6 +16,7 @@ from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from mitre_mcp.http import BearerAuthMiddleware, _is_loopback_host
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
     build_http_app,
@@ -488,6 +489,18 @@ class TestHttpBearerAuth(unittest.TestCase):
 
         return asyncio.run(run())
 
+    def test_non_http_scope_passes_through(self):
+        """Non-HTTP scopes (lifespan, websocket) bypass the bearer check."""
+        reached = []
+
+        async def app(scope, receive, send):
+            reached.append(scope["type"])
+
+        middleware = BearerAuthMiddleware(app, token="s3cr3t")
+        asyncio.run(middleware({"type": "lifespan"}, None, None))
+
+        assert reached == ["lifespan"]
+
     @patch("mitre_mcp.mitre_mcp_server.mcp")
     @patch("mitre_mcp.mitre_mcp_server.Config")
     def test_auth_missing_header_rejected(self, mock_config, mock_mcp):
@@ -592,6 +605,29 @@ class TestHttpBearerAuth(unittest.TestCase):
 
         with self.assertNoLogs("mitre_mcp.http", level="WARNING"):
             build_http_app("0.0.0.0", "ts")
+
+
+class TestLoopbackHost(unittest.TestCase):
+    """``_is_loopback_host`` — loopback detection behind the bind warning."""
+
+    def test_localhost_name(self):
+        assert _is_loopback_host("localhost") is True
+
+    def test_localhost_case_insensitive(self):
+        assert _is_loopback_host("LOCALHOST") is True
+
+    def test_loopback_ipv4(self):
+        assert _is_loopback_host("127.0.0.1") is True
+
+    def test_loopback_ipv6(self):
+        assert _is_loopback_host("::1") is True
+
+    def test_non_loopback_ip(self):
+        assert _is_loopback_host("0.0.0.0") is False
+
+    def test_dns_name_treated_as_non_loopback(self):
+        """A hostname that is not an IP literal fails safe: non-loopback."""
+        assert _is_loopback_host("intranet.example.com") is False
 
 
 if __name__ == "__main__":
