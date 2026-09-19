@@ -90,41 +90,29 @@ Before deployment:
 
 ### Option 3: GitHub Pages
 
+**Automatic deployment** — `.github/workflows/pages.yml` builds the frontend
+on every push to `main` that touches `frontend/` and publishes `dist/` via
+`actions/deploy-pages`. The workflow sets `VITE_BASE_PATH=/mitre-mcp/`, which
+`vite.config.js` reads as its `base` so all asset URLs resolve under the
+project-site path.
+
 **Steps:**
 
-1. **Update `vite.config.js`**:
-
-   ```javascript
-   export default defineConfig({
-     plugins: [react()],
-     base: "/mitre-mcp/", // Replace with your repo name
-   });
-   ```
-
-2. **Build and deploy**:
+1. **Enable Pages** (one-time, repo admin):
 
    ```bash
-   npm run build
-
-   # Option A: Using gh-pages package
-   npm install -D gh-pages
-   npx gh-pages -d dist
-
-   # Option B: Manual
-   git checkout --orphan gh-pages
-   git rm -rf .
-   cp -r dist/* .
-   git add .
-   git commit -m "Deploy to GitHub Pages"
-   git push origin gh-pages --force
+   gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow
    ```
 
-3. **Enable GitHub Pages**:
-   - Go to repository Settings > Pages
-   - Source: Deploy from branch `gh-pages`
-   - Save
+   Or via UI: Settings > Pages > Source: "GitHub Actions".
 
-**Access:** `https://yourusername.github.io/mitre-mcp/`
+2. **Push to `main`** — the workflow deploys automatically. A manual run is
+   also available via Actions > "Deploy to GitHub Pages" > Run workflow.
+
+**Access:** `https://montimage.github.io/mitre-mcp/`
+
+**Note:** the live site is static — the chat connects to whatever MCP server
+the visitor configures in the settings dialog (default `localhost:8000`).
 
 ### Option 4: Docker
 
