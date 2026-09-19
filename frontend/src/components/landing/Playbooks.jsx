@@ -4,6 +4,8 @@
  * Interactive scenarios and example queries from MITRE MCP Playbooks
  */
 import { useState } from 'react';
+import { askChat } from '../../services/askChat.js';
+import { getMcpServerAddress } from '../../services/mcpConfig.js';
 
 export default function Playbooks() {
   const [selectedScenario, setSelectedScenario] = useState(null);
@@ -170,7 +172,7 @@ export default function Playbooks() {
           <div className="h-1 w-20 bg-black mb-6"></div>
           <p className="text-lg text-gray-700 max-w-3xl">
             Try these pre-built scenarios and queries. Click on any scenario to explore example questions,
-            then copy them to test with the chatbox above.
+            then send them straight to the chatbox above or copy them.
           </p>
         </div>
 
@@ -225,17 +227,26 @@ export default function Playbooks() {
                         {category.examples.map((query, queryIdx) => (
                           <div
                             key={queryIdx}
-                            className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 transition-colors group"
+                            className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 transition-colors"
                           >
                             <p className="text-sm text-gray-700 flex-1 pr-4">
                               {query}
                             </p>
-                            <button
-                              onClick={() => copyToClipboard(query, `${catIdx}-${queryIdx}`)}
-                              className="flex-shrink-0 px-3 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              {copiedQuery === `${catIdx}-${queryIdx}` ? 'Copied' : 'Copy'}
-                            </button>
+                            <div className="flex-shrink-0 flex items-center gap-2">
+                              <button
+                                onClick={() => askChat(query)}
+                                className="px-3 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors"
+                                title="Place this query in the chat input"
+                              >
+                                Ask
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(query, `${catIdx}-${queryIdx}`)}
+                                className="px-3 py-1 text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+                              >
+                                {copiedQuery === `${catIdx}-${queryIdx}` ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -244,8 +255,9 @@ export default function Playbooks() {
 
                   <div className="mt-6 p-4 bg-gray-100 border border-gray-300">
                     <p className="text-xs text-gray-700">
-                      <strong>Tip:</strong> Copy any query above and paste it into the chatbox to see it in action!
-                      Make sure your mitre-mcp server is running on localhost:8000.
+                      <strong>Tip:</strong> Click <strong>Ask</strong> to place a query in the chatbox above,
+                      or copy it to paste yourself. Make sure your mitre-mcp server is running on{' '}
+                      {getMcpServerAddress()}.
                     </p>
                   </div>
                 </div>
@@ -273,15 +285,24 @@ export default function Playbooks() {
               ].map((query, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 group hover:border-black hover:shadow-md transition-all"
+                  className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 hover:border-black hover:shadow-md transition-all"
                 >
                   <span className="text-sm text-gray-700">{query}</span>
-                  <button
-                    onClick={() => copyToClipboard(query, `quick-${idx}`)}
-                    className="px-2 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    {copiedQuery === `quick-${idx}` ? 'OK' : 'Copy'}
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-2 ml-3">
+                    <button
+                      onClick={() => askChat(query)}
+                      className="px-2 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors"
+                      title="Place this query in the chat input"
+                    >
+                      Ask
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(query, `quick-${idx}`)}
+                      className="px-2 py-1 text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+                    >
+                      {copiedQuery === `quick-${idx}` ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

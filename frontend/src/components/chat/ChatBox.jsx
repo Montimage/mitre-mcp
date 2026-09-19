@@ -9,6 +9,7 @@ import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
 import { getApiKey } from '../../services/storage';
+import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig';
 
 // Helper to get display name for LLM provider and model
 const getModelDisplayInfo = (config) => {
@@ -37,12 +38,6 @@ const getModelDisplayInfo = (config) => {
   }
 };
 
-// Build-time defaults from .env — overridable at runtime via the
-// settings dialog (persisted to localStorage), so these only apply to a
-// first run or after the saved config is cleared.
-const DEFAULT_MCP_HOST = import.meta.env.VITE_MCP_DEFAULT_HOST || 'localhost';
-const DEFAULT_MCP_PORT = Number(import.meta.env.VITE_MCP_DEFAULT_PORT) || 8000;
-
 export default function ChatBox() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +58,7 @@ export default function ChatBox() {
 
     const initAgent = async () => {
       // Load config from localStorage
-      const savedConfig = localStorage.getItem('mcp-server-config');
+      const savedConfig = localStorage.getItem(MCP_CONFIG_STORAGE_KEY);
       let config = { host: DEFAULT_MCP_HOST, port: DEFAULT_MCP_PORT, llmProvider: 'ollama' };
 
       if (savedConfig) {
