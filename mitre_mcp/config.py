@@ -1,6 +1,36 @@
 """Configuration for MITRE MCP Server."""
 
+import logging
 import os
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer environment variable.
+
+    A malformed value exits with a one-line error naming the variable
+    instead of a raw traceback (F-BUG-030).
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise SystemExit(f"error: {name} must be an integer, got {raw!r}") from None
+
+
+def _env_log_level(name: str, default: str) -> str:
+    """Read a logging-level environment variable.
+
+    The value is validated against the standard logging level names; an
+    unknown name exits with a one-line error naming the variable instead of
+    a raw ``AttributeError`` traceback (F-BUG-030).
+    """
+    raw = os.getenv(name, default)
+    if raw.upper() not in logging.getLevelNamesMapping():
+        valid = ", ".join(sorted(logging.getLevelNamesMapping()))
+        raise SystemExit(f"error: {name} must be a logging level ({valid}), got {raw!r}")
+    return raw
 
 
 class Config:
@@ -24,22 +54,22 @@ class Config:
     )
 
     # Timeouts and limits
-    DOWNLOAD_TIMEOUT_SECONDS = int(os.getenv("MITRE_DOWNLOAD_TIMEOUT", "30"))
-    CACHE_EXPIRY_DAYS = int(os.getenv("MITRE_CACHE_EXPIRY_DAYS", "1"))
-    REQUIRED_DISK_SPACE_MB = int(os.getenv("MITRE_REQUIRED_SPACE_MB", "200"))
+    DOWNLOAD_TIMEOUT_SECONDS = _env_int("MITRE_DOWNLOAD_TIMEOUT", 30)
+    CACHE_EXPIRY_DAYS = _env_int("MITRE_CACHE_EXPIRY_DAYS", 1)
+    REQUIRED_DISK_SPACE_MB = _env_int("MITRE_REQUIRED_SPACE_MB", 200)
 
     # Pagination
-    DEFAULT_PAGE_SIZE = int(os.getenv("MITRE_DEFAULT_PAGE_SIZE", "20"))
-    MAX_PAGE_SIZE = int(os.getenv("MITRE_MAX_PAGE_SIZE", "1000"))
+    DEFAULT_PAGE_SIZE = _env_int("MITRE_DEFAULT_PAGE_SIZE", 20)
+    MAX_PAGE_SIZE = _env_int("MITRE_MAX_PAGE_SIZE", 1000)
 
     # Formatting
-    MAX_DESCRIPTION_LENGTH = int(os.getenv("MITRE_MAX_DESC_LENGTH", "500"))
+    MAX_DESCRIPTION_LENGTH = _env_int("MITRE_MAX_DESC_LENGTH", 500)
 
     # Data directory
     DATA_DIR = os.getenv("MITRE_DATA_DIR", None)  # None = auto
 
     # Logging
-    LOG_LEVEL = os.getenv("MITRE_LOG_LEVEL", "INFO")
+    LOG_LEVEL = _env_log_level("MITRE_LOG_LEVEL", "INFO")
 
     # CORS configuration (HTTP mode only)
     # Comma-separated origins; defaults to localhost development origins.
@@ -70,15 +100,22 @@ class Config:
 
     @classmethod
     def validate(cls) -> None:
-        """Validate configuration."""
+        """Validate configuration.
+
+        Failures exit with a one-line error naming the environment
+        variable instead of a raw traceback (F-BUG-030).
+        """
         if cls.DOWNLOAD_TIMEOUT_SECONDS < 1:
-            raise ValueError("DOWNLOAD_TIMEOUT_SECONDS must be positive")
+            raise SystemExit("error: MITRE_DOWNLOAD_TIMEOUT must be a positive integer")
 
         if cls.CACHE_EXPIRY_DAYS < 0:
-            raise ValueError("CACHE_EXPIRY_DAYS must be non-negative")
+            raise SystemExit("error: MITRE_CACHE_EXPIRY_DAYS must be a non-negative integer")
 
         if cls.DEFAULT_PAGE_SIZE < 1 or cls.DEFAULT_PAGE_SIZE > cls.MAX_PAGE_SIZE:
-            raise ValueError(f"DEFAULT_PAGE_SIZE must be between 1 and {cls.MAX_PAGE_SIZE}")
+            raise SystemExit(
+                "error: MITRE_DEFAULT_PAGE_SIZE must be between 1 and "
+                f"MITRE_MAX_PAGE_SIZE ({cls.MAX_PAGE_SIZE})"
+            )
 
 
 # Validate on import

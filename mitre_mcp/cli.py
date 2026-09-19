@@ -1,4 +1,4 @@
-"""Command-line surface: the argparse parser, the startup banner, signals.
+"""Command-line surface: the argparse parser and the startup banner.
 
 One parser (``build_parser``) is shared by the strict ``parse_cli_args``
 used by ``main()`` and the tolerant ``parse_known_args`` inside the entry
@@ -12,18 +12,10 @@ import argparse
 import json
 import logging
 import os
-import signal
 import sys
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
-
-def signal_handler(signum: int, frame: Any) -> None:
-    """Handle shutdown signals gracefully."""
-    sig_name = signal.Signals(signum).name
-    logger.info("\n%s received. Shutting down gracefully...", sig_name)
-    sys.exit(0)
 
 
 def build_parser() -> argparse.ArgumentParser:

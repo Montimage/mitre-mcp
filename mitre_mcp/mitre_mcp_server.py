@@ -13,7 +13,7 @@ here. The code itself lives in focused submodules:
 - ``models``  — tool result TypedDicts and output formatting
 - ``server``  — the ``mcp`` server object, its lifespan, the info resource
 - ``tools``   — the nine MCP tools and the shared domain lookup
-- ``cli``     — argument parsing, the startup banner, the signal handler
+- ``cli``     — argument parsing and the startup banner
 - ``http``    — transport security and the CORS-wrapped ASGI app
 - ``_entry``  — late-bound access to this module for those submodules
 """
@@ -22,7 +22,6 @@ here. The code itself lives in focused submodules:
 import argparse
 import asyncio
 import logging
-import signal
 import sys
 
 # Third-party imports
@@ -37,7 +36,6 @@ from .cli import (
     build_config_banner,
     build_parser,
     parse_cli_args,
-    signal_handler,
 )
 from .config import Config
 from .data import (
@@ -146,7 +144,6 @@ __all__ = [
     "parse_timestamp",
     "setup_http_server",
     "setup_logging",
-    "signal_handler",
     "validate_metadata",
     "validate_stix_bundle",
 ]
@@ -203,10 +200,9 @@ def main() -> None:
     # so attack_lifespan reads the same args instead of re-parsing argv.
     _parsed_cli_args = parse_cli_args()
 
-    # Set up signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
+    # Signal handling is left to the runtime (F-BUG-029): uvicorn installs
+    # its own SIGINT/SIGTERM handlers in HTTP mode, and stdio mode relies
+    # on the default KeyboardInterrupt propagation caught below.
     try:
         if _parsed_cli_args.http:
             host, port = _parsed_cli_args.host, _parsed_cli_args.port
