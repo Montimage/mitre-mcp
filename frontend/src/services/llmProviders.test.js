@@ -8,6 +8,8 @@ import {
   initOllama,
   initGemini,
   initOpenRouter,
+  initOpenAiCompatible,
+  normalizeOpenAiBaseUrl,
   buildProviderErrorHint,
   buildAgentErrorMessage
 } from './llmProviders.js';
@@ -29,8 +31,13 @@ const agent = (overrides = {}) => ({ llmProvider: LLM_PROVIDERS.OLLAMA, ...overr
 const boom = new Error('connection refused');
 
 describe('llmProviders', () => {
-  it('exposes the three provider identifiers', () => {
-    expect(LLM_PROVIDERS).toEqual({ OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' });
+  it('exposes the four provider identifiers', () => {
+    expect(LLM_PROVIDERS).toEqual({
+      OLLAMA: 'ollama',
+      GEMINI: 'gemini',
+      OPENROUTER: 'openrouter',
+      OPENAI_COMPATIBLE: 'openai-compatible'
+    });
   });
 
   it('hint at Ollama for the default provider', () => {
@@ -53,6 +60,18 @@ describe('llmProviders', () => {
     );
     expect(hint).toContain('OpenRouter API key');
     expect(hint).toContain('credits');
+  });
+
+  it('hint at the endpoint URL and optional key for the openai-compatible provider', () => {
+    const hint = buildProviderErrorHint(
+      agent({
+        llmProvider: LLM_PROVIDERS.OPENAI_COMPATIBLE,
+        openaiCompatibleConfig: { model: 'my-model', baseUrl: 'http://localhost:1234/v1' }
+      })
+    );
+    expect(hint).toContain('http://localhost:1234/v1');
+    expect(hint).toContain('my-model');
+    expect(hint).toContain('API key');
   });
 
   describe('buildAgentErrorMessage (F-UX-009)', () => {
@@ -89,6 +108,13 @@ describe('llmProviders', () => {
 
       await initOpenRouter({}, { temperature: 0, openrouterApiKey: 'k' });
       expect(ctors.openai.at(-1).temperature).toBe(0);
+
+      await initOpenAiCompatible({}, {
+        temperature: 0,
+        openaiCompatibleBaseUrl: 'http://localhost:1234/v1',
+        openaiCompatibleModel: 'm'
+      });
+      expect(ctors.openai.at(-1).temperature).toBe(0);
     });
 
     it('still defaults temperature to 0.7 when unset', async () => {
@@ -113,6 +139,59 @@ describe('llmProviders', () => {
       // its synchronous throw instead of producing a rejected promise.
       expect(() => initGemini({}, {})).toThrow('Gemini API key is required');
       expect(() => initOpenRouter({}, {})).toThrow('OpenRouter API key is required');
+    });
+  });
+
+  describe('normalizeOpenAiBaseUrl', () => {
+    it('appends /v1 to a bare origin so both spellings work', () => {
+      expect(normalizeOpenAiBaseUrl('http://localhost:1234')).toBe('http://localhost:1234/v1');
+      expect(normalizeOpenAiBaseUrl('http://localhost:1234/')).toBe('http://localhost:1234/v1');
+    });
+
+    it('keeps an explicit path as given — /v1 or a custom API root', () => {
+      expect(normalizeOpenAiBaseUrl('http://localhost:1234/v1')).toBe('http://localhost:1234/v1');
+      expect(normalizeOpenAiBaseUrl('https://gateway.example.com/openai/')).toBe('https://gateway.example.com/openai');
+    });
+
+    it('returns an empty string for empty input and passes unparseable input through', () => {
+      expect(normalizeOpenAiBaseUrl('')).toBe('');
+      expect(normalizeOpenAiBaseUrl(undefined)).toBe('');
+      expect(normalizeOpenAiBaseUrl('not a url')).toBe('not a url');
+    });
+  });
+
+  describe('initOpenAiCompatible', () => {
+    const base = { openaiCompatibleBaseUrl: 'http://localhost:1234', openaiCompatibleModel: 'my-model' };
+
+    it('constructs ChatOpenAI against the endpoint with a sentinel key when none is given', async () => {
+      const a = {};
+      const llm = await initOpenAiCompatible(a, base);
+
+      expect(a.llm).toBe(llm);
+      const cfg = ctors.openai.at(-1);
+      // The SDK throws without a key — the sentinel satisfies it while a
+      // keyless endpoint ignores the Bearer value.
+      expect(cfg.apiKey).toBe('not-needed');
+      expect(cfg.configuration.baseURL).toBe('http://localhost:1234/v1');
+      expect(cfg.model).toBe('my-model');
+      expect(a.openaiCompatibleConfig.baseUrl).toBe('http://localhost:1234/v1');
+    });
+
+    it('uses the supplied API key instead of the sentinel', async () => {
+      await initOpenAiCompatible({}, { ...base, openaiCompatibleApiKey: 'sk-live' });
+      expect(ctors.openai.at(-1).apiKey).toBe('sk-live');
+    });
+
+    it('sends no OpenRouter-style referer/title headers', async () => {
+      await initOpenAiCompatible({}, base);
+      expect(ctors.openai.at(-1).configuration.defaultHeaders).toBeUndefined();
+    });
+
+    it('throws synchronously when the endpoint URL or model is missing', () => {
+      expect(() => initOpenAiCompatible({}, { openaiCompatibleModel: 'm' })).toThrow('Endpoint URL is required');
+      expect(() => initOpenAiCompatible({}, { openaiCompatibleBaseUrl: 'http://x' })).toThrow('Model name is required');
+      // …but never for a missing key — that is the point of the provider.
+      expect(() => initOpenAiCompatible({}, base)).not.toThrow();
     });
   });
 });

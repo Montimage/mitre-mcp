@@ -57,7 +57,12 @@ vi.mock('../../services/langGraphAgent.js', async () => {
       processQuery(...args) { return mocks.processQuery(...args); }
       clearHistory() { this.cleared = true; }
     },
-    LLM_PROVIDERS: { OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' },
+    LLM_PROVIDERS: {
+      OLLAMA: 'ollama',
+      GEMINI: 'gemini',
+      OPENROUTER: 'openrouter',
+      OPENAI_COMPATIBLE: 'openai-compatible',
+    },
   };
 });
 
@@ -644,6 +649,20 @@ describe('ChatBox', () => {
         })
       );
     });
+  });
+
+  it('renders the OpenAI-compatible provider badge from a persisted config', async () => {
+    localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify({
+      llmProvider: 'openai-compatible',
+      openaiCompatibleBaseUrl: 'http://localhost:1234/v1',
+      openaiCompatibleModel: 'my-local-model'
+    }));
+    render(<ChatBox />);
+
+    // The badge names the provider and the endpoint's model (AC1/AC5:
+    // the persisted selection drives the live agent's display).
+    expect(await screen.findByText('OpenAI-compatible: my-local-model')).toBeTruthy();
+    expect(mocks.getApiKey).toHaveBeenCalledWith('openaiCompatibleApiKey');
   });
 
   it('F-UX-003: reports setup status upward — a successful probe reports ready', async () => {

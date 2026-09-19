@@ -167,7 +167,7 @@ export default function Hero() {
                   <p className="text-xs leading-relaxed text-gray-600">
                     Install Ollama and run{' '}
                     <code className="font-mono text-ink">ollama pull llama3.1:8b</code>
-                    {' '}— or open Settings in the chat and set a Gemini or OpenRouter API key.
+                    {' '}— or open Settings in the chat and set a Gemini or OpenRouter API key or a custom OpenAI-compatible endpoint.
                   </p>
                   <div>
                     <a

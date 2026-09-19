@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ServerConfig from './ServerConfig.jsx';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
-import { probeMcpServer } from '../../services/llmProbes.js';
+import { probeMcpServer, probeOpenAiCompatible } from '../../services/llmProbes.js';
 import { MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 
 vi.mock('../../services/storage.js', () => ({
@@ -32,6 +32,7 @@ vi.mock('../../services/llmProbes.js', () => ({
   probeOllama: vi.fn(),
   probeGemini: vi.fn(),
   probeOpenRouter: vi.fn(),
+  probeOpenAiCompatible: vi.fn(),
 }));
 
 describe('ServerConfig', () => {
@@ -267,6 +268,112 @@ describe('ServerConfig', () => {
 
       expect(screen.queryByText(/stored securely/i)).toBeNull();
       expect(screen.queryByText(/indexeddb/i)).toBeNull();
+    });
+  });
+
+  describe('OpenAI-compatible provider', () => {
+    it('offers an OpenAI-compatible radio that swaps in the endpoint form', () => {
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openai-compatible/i }));
+
+      expect(screen.getByLabelText(/endpoint url/i)).toBeTruthy();
+      expect(screen.getByLabelText(/model name/i)).toBeTruthy();
+      expect(screen.getByLabelText(/api key \(optional\)/i).type).toBe('password');
+    });
+
+    it('saves with endpoint and model and NO API key — the key stays optional', async () => {
+      const onConfigChange = vi.fn();
+      render(<ServerConfig onConfigChange={onConfigChange} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openai-compatible/i }));
+      fireEvent.change(screen.getByLabelText(/endpoint url/i), { target: { value: 'http://localhost:1234/v1' } });
+      fireEvent.change(screen.getByLabelText(/model name/i), { target: { value: 'my-model' } });
+      fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+
+      await waitFor(() => expect(onConfigChange).toHaveBeenCalled());
+      expect(onConfigChange).toHaveBeenCalledWith(expect.objectContaining({
+        llmProvider: 'openai-compatible',
+        openaiCompatibleBaseUrl: 'http://localhost:1234/v1',
+        openaiCompatibleModel: 'my-model'
+      }));
+      // The optional key is stored via the same IndexedDB seam — deleted when empty.
+      await waitFor(() => expect(deleteApiKey).toHaveBeenCalledWith('openaiCompatibleApiKey'));
+      const saved = JSON.parse(localStorage.getItem(MCP_CONFIG_STORAGE_KEY));
+      expect(saved.openaiCompatibleApiKey).toBe('');
+      expect(saved.openaiCompatibleBaseUrl).toBe('http://localhost:1234/v1');
+    });
+
+    it('persists a supplied API key to IndexedDB, not localStorage', async () => {
+      const onConfigChange = vi.fn();
+      render(<ServerConfig onConfigChange={onConfigChange} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openai-compatible/i }));
+      fireEvent.change(screen.getByLabelText(/endpoint url/i), { target: { value: 'http://localhost:1234/v1' } });
+      fireEvent.change(screen.getByLabelText(/model name/i), { target: { value: 'my-model' } });
+      fireEvent.change(screen.getByLabelText(/api key \(optional\)/i), { target: { value: 'sk-live' } });
+      fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+
+      await waitFor(() => expect(onConfigChange).toHaveBeenCalled());
+      await waitFor(() => expect(saveApiKey).toHaveBeenCalledWith('openaiCompatibleApiKey', 'sk-live'));
+      expect(JSON.parse(localStorage.getItem(MCP_CONFIG_STORAGE_KEY)).openaiCompatibleApiKey).toBe('');
+    });
+
+    it('blocks the save when the endpoint URL or model is missing or invalid', async () => {
+      const onConfigChange = vi.fn();
+      render(<ServerConfig onConfigChange={onConfigChange} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openai-compatible/i }));
+      fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+
+      expect(await screen.findByText(/endpoint url is required/i)).toBeTruthy();
+      expect(await screen.findByText(/model name is required/i)).toBeTruthy();
+      expect(onConfigChange).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByLabelText(/endpoint url/i), { target: { value: 'not a url' } });
+      fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+      expect(await screen.findByText(/enter a valid url/i)).toBeTruthy();
+      expect(onConfigChange).not.toHaveBeenCalled();
+      expect(localStorage.getItem(MCP_CONFIG_STORAGE_KEY)).toBeNull();
+    });
+
+    it('the Test Endpoint button runs the openai-compatible probe', async () => {
+      probeOpenAiCompatible.mockResolvedValue({ type: 'success', message: 'Endpoint is working!' });
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openai-compatible/i }));
+      fireEvent.change(screen.getByLabelText(/endpoint url/i), { target: { value: 'http://localhost:1234/v1' } });
+      fireEvent.change(screen.getByLabelText(/model name/i), { target: { value: 'my-model' } });
+      fireEvent.click(screen.getByRole('button', { name: /test endpoint/i }));
+
+      await waitFor(() => expect(probeOpenAiCompatible).toHaveBeenCalled());
+      expect(await screen.findByRole('status')).toBeTruthy();
+    });
+
+    it('reloads a persisted openai-compatible config with its IndexedDB key', async () => {
+      localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify({
+        llmProvider: 'openai-compatible',
+        openaiCompatibleBaseUrl: 'http://server.lan:8080/v1',
+        openaiCompatibleModel: 'loaded-model'
+      }));
+      getApiKey.mockImplementation((name) => Promise.resolve(name === 'openaiCompatibleApiKey' ? 'sk-loaded' : ''));
+
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/endpoint url/i).value).toBe('http://server.lan:8080/v1');
+      });
+      expect(screen.getByRole('radio', { name: /openai-compatible/i }).checked).toBe(true);
+      expect(screen.getByLabelText(/model name/i).value).toBe('loaded-model');
+      expect(screen.getByLabelText(/api key \(optional\)/i).value).toBe('sk-loaded');
+    });
+
+    it('reset deletes the openai-compatible API key too', async () => {
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /reset to defaults/i }));
+
+      await waitFor(() => expect(deleteApiKey).toHaveBeenCalledWith('openaiCompatibleApiKey'));
     });
   });
 });

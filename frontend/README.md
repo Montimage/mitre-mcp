@@ -263,7 +263,7 @@ Users can configure the server at runtime using the UI:
 
 ## Future Enhancements
 
-- [ ] OpenAI integration for advanced natural language understanding
+- [x] OpenAI-compatible endpoints (custom base URL, optional API key)
 - [ ] Streaming responses
 - [ ] Query suggestions and autocomplete
 - [ ] Data visualization (charts, graphs)

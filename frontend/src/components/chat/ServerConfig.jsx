@@ -1,7 +1,7 @@
 /**
  * ServerConfig Component
  *
- * Allows users to configure MCP server and LLM settings (Ollama, Gemini, or OpenRouter)
+ * Allows users to configure MCP server and LLM settings (Ollama, Gemini, OpenRouter, or an OpenAI-compatible endpoint)
  *
  * Orchestrates the settings dialog: holds the form state and persistence, and
  * delegates the per-section UI to `config/` form components, the IndexedDB
@@ -16,7 +16,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
-import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
+import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter, probeOpenAiCompatible } from '../../services/llmProbes.js';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 import { DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL } from '../../services/llmProviders.js';
 import McpServerForm from './config/McpServerForm.jsx';
@@ -24,11 +24,13 @@ import StatusBanner from './config/StatusBanner.jsx';
 import OllamaForm from './config/OllamaForm.jsx';
 import GeminiForm from './config/GeminiForm.jsx';
 import OpenRouterForm from './config/OpenRouterForm.jsx';
+import OpenAICompatibleForm from './config/OpenAICompatibleForm.jsx';
 
 const LLM_PROVIDERS = {
   OLLAMA: 'ollama',
   GEMINI: 'gemini',
-  OPENROUTER: 'openrouter'
+  OPENROUTER: 'openrouter',
+  OPENAI_COMPATIBLE: 'openai-compatible'
 };
 
 const DEFAULT_CONFIG = {
@@ -40,7 +42,10 @@ const DEFAULT_CONFIG = {
   geminiApiKey: '',
   geminiModel: 'gemini-2.5-flash',
   openrouterApiKey: '',
-  openrouterModel: 'anthropic/claude-3.5-sonnet'
+  openrouterModel: 'anthropic/claude-3.5-sonnet',
+  openaiCompatibleApiKey: '',
+  openaiCompatibleBaseUrl: '',
+  openaiCompatibleModel: ''
 };
 
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
@@ -96,6 +101,23 @@ const validateConfig = (cfg) => {
   if (cfg.llmProvider === LLM_PROVIDERS.OPENROUTER && !String(cfg.openrouterApiKey ?? '').trim()) {
     errors.openrouterApiKey = 'OpenRouter API key is required when OpenRouter is selected.';
   }
+  if (cfg.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE) {
+    // Endpoint URL and model are required; the API key is intentionally NOT —
+    // plenty of OpenAI-compatible servers (LM Studio, llama.cpp) run keyless.
+    const endpoint = String(cfg.openaiCompatibleBaseUrl ?? '').trim();
+    if (!endpoint) {
+      errors.openaiCompatibleBaseUrl = 'Endpoint URL is required.';
+    } else {
+      try {
+        void new URL(endpoint);
+      } catch {
+        errors.openaiCompatibleBaseUrl = 'Enter a valid URL (e.g. http://localhost:1234/v1).';
+      }
+    }
+    if (!String(cfg.openaiCompatibleModel ?? '').trim()) {
+      errors.openaiCompatibleModel = 'Model name is required.';
+    }
+  }
 
   return errors;
 };
@@ -110,18 +132,23 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
     geminiApiKey: initialConfig?.geminiApiKey || DEFAULT_CONFIG.geminiApiKey,
     geminiModel: initialConfig?.geminiModel || DEFAULT_CONFIG.geminiModel,
     openrouterApiKey: initialConfig?.openrouterApiKey || DEFAULT_CONFIG.openrouterApiKey,
-    openrouterModel: initialConfig?.openrouterModel || DEFAULT_CONFIG.openrouterModel
+    openrouterModel: initialConfig?.openrouterModel || DEFAULT_CONFIG.openrouterModel,
+    openaiCompatibleApiKey: initialConfig?.openaiCompatibleApiKey || DEFAULT_CONFIG.openaiCompatibleApiKey,
+    openaiCompatibleBaseUrl: initialConfig?.openaiCompatibleBaseUrl || DEFAULT_CONFIG.openaiCompatibleBaseUrl,
+    openaiCompatibleModel: initialConfig?.openaiCompatibleModel || DEFAULT_CONFIG.openaiCompatibleModel
   });
 
   const [testing, setTesting] = useState(false);
   const [testingOllama, setTestingOllama] = useState(false);
   const [testingGemini, setTestingGemini] = useState(false);
   const [testingOpenRouter, setTestingOpenRouter] = useState(false);
+  const [testingOpenAiCompatible, setTestingOpenAiCompatible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [ollamaTestResult, setOllamaTestResult] = useState(null);
   const [geminiTestResult, setGeminiTestResult] = useState(null);
   const [openrouterTestResult, setOpenrouterTestResult] = useState(null);
+  const [openaiCompatibleTestResult, setOpenaiCompatibleTestResult] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError, setSaveError] = useState(null);
 
@@ -138,15 +165,17 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
           const parsed = JSON.parse(saved);
 
           // Load API keys from IndexedDB
-          const [geminiKey, openrouterKey] = await Promise.all([
+          const [geminiKey, openrouterKey, openaiCompatibleKey] = await Promise.all([
             getApiKey('geminiApiKey').catch(() => ''),
-            getApiKey('openrouterApiKey').catch(() => '')
+            getApiKey('openrouterApiKey').catch(() => ''),
+            getApiKey('openaiCompatibleApiKey').catch(() => '')
           ]);
 
           const loaded = {
             ...parsed,
             geminiApiKey: geminiKey || parsed.geminiApiKey || '',
-            openrouterApiKey: openrouterKey || parsed.openrouterApiKey || ''
+            openrouterApiKey: openrouterKey || parsed.openrouterApiKey || '',
+            openaiCompatibleApiKey: openaiCompatibleKey || parsed.openaiCompatibleApiKey || ''
           };
           // Persisted state is the clean baseline — loading it is not an edit.
           // Merge over the defaults so a partial saved config never leaves a
@@ -209,12 +238,18 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
       } else {
         await deleteApiKey('openrouterApiKey');
       }
+      if (cleanConfig.openaiCompatibleApiKey) {
+        await saveApiKey('openaiCompatibleApiKey', cleanConfig.openaiCompatibleApiKey);
+      } else {
+        await deleteApiKey('openaiCompatibleApiKey');
+      }
 
       // Save config to localStorage (without API keys for security)
       const configToSave = {
         ...cleanConfig,
         geminiApiKey: '', // Don't store API keys in localStorage
-        openrouterApiKey: ''
+        openrouterApiKey: '',
+        openaiCompatibleApiKey: ''
       };
       localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
     } catch (error) {
@@ -267,6 +302,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
   const handleTestOllama = () => runProbe(probeOllama, setTestingOllama, setOllamaTestResult);
   const handleTestGemini = () => runProbe(probeGemini, setTestingGemini, setGeminiTestResult);
   const handleTestOpenRouter = () => runProbe(probeOpenRouter, setTestingOpenRouter, setOpenrouterTestResult);
+  const handleTestOpenAiCompatible = () => runProbe(probeOpenAiCompatible, setTestingOpenAiCompatible, setOpenaiCompatibleTestResult);
 
   const handleReset = async () => {
     // Destructive: wipes stored API keys and saved config — confirm first.
@@ -281,6 +317,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
     try {
       await deleteApiKey('geminiApiKey');
       await deleteApiKey('openrouterApiKey');
+      await deleteApiKey('openaiCompatibleApiKey');
     } catch (error) {
       console.error('Failed to delete API keys from IndexedDB:', error);
     }
@@ -374,6 +411,17 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
                 />
                 <span className="text-sm text-gray-700">OpenRouter</span>
               </label>
+              <label className="flex cursor-pointer items-center border border-rule-strong px-3 py-2 transition-colors hover:border-ink has-checked:border-ink has-checked:bg-paper-sunk">
+                <input
+                  type="radio"
+                  name="llmProvider"
+                  value={LLM_PROVIDERS.OPENAI_COMPATIBLE}
+                  checked={config.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE}
+                  onChange={(e) => handleChange('llmProvider', e.target.value)}
+                  className="mr-2 accent-brass-700"
+                />
+                <span className="text-sm text-gray-700">OpenAI-compatible</span>
+              </label>
             </div>
           </div>
 
@@ -405,6 +453,16 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
               testing={testingOpenRouter}
               testResult={openrouterTestResult}
               onTest={handleTestOpenRouter}
+              errors={fieldErrors}
+            />
+          )}
+          {config.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE && (
+            <OpenAICompatibleForm
+              config={config}
+              onChange={handleChange}
+              testing={testingOpenAiCompatible}
+              testResult={openaiCompatibleTestResult}
+              onTest={handleTestOpenAiCompatible}
               errors={fieldErrors}
             />
           )}

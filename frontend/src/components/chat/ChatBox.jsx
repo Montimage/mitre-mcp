@@ -35,6 +35,12 @@ const getModelDisplayInfo = (config) => {
         model: config.openrouterModel || 'anthropic/claude-3.5-sonnet',
         accent: 'border-l-purple-600'
       };
+    case LLM_PROVIDERS.OPENAI_COMPATIBLE:
+      return {
+        provider: 'OpenAI-compatible',
+        model: config.openaiCompatibleModel || 'custom endpoint',
+        accent: 'border-l-teal-600'
+      };
     case LLM_PROVIDERS.OLLAMA:
     default:
       return {
@@ -194,15 +200,17 @@ export default function ChatBox({ onSetupStatusChange }) {
       }
 
       // Load API keys from IndexedDB
-      const [geminiKey, openrouterKey] = await Promise.all([
+      const [geminiKey, openrouterKey, openaiCompatibleKey] = await Promise.all([
         getApiKey('geminiApiKey'),
-        getApiKey('openrouterApiKey')
+        getApiKey('openrouterApiKey'),
+        getApiKey('openaiCompatibleApiKey')
       ]);
 
       if (cancelled) return;
 
       config.geminiApiKey = geminiKey;
       config.openrouterApiKey = openrouterKey;
+      config.openaiCompatibleApiKey = openaiCompatibleKey;
 
       setServerConfig(config);
 

@@ -5,7 +5,7 @@
  * happens; each probe is asserted to resolve a `{ type, message }` object.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter, probeLlmProvider } from './llmProbes.js';
+import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter, probeOpenAiCompatible, probeLlmProvider } from './llmProbes.js';
 import { releaseMcpClient } from './mcpClientCache.js';
 
 const mcp = vi.hoisted(() => ({ ctor: vi.fn(), testConnection: vi.fn(), resetSession: vi.fn() }));
@@ -109,6 +109,64 @@ describe('llmProbes', () => {
     });
   });
 
+  describe('probeOpenAiCompatible', () => {
+    const base = { openaiCompatibleBaseUrl: 'http://localhost:1234/v1', openaiCompatibleModel: 'my-model' };
+
+    it('requires an endpoint URL before any network call', async () => {
+      const result = await probeOpenAiCompatible({ openaiCompatibleModel: 'my-model' });
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('Endpoint URL is required');
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('reports success when the configured model id is present', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'my-model' }] }));
+      const result = await probeOpenAiCompatible(base);
+      expect(result.type).toBe('success');
+      expect(result.message).toContain('my-model');
+    });
+
+    it('sends no Authorization header when no API key is set', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'my-model' }] }));
+      await probeOpenAiCompatible(base);
+      expect(fetch.mock.calls[0][1].headers).toEqual({});
+    });
+
+    it('sends the Bearer header only when an API key is set', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'my-model' }] }));
+      await probeOpenAiCompatible({ ...base, openaiCompatibleApiKey: 'sk-live' });
+      expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer sk-live');
+    });
+
+    it('normalizes a bare origin to the /v1 API root', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'my-model' }] }));
+      await probeOpenAiCompatible({ ...base, openaiCompatibleBaseUrl: 'http://localhost:1234' });
+      expect(fetch.mock.calls[0][0]).toBe('http://localhost:1234/v1/models');
+    });
+
+    it('reports error listing available models when the model is missing', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'other-model' }] }));
+      const result = await probeOpenAiCompatible(base);
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('not found');
+      expect(result.message).toContain('other-model');
+    });
+
+    it('reports error on a non-OK response such as a 401 from a key-requiring endpoint', async () => {
+      fetch.mockResolvedValue(jsonResponse({ error: { message: 'missing key' } }, { ok: false, status: 401 }));
+      const result = await probeOpenAiCompatible(base);
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('missing key');
+    });
+
+    it('reports error when the endpoint is unreachable', async () => {
+      fetch.mockRejectedValue(new Error('fetch failed'));
+      const result = await probeOpenAiCompatible(base);
+      expect(result.type).toBe('error');
+      expect(result.message).toContain('Cannot connect to the endpoint');
+    });
+  });
+
   describe('probeLlmProvider', () => {
     it('routes to the Ollama probe when no provider is set', async () => {
       fetch.mockResolvedValue(jsonResponse({ models: [{ name: 'llama3.1:8b' }] }));
@@ -129,6 +187,17 @@ describe('llmProbes', () => {
       expect(result.type).toBe('error');
       expect(result.message).toContain('OpenRouter API key is required');
       expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('routes to the OpenAI-compatible probe when openai-compatible is selected', async () => {
+      fetch.mockResolvedValue(jsonResponse({ data: [{ id: 'my-model' }] }));
+      const result = await probeLlmProvider({
+        llmProvider: 'openai-compatible',
+        openaiCompatibleBaseUrl: 'http://localhost:1234/v1',
+        openaiCompatibleModel: 'my-model'
+      });
+      expect(result.type).toBe('success');
+      expect(fetch.mock.calls[0][0]).toBe('http://localhost:1234/v1/models');
     });
   });
 });
