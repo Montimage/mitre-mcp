@@ -337,6 +337,50 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
     return paths
 
 
+def _group_name_lookup(group_list: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Case-insensitive group index — primary names and aliases.
+
+    Aliases never overwrite a primary name already in the index.
+    """
+    groups: dict[str, dict[str, Any]] = {}
+    for group in group_list:
+        name = group.get("name", "").lower()
+        if name:
+            groups[name] = group
+        for alias in group.get("aliases", []):
+            alias_lower = alias.lower()
+            if alias_lower not in groups:  # Don't overwrite primary names
+                groups[alias_lower] = group
+    return groups
+
+
+def _mitigation_name_lookup(
+    mitigation_list: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Case-insensitive mitigation index keyed by lowercase name."""
+    mitigations: dict[str, dict[str, Any]] = {}
+    for mitigation in mitigation_list:
+        name = mitigation.get("name", "").lower()
+        if name:
+            mitigations[name] = mitigation
+    return mitigations
+
+
+def _technique_mitre_id_lookup(
+    technique_list: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """MITRE ATT&CK external ID to technique index."""
+    techniques: dict[str, dict[str, Any]] = {}
+    for technique in technique_list:
+        for ref in technique.get("external_references", []):
+            if ref.get("source_name") == "mitre-attack":
+                mitre_id = ref.get("external_id", "")
+                if mitre_id:
+                    techniques[mitre_id] = technique
+                    break
+    return techniques
+
+
 def build_domain_indices(data: MitreAttackData) -> DomainIndices:
     """Build one domain's O(1) lookup indices (F-BUG-015, F-PERF-011).
 
@@ -353,41 +397,11 @@ def build_domain_indices(data: MitreAttackData) -> DomainIndices:
     Returns:
         The domain's lookup indices
     """
-    # Case-insensitive group index — primary names and aliases.
-    groups: dict[str, dict[str, Any]] = {}
     group_list = data.get_groups()
-    for group in group_list:
-        name = group.get("name", "").lower()
-        if name:
-            groups[name] = group
-        for alias in group.get("aliases", []):
-            alias_lower = alias.lower()
-            if alias_lower not in groups:  # Don't overwrite primary names
-                groups[alias_lower] = group
-
-    # Case-insensitive mitigation index.
-    mitigations: dict[str, dict[str, Any]] = {}
-    mitigation_list = data.get_mitigations()
-    for mitigation in mitigation_list:
-        name = mitigation.get("name", "").lower()
-        if name:
-            mitigations[name] = mitigation
-
-    # MITRE ATT&CK ID to technique index.
-    techniques: dict[str, dict[str, Any]] = {}
-    technique_list = data.get_techniques()
-    for technique in technique_list:
-        for ref in technique.get("external_references", []):
-            if ref.get("source_name") == "mitre-attack":
-                mitre_id = ref.get("external_id", "")
-                if mitre_id:
-                    techniques[mitre_id] = technique
-                    break
-
     indices = DomainIndices(
-        groups=groups,
-        mitigations=mitigations,
-        techniques_by_mitre_id=techniques,
+        groups=_group_name_lookup(group_list),
+        mitigations=_mitigation_name_lookup(data.get_mitigations()),
+        techniques_by_mitre_id=_technique_mitre_id_lookup(data.get_techniques()),
     )
     logger.info(
         "Built domain indices: %d group keys (%d groups), %d mitigations, %d techniques",
