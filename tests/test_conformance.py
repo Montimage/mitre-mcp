@@ -105,9 +105,9 @@ async def test_tool_annotations_and_domain_enum():
         assert output is not None, f"{tool.name} has no outputSchema"
         assert output.get("type") == "object", tool.name
         expected = EXPECTED_OUTPUT_PROPERTIES[tool.name]
-        assert set(output.get("properties", {})) == expected, (
-            f"{tool.name} outputSchema properties do not match the observed payload keys"
-        )
+        assert (
+            set(output.get("properties", {})) == expected
+        ), f"{tool.name} outputSchema properties do not match the observed payload keys"
         assert set(output.get("required", [])) == expected, tool.name
 
         # Issues #83/#84: the four list tools and three relationship tools
