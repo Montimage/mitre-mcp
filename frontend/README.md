@@ -259,7 +259,7 @@ Users can configure the server at runtime using the UI:
 
 - **Initial Load**: < 2s on fast connection
 - **Query Response**: Depends on mitre-mcp server (typically < 1s)
-- **Bundle Size**: ~150KB gzipped (production)
+- **Bundle Size**: ~76KB gzipped entry (production); the chat UI (~101KB gzipped) and the selected LLM provider SDK (9-172KB gzipped) load on demand
 
 ## Future Enhancements
 
