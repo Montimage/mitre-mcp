@@ -64,6 +64,18 @@ PAGED_TOOLS = {
     "get_techniques_mitigated_by_mitigation",
 }
 
+# get_techniques inputSchema property names, pinned before the F-CLEAN-007
+# options-model refactor (issue #72): the internal implementation takes a
+# single options object, but the published schema must not change.
+GET_TECHNIQUES_INPUT_PROPERTIES = {
+    "domain",
+    "include_subtechniques",
+    "remove_revoked_deprecated",
+    "include_descriptions",
+    "limit",
+    "offset",
+}
+
 
 @pytest.mark.asyncio
 async def test_server_discover():
@@ -116,6 +128,13 @@ async def test_tool_annotations_and_domain_enum():
             props = tool.input_schema["properties"]
             assert "limit" in props, f"{tool.name} inputSchema lacks limit"
             assert "offset" in props, f"{tool.name} inputSchema lacks offset"
+
+        # Issue #72: the F-CLEAN-007 options-model refactor is internal only —
+        # get_techniques' published inputSchema property names are unchanged.
+        if tool.name == "get_techniques":
+            assert (
+                set(tool.input_schema["properties"]) == GET_TECHNIQUES_INPUT_PROPERTIES
+            ), "get_techniques inputSchema property names changed"
 
 
 @pytest.mark.asyncio

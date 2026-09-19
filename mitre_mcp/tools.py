@@ -28,6 +28,7 @@ from .config import Config
 from .data import AttackContext, DomainIndices, DomainLists
 from .models import (
     EntityRef,
+    GetTechniquesOptions,
     GroupResult,
     GroupsResult,
     GroupTechniquesResult,
@@ -165,23 +166,45 @@ def get_techniques(
     Returns:
         Dictionary containing a list of techniques and pagination metadata
     """
+    # F-CLEAN-007: the published inputSchema is generated from this
+    # signature, so it keeps its per-parameter shape; the implementation
+    # takes a single options object.
+    return _get_techniques(
+        ctx,
+        GetTechniquesOptions(
+            domain=domain,
+            include_subtechniques=include_subtechniques,
+            remove_revoked_deprecated=remove_revoked_deprecated,
+            include_descriptions=include_descriptions,
+            limit=limit,
+            offset=offset,
+        ),
+    )
+
+
+def _get_techniques(ctx: Context, options: GetTechniquesOptions) -> TechniquesPageResult:
+    """get_techniques implementation over a packed options object."""
     # Validate inputs
     try:
-        domain = validate_domain(domain)
+        domain = validate_domain(options["domain"])
     except ValidationError as e:
         raise ToolError(str(e)) from e
-    limit, offset = _resolve_paging(limit, offset)
+    limit, offset = _resolve_paging(options["limit"], options["offset"])
 
     # F-PERF-005: default-argument calls slice the list precomputed at load
     # instead of re-querying the store.
     lists = _domain_lists(ctx, domain)
-    if lists is not None and include_subtechniques and not remove_revoked_deprecated:
+    if (
+        lists is not None
+        and options["include_subtechniques"]
+        and not options["remove_revoked_deprecated"]
+    ):
         techniques = lists.techniques
     else:
         data = _entry().get_attack_data(domain, ctx)
         techniques = data.get_techniques(
-            include_subtechniques=include_subtechniques,
-            remove_revoked_deprecated=remove_revoked_deprecated,
+            include_subtechniques=options["include_subtechniques"],
+            remove_revoked_deprecated=options["remove_revoked_deprecated"],
         )
 
     # Apply pagination
@@ -189,7 +212,7 @@ def get_techniques(
 
     # Format with consideration for token usage
     formatted_techniques = [
-        format_technique(technique, include_description=include_descriptions)
+        format_technique(technique, include_description=options["include_descriptions"])
         for technique in paginated_techniques
     ]
 
