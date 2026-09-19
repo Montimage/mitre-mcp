@@ -73,6 +73,36 @@ describe('LangGraphAgent', () => {
     it('requires an API key for OpenRouter', () => {
       expect(() => makeAgent({ llmProvider: LLM_PROVIDERS.OPENROUTER })).toThrow('OpenRouter API key is required');
     });
+
+    it('constructs an OpenAI-compatible agent with endpoint and model but NO API key', async () => {
+      // AC3: a keyless endpoint must still build — the init substitutes the
+      // 'not-needed' sentinel the SDK demands.
+      const agent = makeAgent({
+        llmProvider: LLM_PROVIDERS.OPENAI_COMPATIBLE,
+        openaiCompatibleBaseUrl: 'http://localhost:1234',
+        openaiCompatibleModel: 'local-model'
+      });
+      expect(agent.llmProvider).toBe('openai-compatible');
+      expect(agent.openaiCompatibleConfig.baseUrl).toBe('http://localhost:1234/v1');
+      expect(agent.openaiCompatibleConfig.model).toBe('local-model');
+
+      // The real ChatOpenAI resolves — the sentinel satisfied its key check.
+      const llm = await agent.llmReady;
+      expect(agent.llm).toBe(llm);
+
+      const status = agent.getStatus();
+      expect(status.openaiCompatibleModel).toBe('local-model');
+      expect(status.openaiCompatibleBaseUrl).toBe('http://localhost:1234/v1');
+    });
+
+    it('requires an endpoint URL and a model for the OpenAI-compatible provider', () => {
+      expect(() => makeAgent({ llmProvider: LLM_PROVIDERS.OPENAI_COMPATIBLE }))
+        .toThrow('Endpoint URL is required');
+      expect(() => makeAgent({
+        llmProvider: LLM_PROVIDERS.OPENAI_COMPATIBLE,
+        openaiCompatibleBaseUrl: 'http://localhost:1234/v1'
+      })).toThrow('Model name is required');
+    });
   });
 
   describe('tool discovery (ensureTools / createMCPTools)', () => {
