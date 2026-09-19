@@ -53,6 +53,52 @@ describe('ChatMessage', () => {
     expect(screen.queryByTitle('Copy message')).toBeNull();
   });
 
+  describe('typed error bubble (F-UX-009)', () => {
+    it.each([
+      ['llm', 'LLM error'],
+      ['tool', 'Tool error'],
+      ['server', 'Server error'],
+    ])('a %s failure renders an alert bubble with a Retry action and no Copy button', (kind, label) => {
+      const onRetry = vi.fn();
+      render(
+        <ChatMessage
+          type="error"
+          message={`${kind} broke`}
+          errorKind={kind}
+          retryable
+          retryQuery="list tactics"
+          onRetry={onRetry}
+        />
+      );
+
+      const alert = screen.getByRole('alert');
+      expect(alert.className).toContain('bg-red-50');
+      expect(alert.className).toContain('border-red-400');
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByText(`${kind} broke`)).toBeTruthy();
+      expect(screen.queryByTitle('Copy message')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+      expect(onRetry).toHaveBeenCalledWith('list tactics');
+    });
+
+    it('renders no Retry when the failure is not retryable or carries no query', () => {
+      const { rerender } = render(
+        <ChatMessage type="error" message="broken" errorKind="llm" retryable={false} retryQuery="q" onRetry={vi.fn()} />
+      );
+      expect(screen.getByRole('alert')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+
+      rerender(<ChatMessage type="error" message="broken" errorKind="llm" retryable onRetry={vi.fn()} />);
+      expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+    });
+
+    it('labels an unknown error kind plainly as Error', () => {
+      render(<ChatMessage type="error" message="broken" />);
+      expect(screen.getByText('Error')).toBeTruthy();
+    });
+  });
+
   describe('tool-approval card', () => {
     const toolCalls = [{ name: 'get_tactics', args: { domain: 'enterprise-attack' } }];
 
