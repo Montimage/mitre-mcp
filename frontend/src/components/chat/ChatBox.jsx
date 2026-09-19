@@ -94,12 +94,16 @@ export default function ChatBox() {
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const inside = active === dialog || dialog.contains(active);
       if (event.shiftKey) {
-        if (document.activeElement === first || !dialog.contains(document.activeElement)) {
+        // The dialog container itself holds focus on open — Shift+Tab from it
+        // must wrap, not step backwards into the page behind the modal.
+        if (active === first || active === dialog || !inside) {
           event.preventDefault();
           last.focus();
         }
-      } else if (document.activeElement === last || !dialog.contains(document.activeElement)) {
+      } else if (active === last || active === dialog || !inside) {
         event.preventDefault();
         first.focus();
       }

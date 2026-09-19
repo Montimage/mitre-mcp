@@ -276,12 +276,16 @@ describe('ChatBox', () => {
     // Focus moved into the dialog on open.
     expect(document.activeElement).toBe(dialog);
 
+    // Shift+Tab from the dialog container wraps to the last control — it must
+    // not step backwards into the page behind the modal.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(resetButton);
+
     // Tab past the last control wraps to the first.
-    resetButton.focus();
     fireEvent.keyDown(document, { key: 'Tab' });
     expect(document.activeElement).toBe(closeButton);
 
-    // Shift+Tab from the first control wraps to the last.
+    // Shift+Tab from the first control wraps back to the last.
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(resetButton);
   });
