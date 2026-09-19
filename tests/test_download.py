@@ -253,9 +253,7 @@ class TestDownloadDomain:
         body = json.dumps(sample_stix_bundle).encode()
         mock_client = _streaming_client(_streaming_response(body))
 
-        validators = await download_domain(
-            mock_client, "test", "http://example.com", output_path
-        )
+        validators = await download_domain(mock_client, "test", "http://example.com", output_path)
 
         # Verify file was created
         assert os.path.exists(output_path)
@@ -276,9 +274,7 @@ class TestDownloadDomain:
         )
         mock_client = _streaming_client(response)
 
-        validators = await download_domain(
-            mock_client, "test", "http://example.com", output_path
-        )
+        validators = await download_domain(mock_client, "test", "http://example.com", output_path)
 
         assert validators == {"etag": '"abc123"', "last_modified": "Tue, 01 Jul 2026 00:00:00 GMT"}
 
@@ -398,9 +394,7 @@ def _write_expired_cache(data_dir, sample_stix_bundle, domains=("enterprise", "m
 
 def _failing_http_client(mock_client_class):
     """Point httpx.AsyncClient at a client whose requests always fail."""
-    mock_client_class.return_value = _streaming_client(
-        error=httpx.HTTPError("connection refused")
-    )
+    mock_client_class.return_value = _streaming_client(error=httpx.HTTPError("connection refused"))
 
 
 @pytest.mark.asyncio
@@ -463,9 +457,7 @@ class TestAtomicCacheWrites:
         mock_client = _streaming_client(response)
 
         with pytest.raises(httpx.HTTPError):
-            await download_domain(
-                mock_client, "enterprise", "http://example.com", output_path
-            )
+            await download_domain(mock_client, "enterprise", "http://example.com", output_path)
 
         # The previous cache file is byte-for-byte intact
         with open(output_path, "rb") as f:
@@ -515,9 +507,7 @@ class TestConditionalRefresh:
             seen_requests.append(request)
             if request.headers.get("if-none-match") == '"v42"':
                 return httpx.Response(304)
-            return httpx.Response(
-                200, content=bundle_bytes, headers={"ETag": '"v42"'}
-            )
+            return httpx.Response(200, content=bundle_bytes, headers={"ETag": '"v42"'})
 
         transport = httpx.MockTransport(handler)
         real_async_client = httpx.AsyncClient
@@ -539,9 +529,7 @@ class TestConditionalRefresh:
             metadata_path = os.path.join(temp_data_dir, "metadata.json")
             with open(metadata_path) as f:
                 metadata = json.load(f)
-            metadata["last_update"] = (
-                datetime.now(timezone.utc) - timedelta(days=60)
-            ).isoformat()
+            metadata["last_update"] = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
             with open(metadata_path, "w") as f:
                 json.dump(metadata, f)
 
@@ -556,9 +544,8 @@ class TestConditionalRefresh:
 
         assert len(seen_requests) == 2 * len(domains)
         for request in seen_requests[len(domains) :]:
-            assert (
-                request.headers.get("if-none-match") == '"v42"'
-                or request.headers.get("if-modified-since")
+            assert request.headers.get("if-none-match") == '"v42"' or request.headers.get(
+                "if-modified-since"
             )
 
         # 304 left every cache file untouched

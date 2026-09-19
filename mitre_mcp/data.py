@@ -321,9 +321,7 @@ async def download_domain(
             follow_redirects=True,
         ) as response:
             if response.status_code == httpx.codes.NOT_MODIFIED:
-                logger.info(
-                    "%s data unchanged (304) — keeping cached file", domain.capitalize()
-                )
+                logger.info("%s data unchanged (304) — keeping cached file", domain.capitalize())
                 return None
             response.raise_for_status()
 
