@@ -63,6 +63,12 @@ export default function ChatBox({ onSetupStatusChange }) {
 
   const settingsButtonRef = useRef(null);
   const settingsDialogRef = useRef(null);
+  // Session-scoped "always allow lookups" opt-in (F-UX-010): once the user
+  // chooses it on a read-only approval card, later batches where every call
+  // is read-only are auto-approved without a card. A ref, not state — it is
+  // read inside the approval callback, never rendered, and must not cause
+  // re-renders. Deliberately not persisted: the opt-in ends with the page.
+  const alwaysAllowLookupsRef = useRef(false);
 
   // Closing the dialog returns focus to the Settings trigger (F-UX-014).
   const closeSettings = useCallback(() => {
@@ -331,6 +337,12 @@ export default function ChatBox({ onSetupStatusChange }) {
 
   const handleApprove = useCallback(() => handleToolApproval(true), [handleToolApproval]);
   const handleDeny = useCallback(() => handleToolApproval(false), [handleToolApproval]);
+  // "Always allow lookups" approves the pending card AND opts the session
+  // into auto-approving later all-read-only batches (F-UX-010).
+  const handleAlwaysAllow = useCallback(() => {
+    alwaysAllowLookupsRef.current = true;
+    handleToolApproval(true);
+  }, [handleToolApproval]);
 
   // Handle sending message
   const handleSendMessage = async (text) => {
@@ -359,6 +371,18 @@ export default function ChatBox({ onSetupStatusChange }) {
     try {
       // Callback for tool approval
       const requestToolApproval = async (toolCalls) => {
+        // Session opt-in (F-UX-010): once the user chose "always allow
+        // lookups", a batch where every call is read-only is approved
+        // without posting a card — the approval is proportionate to a
+        // read-only lookup. Mixed or non-read-only batches still prompt.
+        if (
+          alwaysAllowLookupsRef.current &&
+          toolCalls.length > 0 &&
+          toolCalls.every((tc) => tc.readOnly === true)
+        ) {
+          return true;
+        }
+
         // Add approval request message to chat
         setMessages(prev => [...prev, makeMessage({
           type: 'tool-approval',
@@ -566,6 +590,7 @@ export default function ChatBox({ onSetupStatusChange }) {
                   decision={msg.decision}
                   onApprove={handleApprove}
                   onDeny={handleDeny}
+                  onAlwaysAllow={handleAlwaysAllow}
                 />
                 {/* Error messages can carry a fix action — "Open Settings"
                     points at the real remedy (F-UX-004). */}
@@ -603,7 +628,9 @@ export default function ChatBox({ onSetupStatusChange }) {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                <span>Thinking...</span>
+                {/* While an approval card is parked the agent is not
+                    "thinking" — it is blocked on the user (F-UX-010). */}
+                <span>{pendingToolCalls ? 'Waiting for your approval' : 'Thinking...'}</span>
               </div>
             )}
           </>

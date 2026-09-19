@@ -172,6 +172,92 @@ describe('ChatBox', () => {
     expect(mocks.agents[0].cleared).toBe(true);
   });
 
+  it('F-UX-010: the status reads "Waiting for your approval" while an approval is pending', async () => {
+    mocks.processQuery.mockImplementation(async (text, requestApproval) => {
+      const approved = await requestApproval([{ id: 'c1', name: 'get_tactics', args: {} }]);
+      return approved ? 'tools ran' : 'cancelled';
+    });
+
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    fireEvent.change(textarea, { target: { value: 'list tactics' } });
+    fireEvent.submit(textarea.closest('form'));
+
+    await screen.findByText('Tool Execution Request');
+    expect(screen.getByText('Waiting for your approval')).toBeTruthy();
+    expect(screen.queryByText('Thinking...')).toBeNull();
+
+    // Resolve the parked approval so the run finishes cleanly.
+    fireEvent.click(screen.getByText('✗ Deny'));
+    await screen.findByText('cancelled');
+  });
+
+  it('F-UX-010: choosing "Always allow lookups" auto-approves later read-only batches without a card', async () => {
+    const readOnlyCall = (id) => ({
+      id,
+      name: 'get_tactics',
+      title: 'Get Tactics',
+      description: 'List the ATT&CK tactics',
+      args: {},
+      readOnly: true,
+    });
+    let round = 0;
+    mocks.processQuery.mockImplementation(async (text, requestApproval) => {
+      round += 1;
+      const approved = await requestApproval([readOnlyCall(`c${round}`)]);
+      return approved ? 'tools ran' : 'cancelled';
+    });
+
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    // First lookup: the informational card shows and the user opts in.
+    fireEvent.change(textarea, { target: { value: 'q1' } });
+    fireEvent.submit(textarea.closest('form'));
+    await screen.findByText('Read-only lookup');
+    fireEvent.click(screen.getByRole('button', { name: /always allow lookups/i }));
+    await screen.findByText('tools ran');
+
+    // Second lookup: auto-approved — no new approval card is posted.
+    fireEvent.change(textarea, { target: { value: 'q2' } });
+    fireEvent.submit(textarea.closest('form'));
+    await waitFor(() => expect(screen.getAllByText('tools ran')).toHaveLength(2));
+    // Only the first (decided) card remains — no second card appeared.
+    expect(screen.getAllByText('Read-only lookup')).toHaveLength(1);
+  });
+
+  it('F-UX-010: after always-allow, a non-read-only batch still requires approval', async () => {
+    const batches = [
+      [{ id: 'c1', name: 'get_tactics', title: 'Get Tactics', args: {}, readOnly: true }],
+      [{ id: 'c2', name: 'run_query', title: 'Run Query', args: {}, readOnly: false }],
+    ];
+    let round = 0;
+    mocks.processQuery.mockImplementation(async (text, requestApproval) => {
+      const approved = await requestApproval(batches[round++]);
+      return approved ? 'ran' : 'cancelled';
+    });
+
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    fireEvent.change(textarea, { target: { value: 'q1' } });
+    fireEvent.submit(textarea.closest('form'));
+    await screen.findByText('Read-only lookup');
+    fireEvent.click(screen.getByRole('button', { name: /always allow lookups/i }));
+    await screen.findByText('ran');
+
+    // A call that is not read-only still prompts with the warning card.
+    fireEvent.change(textarea, { target: { value: 'q2' } });
+    fireEvent.submit(textarea.closest('form'));
+    await screen.findByText('Tool Execution Request');
+    fireEvent.click(screen.getByText('✓ Approve'));
+    await waitFor(() => expect(screen.getAllByText('ran')).toHaveLength(2));
+  });
+
   it('F-PERF-009 regression: mount, unchanged save and double test-connection construct the MCP client once', async () => {
     render(<ChatBox />);
     await screen.findByText(WELCOME);

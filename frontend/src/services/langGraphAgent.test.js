@@ -229,7 +229,12 @@ describe('LangGraphAgent', () => {
       const onToolCallRequest = vi.fn().mockResolvedValue(false);
       const response = await agent.processQuery('list tactics', onToolCallRequest);
 
-      expect(onToolCallRequest).toHaveBeenCalledWith([{ id: 'c1', name: 'get_tactics', args: {} }]);
+      // Approval calls carry the tools/list display metadata (F-UX-010) —
+      // with no matching definition the fallbacks are name/empty/false.
+      expect(onToolCallRequest).toHaveBeenCalledWith([{
+        id: 'c1', name: 'get_tactics', args: {},
+        title: 'get_tactics', description: '', readOnly: false,
+      }]);
       expect(fakeTool.invoke).not.toHaveBeenCalled();
       expect(response).toBe('Tool execution was cancelled by user.');
     });
@@ -245,6 +250,31 @@ describe('LangGraphAgent', () => {
       const response = await agent.processQuery('go', vi.fn().mockResolvedValue(true));
       expect(fakeTool.invoke).toHaveBeenCalledTimes(1);
       expect(response).toBe('done');
+    });
+
+    it('F-UX-010: approval requests carry title, description and readOnly from tools/list metadata', async () => {
+      const fakeTool = { name: 'get_tactics', invoke: vi.fn() };
+      const agent = makeAgent();
+      stubReadyAgent(agent, { tools: [fakeTool] });
+      // The tools/list entry as createMCPTools() would have stored it —
+      // FastMCP serves annotations in wire form (readOnlyHint).
+      agent.toolDefinitions = [{
+        name: 'get_tactics',
+        title: 'Get Tactics',
+        description: 'List the ATT&CK tactics',
+        annotations: { readOnlyHint: true },
+      }];
+      agent.llmWithTools.invoke.mockResolvedValue({
+        content: '', tool_calls: [{ id: 'c1', name: 'get_tactics', args: { domain: 'enterprise-attack' } }],
+      });
+
+      const onToolCallRequest = vi.fn().mockResolvedValue(false);
+      await agent.processQuery('list tactics', onToolCallRequest);
+
+      expect(onToolCallRequest).toHaveBeenCalledWith([{
+        id: 'c1', name: 'get_tactics', args: { domain: 'enterprise-attack' },
+        title: 'Get Tactics', description: 'List the ATT&CK tactics', readOnly: true,
+      }]);
     });
 
     it('returns the max-iterations fallback after 5 tool-calling rounds', async () => {
