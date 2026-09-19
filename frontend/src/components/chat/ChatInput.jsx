@@ -11,12 +11,9 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
   const textareaRef = useRef(null);
   const formRef = useRef(null);
 
-  // Auto-focus on mount
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, []);
+  // No autofocus on mount (F-UX-019): focusing on load scrolls mobile users
+  // into the chat and pops the keyboard before they choose to interact. The
+  // click-to-ask handler below still focuses — on an explicit user action.
 
   // Click-to-ask: a landing section (e.g. Playbooks) dispatches
   // ASK_CHAT_EVENT with a prompt; fill the input with it and scroll the
@@ -70,9 +67,11 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
     // Shift+Enter for new line (default behavior, no need to handle)
   };
 
-  // Character count
+  // Character count — maxLength alone would truncate silently (F-UX-019),
+  // so the counter turns amber at the limit and names it.
   const charCount = input.length;
   const maxChars = 1000;
+  const atLimit = charCount >= maxChars;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="bg-white p-4">
@@ -99,8 +98,12 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
         <div className="flex items-center justify-between">
           {/* Left side: Character Count and Model Info */}
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500">
+            <span
+              role={atLimit ? 'status' : undefined}
+              className={`text-xs ${atLimit ? 'text-amber-700 font-medium' : 'text-gray-500'}`}
+            >
               {charCount} / {maxChars}
+              {atLimit ? ' — character limit reached' : ''}
             </span>
 
             {/* Model Badge */}
@@ -121,11 +124,12 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
               Enter to send
             </span>
 
-            {/* Send Button */}
+            {/* Send Button — min-h-11 keeps the tap target at least 44px
+                tall on small screens (F-UX-019). */}
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+              className="px-6 py-2 min-h-11 sm:min-h-0 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
             >
               {isLoading ? (
                 <span className="flex items-center space-x-2">
