@@ -76,42 +76,34 @@ class TestMitreMcpServer(unittest.TestCase):
         """Clean up after tests."""
         self._tmp_dir.cleanup()
 
-    @patch("mitre_mcp.mitre_mcp_server.httpx.AsyncClient")
-    @patch("mitre_mcp.mitre_mcp_server.load_metadata")
-    @patch("builtins.open", new_callable=unittest.mock.mock_open)
-    def test_download_and_save_attack_data_force_download(
-        self, mock_open, mock_load_metadata, mock_async_client
-    ):
+    def test_download_and_save_attack_data_force_download(self):
         """Test download_and_save_attack_data_async with force download."""
-        # Mock load_metadata to return None (no cached data)
-        mock_load_metadata.return_value = None
+        bundle = b'{"type": "bundle", "objects": []}'
 
-        # Mock HTTP client and response
-        mock_response = AsyncMock()
-        mock_response.text = '{"type": "bundle", "objects": []}'
-        mock_response.raise_for_status = MagicMock()
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=bundle, headers={"ETag": '"t1"'})
 
-        mock_client_instance = AsyncMock()
-        mock_client_instance.get = AsyncMock(return_value=mock_response)
-        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
-        mock_async_client.return_value = mock_client_instance
+        transport = httpx.MockTransport(handler)
+        real_async_client = httpx.AsyncClient
 
-        # Call the async function
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                download_and_save_attack_data_async(self.test_data_dir, force=True)
-            )
-        finally:
-            loop.close()
+        with patch(
+            "mitre_mcp.mitre_mcp_server.httpx.AsyncClient",
+            lambda **kwargs: real_async_client(transport=transport),
+        ):
+            # Call the async function
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(
+                    download_and_save_attack_data_async(self.test_data_dir, force=True)
+                )
+            finally:
+                loop.close()
 
         # Assertions
-        self.assertIn("enterprise", result)
-        self.assertIn("mobile", result)
-        self.assertIn("ics", result)
-        self.assertIn("metadata", result)
+        for key in ("enterprise", "mobile", "ics", "metadata"):
+            self.assertIn(key, result)
+            self.assertTrue(os.path.exists(result[key]))
 
     def test_get_attack_data_enterprise(self):
         """Test get_attack_data with enterprise domain."""

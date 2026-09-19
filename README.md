@@ -42,7 +42,7 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 
 - **Comprehensive MITRE ATT&CK Coverage** - All techniques, tactics, groups, software, and mitigations
 - **Multi-Domain Support** - Enterprise, Mobile, and ICS ATT&CK domains
-- **Intelligent Caching** - Automatic caching with configurable expiry (default: 24 hours)
+- **Intelligent Caching** - Atomic, per-user caching with conditional refreshes and configurable expiry (default: 14 days)
 - **Performance Optimized** - O(1) lookups using pre-built indices (80-95% faster)
 - **Dual Transport Modes** - stdio for local clients, HTTP for web integrations
 - **CORS-Enabled HTTP Server** - Async notifications and cross-origin request support
@@ -297,9 +297,9 @@ Set before starting `mitre-mcp` to customize behavior:
 | Variable                                                    | Default                        | Purpose                                                                              |
 | ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------ |
 | `MITRE_ENTERPRISE_URL`, `MITRE_MOBILE_URL`, `MITRE_ICS_URL` | Official MITRE CTI GitHub URLs | Override ATT&CK bundle locations or point to internal mirror                         |
-| `MITRE_DATA_DIR`                                            | `mitre_mcp/data`               | Store cached bundles in custom directory                                             |
-| `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                         |
-| `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                          |
+| `MITRE_DATA_DIR`                                            | `~/.cache/mitre-mcp`           | Store cached bundles in custom directory                                             |
+| `MITRE_DOWNLOAD_TIMEOUT`                                    | `120`                          | HTTP timeout in seconds for bundle downloads                                         |
+| `MITRE_CACHE_EXPIRY_DAYS`                                   | `14`                           | Maximum age before cached data is refreshed                                          |
 | `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                      |
 | `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `200`                   | Default and maximum records returned by list tools                                   |
 | `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                              |
@@ -312,10 +312,14 @@ To let a hosted UI (e.g. the Netlify deployment) call the server cross-origin, s
 
 The server automatically caches MITRE ATT&CK data to improve performance:
 
-1. On first run, downloads and stores data in `data/` folder
-2. On subsequent runs, uses cached data if less than 1 day old
-3. Automatically refreshes data older than 1 day
-4. Use `--force-download` to force fresh download
+1. On first run, downloads and stores data in the per-user cache directory
+   (`$XDG_CACHE_HOME/mitre-mcp`, or `~/.cache/mitre-mcp` by default)
+2. On subsequent runs, uses cached data if less than 14 days old
+3. Automatically refreshes data older than 14 days, using conditional
+   requests — a `304 Not Modified` answer reuses the cached bundles
+4. Cache files are written atomically (temp file + rename), so a failed
+   download never corrupts a good cache
+5. Use `--force-download` to force fresh download
 
 ## Performance
 
@@ -417,8 +421,8 @@ pre-commit run --all-files  # All quality checks
 
 **Data never updates**
 
-- Cached bundles refresh automatically after 1 day
-- Force refresh: `mitre-mcp --force-download` or delete `data/` folder
+- Cached bundles refresh automatically after 14 days
+- Force refresh: `mitre-mcp --force-download` or delete `~/.cache/mitre-mcp`
 
 **Tool calls return errors**
 

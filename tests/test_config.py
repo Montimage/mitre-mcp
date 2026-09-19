@@ -14,8 +14,8 @@ class TestConfig:
 
     def test_default_values(self):
         """Test default configuration values."""
-        assert Config.DOWNLOAD_TIMEOUT_SECONDS == 30
-        assert Config.CACHE_EXPIRY_DAYS == 1
+        assert Config.DOWNLOAD_TIMEOUT_SECONDS == 120
+        assert Config.CACHE_EXPIRY_DAYS == 14
         assert Config.REQUIRED_DISK_SPACE_MB == 200
         assert Config.DEFAULT_PAGE_SIZE == 20
         assert Config.MAX_PAGE_SIZE == 200
@@ -33,12 +33,41 @@ class TestConfig:
 
     def test_get_data_dir_default(self, monkeypatch):
         """Test default data directory."""
-        # Remove env var if set
-        monkeypatch.delenv("MITRE_DATA_DIR", raising=False)
+        monkeypatch.setattr(Config, "DATA_DIR", None)
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
 
         data_dir = Config.get_data_dir()
-        assert data_dir.endswith("data")
+        assert data_dir.endswith("mitre-mcp")
         assert os.path.isabs(data_dir)
+
+    def test_get_data_dir_default_outside_package(self, monkeypatch):
+        """F-BUG-014: the default cache dir lives outside the installed
+        package, so read-only installs work and reinstalls keep the cache."""
+        monkeypatch.setattr(Config, "DATA_DIR", None)
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+        from mitre_mcp import config as config_module
+
+        package_dir = os.path.dirname(os.path.abspath(config_module.__file__))
+        data_dir = os.path.abspath(Config.get_data_dir())
+
+        assert not data_dir.startswith(package_dir + os.sep)
+        assert data_dir != package_dir
+
+    def test_get_data_dir_default_xdg_cache_home(self, monkeypatch):
+        """XDG_CACHE_HOME is honored for the per-user cache location."""
+        monkeypatch.setattr(Config, "DATA_DIR", None)
+        monkeypatch.setenv("XDG_CACHE_HOME", os.path.join("tmp", "xdg-cache-test"))
+
+        assert Config.get_data_dir() == os.path.join("tmp", "xdg-cache-test", "mitre-mcp")
+
+    def test_get_data_dir_default_home_cache(self, monkeypatch):
+        """Without XDG_CACHE_HOME the default is ~/.cache/mitre-mcp."""
+        monkeypatch.setattr(Config, "DATA_DIR", None)
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+        expected = os.path.join(os.path.expanduser("~"), ".cache", "mitre-mcp")
+        assert Config.get_data_dir() == expected
 
     def test_get_data_dir_custom(self, monkeypatch):
         """Test custom data directory from environment."""

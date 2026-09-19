@@ -182,6 +182,29 @@ def load_metadata(metadata_path: str) -> dict[str, Any] | None:
         return None
 
 
+def _check_bundle_structure(data: Any, domain: str) -> dict:
+    """Check a parsed STIX bundle's shape.
+
+    Shared by ``validate_stix_bundle`` (string in) and
+    ``_validate_bundle_file`` (file in) so the downloaded temp file is
+    held to exactly the same rules before it may replace the cache.
+
+    Raises:
+        ValueError: If the bundle is invalid
+    """
+    if not isinstance(data, dict):
+        raise ValueError(f"{domain} data must be dict, got {type(data)}")
+
+    if "type" not in data or data["type"] != "bundle":
+        raise ValueError(f"{domain} data missing 'type: bundle'")
+
+    if "objects" not in data or not isinstance(data["objects"], list):
+        raise ValueError(f"{domain} data missing 'objects' array")
+
+    logger.info("Validated %s STIX bundle: %d objects", domain, len(data["objects"]))
+    return data
+
+
 def validate_stix_bundle(content: str, domain: str) -> dict:
     """Validate STIX bundle structure.
 
@@ -200,54 +223,138 @@ def validate_stix_bundle(content: str, domain: str) -> dict:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON for {domain}: {e}")
 
-    if not isinstance(data, dict):
-        raise ValueError(f"{domain} data must be dict, got {type(data)}")
+    return _check_bundle_structure(data, domain)
 
-    if "type" not in data or data["type"] != "bundle":
-        raise ValueError(f"{domain} data missing 'type: bundle'")
 
-    if "objects" not in data or not isinstance(data["objects"], list):
-        raise ValueError(f"{domain} data missing 'objects' array")
+def _validate_bundle_file(path: str, domain: str) -> dict:
+    """Read a downloaded bundle back and validate its STIX structure.
 
-    logger.info("Validated %s STIX bundle: %d objects", domain, len(data["objects"]))
-    return data
+    Runs inside ``asyncio.to_thread`` from the download path — a ~40 MB
+    ``json.load`` is blocking I/O and must stay off the event loop.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON for {domain}: {e}")
+
+    return _check_bundle_structure(data, domain)
+
+
+def _unlink_quietly(path: str) -> None:
+    """Best-effort removal of a leftover temp file."""
+    try:
+        os.unlink(path)
+    except OSError:
+        pass  # Temp file missing or already gone — nothing to clean up.
+
+
+def _write_json_atomic(path: str, payload: dict) -> None:
+    """Serialize *payload* to *path* atomically.
+
+    Writes a sibling temp file and ``os.replace``es it into place, so a
+    crash mid-write never leaves a truncated cache file (F-BUG-028).
+    """
+    tmp_path = f"{path}.tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+    except Exception:
+        _unlink_quietly(tmp_path)
+        raise
+    os.replace(tmp_path, path)
+
+
+def _conditional_headers(validators: dict[str, str] | None) -> dict[str, str]:
+    """Build conditional-GET headers from stored cache validators.
+
+    Stored under ``metadata["validators"][domain]`` by the previous
+    download; a server that honors them answers 304 and the cached file
+    is reused untouched (F-PERF-004).
+    """
+    headers: dict[str, str] = {}
+    if not validators:
+        return headers
+    if validators.get("etag"):
+        headers["If-None-Match"] = validators["etag"]
+    if validators.get("last_modified"):
+        headers["If-Modified-Since"] = validators["last_modified"]
+    return headers
 
 
 async def download_domain(
-    client: httpx.AsyncClient, domain: str, url: str, output_path: str
-) -> None:
-    """Download a single MITRE ATT&CK domain asynchronously.
+    client: httpx.AsyncClient,
+    domain: str,
+    url: str,
+    output_path: str,
+    conditional_headers: dict[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Stream a single MITRE ATT&CK domain to disk, atomically.
+
+    The body lands in a sibling temp file chunk by chunk — bounded memory,
+    no parse/re-serialize round-trip (F-PERF-004) — and is swapped into
+    place with ``os.replace`` only after it validates, so a failed
+    download never truncates a good cache file (F-BUG-028).
 
     Args:
         client: HTTP client
         domain: Domain name
         url: Download URL
         output_path: Where to save
+        conditional_headers: ``If-None-Match``/``If-Modified-Since`` values
+            stored by the previous download, for a conditional refresh
+
+    Returns:
+        The response's cache validators (``etag``/``last_modified``) on a
+        200 download, or ``None`` when the server answers 304 and the
+        existing cache file is left untouched.
     """
     logger.info("Downloading %s ATT&CK data...", domain.capitalize())
 
+    tmp_path = f"{output_path}.tmp"
     try:
-        response = await client.get(
-            url, timeout=Config.DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=True
-        )
-        response.raise_for_status()
+        async with client.stream(
+            "GET",
+            url,
+            headers=conditional_headers,
+            timeout=Config.DOWNLOAD_TIMEOUT_SECONDS,
+            follow_redirects=True,
+        ) as response:
+            if response.status_code == httpx.codes.NOT_MODIFIED:
+                logger.info("%s data unchanged (304) — keeping cached file", domain.capitalize())
+                return None
+            response.raise_for_status()
 
-        # Validate content
-        validated_data = validate_stix_bundle(response.text, domain)
+            # Stream the body to the temp file: file I/O goes through
+            # to_thread so no blocking open()/write() runs on the loop.
+            tmp = await asyncio.to_thread(open, tmp_path, "wb")
+            try:
+                async for chunk in response.aiter_bytes():
+                    await asyncio.to_thread(tmp.write, chunk)
+            finally:
+                await asyncio.to_thread(tmp.close)
 
-        # Save to file
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(validated_data, f, indent=2)
+        # Validate the temp file before it may replace the cache, then
+        # swap it in atomically — a corrupt download keeps the old file.
+        validated = await asyncio.to_thread(_validate_bundle_file, tmp_path, domain)
+        await asyncio.to_thread(os.replace, tmp_path, output_path)
 
-        logger.info("Downloaded %s: %d objects", domain, len(validated_data["objects"]))
+        logger.info("Downloaded %s: %d objects", domain, len(validated["objects"]))
+        return {
+            "etag": response.headers.get("etag", ""),
+            "last_modified": response.headers.get("last-modified", ""),
+        }
 
     except httpx.TimeoutException:
+        _unlink_quietly(tmp_path)
         logger.error("Timeout downloading %s data from %s", domain, url)
         raise
     except httpx.HTTPError as e:
+        _unlink_quietly(tmp_path)
         logger.error("HTTP error downloading %s: %s", domain, e)
         raise
     except Exception as e:
+        _unlink_quietly(tmp_path)
         logger.error("Failed to download %s: %s", domain, e)
         raise
 
@@ -275,6 +382,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
     # Check if we need to download new data
     need_download = force
+    metadata: dict[str, Any] | None = None
     if not need_download:
         metadata = load_metadata(paths["metadata"])
         if metadata is None:
@@ -293,8 +401,20 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
 
     if need_download:
         try:
+            # The default data dir is per-user now — create it when the
+            # download path runs outside the server lifespan (scripts).
+            await asyncio.to_thread(os.makedirs, data_dir, exist_ok=True)
+
             # Check disk space before downloading
             check_disk_space(data_dir)
+
+            # Conditional-refresh inputs (F-PERF-004): the validators the
+            # previous download stored, sent only when the cached file is
+            # still there — a missing file needs an unconditional fetch,
+            # and --force-download always fetches fresh bytes.
+            old_validators: dict[str, dict[str, str]] = {}
+            if not force:
+                old_validators = (metadata or {}).get("validators", {})
 
             logger.info("Downloading MITRE ATT&CK data in parallel...")
 
@@ -306,20 +426,35 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
             ) as client:
                 # Download all domains in parallel
                 download_tasks = [
-                    download_domain(client, domain, url, paths[domain])
+                    download_domain(
+                        client,
+                        domain,
+                        url,
+                        paths[domain],
+                        conditional_headers=(
+                            _conditional_headers(old_validators.get(domain))
+                            if os.path.exists(paths[domain])
+                            else None
+                        ),
+                    )
                     for domain, url in urls.items()
                 ]
 
                 # Wait for all downloads to complete
-                await asyncio.gather(*download_tasks)
+                results = await asyncio.gather(*download_tasks)
 
-            # Save metadata
+            # Merge validators: fresh ones from 200 responses, kept ones
+            # from 304s — then write metadata atomically like the bundles.
+            new_validators = {
+                domain: (result if result is not None else old_validators.get(domain, {}))
+                for domain, result in zip(urls, results)
+            }
             metadata = {
                 "last_update": datetime.now(timezone.utc).isoformat(),
                 "domains": list(urls.keys()),
+                "validators": new_validators,
             }
-            with open(paths["metadata"], "w", encoding="utf-8") as f:
-                json.dump(metadata, f, indent=2)
+            await asyncio.to_thread(_write_json_atomic, paths["metadata"], metadata)
 
             logger.info("MITRE ATT&CK data downloaded successfully.")
         except Exception as e:
