@@ -11,6 +11,7 @@
 import { useState, useEffect } from 'react';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
 import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
+import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 import McpServerForm from './config/McpServerForm.jsx';
 import OllamaForm from './config/OllamaForm.jsx';
 import GeminiForm from './config/GeminiForm.jsx';
@@ -23,8 +24,8 @@ const LLM_PROVIDERS = {
 };
 
 const DEFAULT_CONFIG = {
-  host: 'localhost',
-  port: 8000,
+  host: DEFAULT_MCP_HOST,
+  port: DEFAULT_MCP_PORT,
   llmProvider: LLM_PROVIDERS.OLLAMA,
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'llama3.1:8b',
@@ -60,7 +61,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
   useEffect(() => {
     // Load saved config from localStorage
     const loadConfig = async () => {
-      const saved = localStorage.getItem('mcp-server-config');
+      const saved = localStorage.getItem(MCP_CONFIG_STORAGE_KEY);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -114,7 +115,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
       geminiApiKey: '', // Don't store API keys in localStorage
       openrouterApiKey: ''
     };
-    localStorage.setItem('mcp-server-config', JSON.stringify(configToSave));
+    localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
 
     // Notify parent component (with full config including API keys)
     if (onConfigChange) {
@@ -142,7 +143,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
 
   const handleReset = async () => {
     setConfig({ ...DEFAULT_CONFIG });
-    localStorage.removeItem('mcp-server-config');
+    localStorage.removeItem(MCP_CONFIG_STORAGE_KEY);
 
     // Clear API keys from IndexedDB
     try {

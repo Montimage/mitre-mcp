@@ -4,16 +4,35 @@
  * Multi-line text input for sending messages with keyboard shortcuts
  */
 import { useState, useRef, useEffect } from 'react';
+import { ASK_CHAT_EVENT } from '../../services/askChat.js';
 
 export default function ChatInput({ onSendMessage, isLoading = false, placeholder = "Ask about MITRE ATT&CK...", modelInfo = null }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef(null);
+  const formRef = useRef(null);
 
   // Auto-focus on mount
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
+  }, []);
+
+  // Click-to-ask: a landing section (e.g. Playbooks) dispatches
+  // ASK_CHAT_EVENT with a prompt; fill the input with it and scroll the
+  // chat into view so the user can review and send it.
+  useEffect(() => {
+    const handleAsk = (event) => {
+      if (typeof event.detail !== 'string' || !event.detail.trim()) {
+        return;
+      }
+      setInput(event.detail);
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // preventScroll keeps the smooth scroll above as the single scroll.
+      textareaRef.current?.focus({ preventScroll: true });
+    };
+    window.addEventListener(ASK_CHAT_EVENT, handleAsk);
+    return () => window.removeEventListener(ASK_CHAT_EVENT, handleAsk);
   }, []);
 
   // Auto-resize textarea
@@ -56,7 +75,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
   const maxChars = 1000;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="bg-white p-4">
       <div className="flex flex-col space-y-3">
         {/* Textarea */}
         <textarea
