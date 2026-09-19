@@ -145,6 +145,89 @@ describe('ChatBox', () => {
     expect(await screen.findByText('agent answer')).toBeTruthy();
   });
 
+  it.each(['llm', 'tool', 'server'])(
+    'F-UX-009: a %s failure result renders an error bubble with Retry and no Copy button',
+    async (kind) => {
+      mocks.processQuery.mockResolvedValue({
+        error: true,
+        kind,
+        message: `${kind} broke`,
+        retryable: true
+      });
+      render(<ChatBox />);
+      const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+      await screen.findByText(WELCOME);
+
+      fireEvent.change(textarea, { target: { value: 'list tactics' } });
+      fireEvent.submit(textarea.closest('form'));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain(`${kind} broke`);
+      expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
+      // The failure is not an assistant answer — no Copy affordance.
+      expect(screen.queryByTitle('Copy message')).toBeNull();
+      expect(screen.queryByText('Assistant')).toBeNull();
+    }
+  );
+
+  it('F-UX-009: a thrown (untyped) failure also renders a retryable error bubble', async () => {
+    mocks.processQuery.mockRejectedValue(new Error('socket hangup'));
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    fireEvent.change(textarea, { target: { value: 'list tactics' } });
+    fireEvent.submit(textarea.closest('form'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('socket hangup');
+    expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
+  });
+
+  it('F-UX-009: Retry re-runs the failed query in place — no duplicated user turn, error bubble replaced', async () => {
+    mocks.processQuery
+      .mockResolvedValueOnce({ error: true, kind: 'server', message: 'server unreachable', retryable: true })
+      .mockResolvedValueOnce('14 tactics');
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    fireEvent.change(textarea, { target: { value: 'list tactics' } });
+    fireEvent.submit(textarea.closest('form'));
+    await screen.findByRole('alert');
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await screen.findByText('14 tactics');
+    expect(mocks.processQuery).toHaveBeenCalledTimes(2);
+    expect(mocks.processQuery).toHaveBeenLastCalledWith('list tactics', expect.any(Function));
+    // The error bubble is gone and the user turn was not duplicated.
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getAllByText('list tactics')).toHaveLength(1);
+  });
+
+  it('F-UX-009: a retried query that fails again shows a fresh error bubble', async () => {
+    mocks.processQuery.mockResolvedValue({
+      error: true,
+      kind: 'llm',
+      message: 'provider down',
+      retryable: true
+    });
+    render(<ChatBox />);
+    const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
+    await screen.findByText(WELCOME);
+
+    fireEvent.change(textarea, { target: { value: 'list tactics' } });
+    fireEvent.submit(textarea.closest('form'));
+    await screen.findByRole('alert');
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => expect(mocks.processQuery).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
+  });
+
   it('F-BUG-010 regression: clearing with a pending approval resolves it and re-enables input', async () => {
     // The fake agent requests approval and waits on the resolver ChatBox stores.
     mocks.processQuery.mockImplementation(async (text, requestApproval) => {

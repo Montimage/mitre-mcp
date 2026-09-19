@@ -7,6 +7,74 @@
  */
 
 /**
+ * Typed failure kinds surfaced by the agent loop (F-UX-009).
+ *
+ * - llm:    the provider/model could not produce an answer
+ * - tool:   an MCP tool call kept failing inside the agent loop
+ * - server: the MCP server itself was unreachable
+ */
+export const AGENT_ERROR_KINDS = { LLM: 'llm', TOOL: 'tool', SERVER: 'server' };
+
+/**
+ * The object processQuery resolves on failure (F-UX-009).
+ *
+ * A typed object — never a bare string — so the caller can render it as an
+ * error bubble with a Retry affordance instead of an assistant answer that
+ * carries a Copy button.
+ *
+ * @param {string} kind - One of AGENT_ERROR_KINDS
+ * @param {string} message - User-facing failure text
+ * @param {boolean} retryable - Whether re-running the same query can succeed
+ * @returns {{error: true, kind: string, message: string, retryable: boolean}}
+ */
+export const agentErrorResult = (kind, message, retryable = true) => ({
+  error: true,
+  kind,
+  message,
+  retryable
+});
+
+/**
+ * Type guard for the agent failure result
+ *
+ * @param {*} value - A processQuery resolution
+ * @returns {boolean} True when the value is a typed agent error
+ */
+export const isAgentErrorResult = (value) =>
+  Boolean(value) && typeof value === 'object' && value.error === true &&
+  Object.values(AGENT_ERROR_KINDS).includes(value.kind);
+
+/**
+ * Tag an error with the subsystem that raised it so the query-level catch
+ * can classify it without parsing message text.
+ *
+ * @param {Error} error - The error being thrown
+ * @param {string} kind - One of AGENT_ERROR_KINDS
+ * @returns {Error} The same error, tagged
+ */
+export const tagAgentError = (error, kind) => {
+  try {
+    error.agentKind = kind;
+  } catch {
+    // A non-extensible error object still propagates — it just stays untagged.
+  }
+  return error;
+};
+
+/**
+ * The failure kind of an error that aborted a query. Reads the tag set at
+ * the throw site; an untagged throw can only have come from the provider /
+ * model path, so it defaults to 'llm'.
+ *
+ * @param {*} error - The error that aborted the query
+ * @returns {string} One of AGENT_ERROR_KINDS
+ */
+export const agentErrorKind = (error) =>
+  Object.values(AGENT_ERROR_KINDS).includes(error?.agentKind)
+    ? error.agentKind
+    : AGENT_ERROR_KINDS.LLM;
+
+/**
  * Normalise LLM response content to a plain string.
  * Providers may return content as a string or as an array of content
  * blocks (e.g. { type: 'text', text: '...' }); the UI expects a string.

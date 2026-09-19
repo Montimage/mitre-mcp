@@ -8,7 +8,8 @@ import {
   initOllama,
   initGemini,
   initOpenRouter,
-  buildProviderErrorMessage
+  buildProviderErrorHint,
+  buildAgentErrorMessage
 } from './llmProviders.js';
 
 // Capture the config object each provider class is constructed with.
@@ -33,27 +34,49 @@ describe('llmProviders', () => {
   });
 
   it('hint at Ollama for the default provider', () => {
-    const message = buildProviderErrorMessage(agent(), boom);
-    expect(message).toContain('Ollama is running locally');
-    expect(message).toContain('connection refused');
+    const hint = buildProviderErrorHint(agent());
+    expect(hint).toContain('Ollama is running locally');
+    expect(hint).toContain('llama3.1:8b');
   });
 
   it('hint at the Gemini model and key for the gemini provider', () => {
-    const message = buildProviderErrorMessage(
-      agent({ llmProvider: LLM_PROVIDERS.GEMINI, geminiConfig: { model: 'gemini-2.5-pro' } }),
-      boom
+    const hint = buildProviderErrorHint(
+      agent({ llmProvider: LLM_PROVIDERS.GEMINI, geminiConfig: { model: 'gemini-2.5-pro' } })
     );
-    expect(message).toContain('Gemini API key');
-    expect(message).toContain('gemini-2.5-pro');
+    expect(hint).toContain('Gemini API key');
+    expect(hint).toContain('gemini-2.5-pro');
   });
 
   it('hint at OpenRouter credits for the openrouter provider', () => {
-    const message = buildProviderErrorMessage(
-      agent({ llmProvider: LLM_PROVIDERS.OPENROUTER, openrouterConfig: { model: 'anthropic/claude-3.5-sonnet' } }),
-      boom
+    const hint = buildProviderErrorHint(
+      agent({ llmProvider: LLM_PROVIDERS.OPENROUTER, openrouterConfig: { model: 'anthropic/claude-3.5-sonnet' } })
     );
-    expect(message).toContain('OpenRouter API key');
-    expect(message).toContain('credits');
+    expect(hint).toContain('OpenRouter API key');
+    expect(hint).toContain('credits');
+  });
+
+  describe('buildAgentErrorMessage (F-UX-009)', () => {
+    it('names the provider and cause for llm failures, with the actionable hint', () => {
+      const message = buildAgentErrorMessage(agent(), boom, 'llm');
+      expect(message).toContain('LLM provider');
+      expect(message).toContain('connection refused');
+      expect(message).toContain('Ollama is running locally');
+      // The blame-the-query checklist is gone (F-UX-009).
+      expect(message).not.toMatch(/your query/i);
+    });
+
+    it('names the server for server failures — no provider hint', () => {
+      const message = buildAgentErrorMessage(agent(), boom, 'server');
+      expect(message).toContain('could not be reached');
+      expect(message).toContain('connection refused');
+      expect(message).not.toContain('Ollama');
+    });
+
+    it('names the tool call for tool failures', () => {
+      const message = buildAgentErrorMessage(agent(), boom, 'tool');
+      expect(message).toContain('tool call failed');
+      expect(message).toContain('connection refused');
+    });
   });
 
   describe('temperature defaulting (F-BUG-034)', () => {

@@ -8,7 +8,12 @@ import {
   contentText,
   formatToolResult,
   buildSystemPrompt,
-  MAX_TOOL_RESULT_CHARS
+  MAX_TOOL_RESULT_CHARS,
+  AGENT_ERROR_KINDS,
+  agentErrorResult,
+  isAgentErrorResult,
+  tagAgentError,
+  agentErrorKind
 } from './agentMessages.js';
 
 describe('normalizeContent', () => {
@@ -69,5 +74,39 @@ describe('buildSystemPrompt', () => {
 
   it('falls back to a no-tools note when discovery is empty', () => {
     expect(buildSystemPrompt([])).toContain('tool discovery is unavailable');
+  });
+});
+
+describe('typed agent errors (F-UX-009)', () => {
+  it('exposes the three failure kinds', () => {
+    expect(AGENT_ERROR_KINDS).toEqual({ LLM: 'llm', TOOL: 'tool', SERVER: 'server' });
+  });
+
+  it('agentErrorResult builds the typed failure object, retryable by default', () => {
+    expect(agentErrorResult('server', 'down')).toEqual({
+      error: true, kind: 'server', message: 'down', retryable: true
+    });
+    expect(agentErrorResult('llm', 'no key', false).retryable).toBe(false);
+  });
+
+  it('isAgentErrorResult accepts only the typed shape', () => {
+    expect(isAgentErrorResult(agentErrorResult('tool', 'x'))).toBe(true);
+    expect(isAgentErrorResult('a plain string')).toBe(false);
+    expect(isAgentErrorResult({ error: true, kind: 'unknown', message: 'x' })).toBe(false);
+    expect(isAgentErrorResult(null)).toBe(false);
+    expect(isAgentErrorResult({ error: false, kind: 'llm' })).toBe(false);
+  });
+
+  it('tagAgentError marks the subsystem and agentErrorKind reads it back', () => {
+    const err = tagAgentError(new Error('fetch failed'), 'server');
+    expect(err.agentKind).toBe('server');
+    expect(agentErrorKind(err)).toBe('server');
+    expect(agentErrorKind(tagAgentError(new Error('x'), 'tool'))).toBe('tool');
+  });
+
+  it('agentErrorKind defaults to llm for untagged or unknown tags', () => {
+    expect(agentErrorKind(new Error('boom'))).toBe('llm');
+    expect(agentErrorKind({ agentKind: 'not-a-kind' })).toBe('llm');
+    expect(agentErrorKind(undefined)).toBe('llm');
   });
 });

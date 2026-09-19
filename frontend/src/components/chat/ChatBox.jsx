@@ -8,6 +8,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
+import { isAgentErrorResult } from '../../services/agentMessages';
 import { getApiKey } from '../../services/storage';
 import { probeLlmProvider } from '../../services/llmProbes';
 import { releaseMcpClient } from '../../services/mcpClientCache';
@@ -344,6 +345,97 @@ export default function ChatBox({ onSetupStatusChange }) {
     handleToolApproval(true);
   }, [handleToolApproval]);
 
+  // Run one query through the agent and append the outcome.
+  //
+  // A typed failure result renders as an error bubble carrying the failed
+  // query so the Retry action can re-run it in place (F-UX-009); a
+  // successful string still renders as an assistant answer.
+  const sendQuery = useCallback(async (text) => {
+    setIsLoading(true);
+
+    // Callback for tool approval
+    const requestToolApproval = async (toolCalls) => {
+      // Session opt-in (F-UX-010): once the user chose "always allow
+      // lookups", a batch where every call is read-only is approved
+      // without posting a card — the approval is proportionate to a
+      // read-only lookup. Mixed or non-read-only batches still prompt.
+      if (
+        alwaysAllowLookupsRef.current &&
+        toolCalls.length > 0 &&
+        toolCalls.every((tc) => tc.readOnly === true)
+      ) {
+        return true;
+      }
+
+      // Add approval request message to chat
+      setMessages(prev => [...prev, makeMessage({
+        type: 'tool-approval',
+        toolCalls: toolCalls,
+        timestamp: new Date().toISOString()
+      })]);
+
+      return new Promise((resolve) => {
+        setPendingToolCalls(toolCalls);
+        setToolApprovalResolver({ resolve });
+      });
+    };
+
+    try {
+      // Process query with agent
+      const response = await agent.processQuery(text, requestToolApproval);
+
+      if (isAgentErrorResult(response)) {
+        // Typed failure — an error bubble with Retry, not an assistant
+        // answer with Copy (F-UX-009).
+        setMessages(prev => [...prev, makeMessage({
+          type: 'error',
+          message: response.message,
+          errorKind: response.kind,
+          retryable: response.retryable !== false,
+          retryQuery: text,
+          timestamp: new Date().toISOString()
+        })]);
+      } else {
+        // Add assistant response
+        setMessages(prev => [...prev, makeMessage({
+          type: 'assistant',
+          message: response,
+          timestamp: new Date().toISOString()
+        })]);
+      }
+    } catch (error) {
+      console.error('Error processing message:', error);
+
+      // A rejection means the failure escaped the agent's own typed
+      // classification — render a generic retryable error bubble rather
+      // than guess at a subsystem label (F-UX-009).
+      setMessages(prev => [...prev, makeMessage({
+        type: 'error',
+        message: `Error: ${error.message}`,
+        retryable: true,
+        retryQuery: text,
+        timestamp: new Date().toISOString()
+      })]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [agent]);
+
+  // sendQuery changes identity with the agent — a ref lets handleRetry
+  // keep a stable identity for the memoised ChatMessage list (F-PERF-012).
+  const sendQueryRef = useRef(sendQuery);
+  useEffect(() => {
+    sendQueryRef.current = sendQuery;
+  }, [sendQuery]);
+
+  // Retry a failed query in place (F-UX-009): the failed error bubble is
+  // dropped and the same query re-runs — the original user message stays,
+  // so the transcript never duplicates the user turn.
+  const handleRetry = useCallback((query) => {
+    setMessages(prev => prev.filter((m) => !(m.type === 'error' && m.retryQuery === query)));
+    void sendQueryRef.current?.(query);
+  }, []);
+
   // Handle sending message
   const handleSendMessage = async (text) => {
     if (!agent) {
@@ -359,8 +451,6 @@ export default function ChatBox({ onSetupStatusChange }) {
       return;
     }
 
-    setIsLoading(true);
-
     // Add user message
     setMessages(prev => [...prev, makeMessage({
       type: 'user',
@@ -368,55 +458,7 @@ export default function ChatBox({ onSetupStatusChange }) {
       timestamp: new Date().toISOString()
     })]);
 
-    try {
-      // Callback for tool approval
-      const requestToolApproval = async (toolCalls) => {
-        // Session opt-in (F-UX-010): once the user chose "always allow
-        // lookups", a batch where every call is read-only is approved
-        // without posting a card — the approval is proportionate to a
-        // read-only lookup. Mixed or non-read-only batches still prompt.
-        if (
-          alwaysAllowLookupsRef.current &&
-          toolCalls.length > 0 &&
-          toolCalls.every((tc) => tc.readOnly === true)
-        ) {
-          return true;
-        }
-
-        // Add approval request message to chat
-        setMessages(prev => [...prev, makeMessage({
-          type: 'tool-approval',
-          toolCalls: toolCalls,
-          timestamp: new Date().toISOString()
-        })]);
-
-        return new Promise((resolve) => {
-          setPendingToolCalls(toolCalls);
-          setToolApprovalResolver({ resolve });
-        });
-      };
-
-      // Process query with agent
-      const response = await agent.processQuery(text, requestToolApproval);
-
-      // Add assistant response
-      setMessages(prev => [...prev, makeMessage({
-        type: 'assistant',
-        message: response,
-        timestamp: new Date().toISOString()
-      })]);
-    } catch (error) {
-      console.error('Error processing message:', error);
-
-      // Add error message
-      setMessages(prev => [...prev, makeMessage({
-        type: 'error',
-        message: `Error: ${error.message}\n\nPlease check:\n- mitre-mcp server is running\n- Server address is correct\n- Network connection is active`,
-        timestamp: new Date().toISOString()
-      })]);
-    } finally {
-      setIsLoading(false);
-    }
+    await sendQuery(text);
   };
 
   // Handle clear chat
@@ -588,9 +630,13 @@ export default function ChatBox({ onSetupStatusChange }) {
                   timestamp={msg.timestamp}
                   toolCalls={msg.toolCalls}
                   decision={msg.decision}
+                  errorKind={msg.errorKind}
+                  retryable={msg.retryable}
+                  retryQuery={msg.retryQuery}
                   onApprove={handleApprove}
                   onDeny={handleDeny}
                   onAlwaysAllow={handleAlwaysAllow}
+                  onRetry={handleRetry}
                 />
                 {/* Error messages can carry a fix action — "Open Settings"
                     points at the real remedy (F-UX-004). */}

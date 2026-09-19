@@ -277,7 +277,7 @@ describe('LangGraphAgent', () => {
       }]);
     });
 
-    it('returns the max-iterations fallback after 5 tool-calling rounds', async () => {
+    it('returns a typed llm error after 5 tool-calling rounds', async () => {
       const fakeTool = { name: 'get_tactics', invoke: vi.fn().mockResolvedValue('{}') };
       const agent = makeAgent();
       stubReadyAgent(agent, { tools: [fakeTool] });
@@ -287,16 +287,52 @@ describe('LangGraphAgent', () => {
 
       const response = await agent.processQuery('loop forever');
       expect(agent.llmWithTools.invoke).toHaveBeenCalledTimes(5);
-      expect(response).toMatch(/maximum number of iterations/);
+      expect(response).toMatchObject({ error: true, kind: 'llm', retryable: true });
+      expect(response.message).toMatch(/maximum number of iterations/);
+      expect(response.message).not.toMatch(/rephras/i);
+      expect(agent.getHistory().at(-1).role).toBe('error');
     });
 
-    it('converts an LLM failure into a provider-hinted error message', async () => {
+    it('F-UX-009: returns a typed tool error when tool calls keep failing to max iterations', async () => {
+      const failingTool = { name: 'get_tactics', invoke: vi.fn().mockRejectedValue(new Error('bad arguments')) };
+      const agent = makeAgent();
+      stubReadyAgent(agent, { tools: [failingTool] });
+      agent.llmWithTools.invoke.mockResolvedValue({
+        content: '', tool_calls: [{ id: 'c1', name: 'get_tactics', args: {} }],
+      });
+
+      const response = await agent.processQuery('loop forever');
+      expect(agent.llmWithTools.invoke).toHaveBeenCalledTimes(5);
+      expect(response).toMatchObject({ error: true, kind: 'tool', retryable: true });
+      expect(response.message).toMatch(/maximum number of iterations/);
+      expect(agent.getHistory().at(-1).role).toBe('error');
+    });
+
+    it('F-UX-009: returns a typed server error when the MCP server is unreachable mid-query', async () => {
+      mcp.callTool.mockRejectedValue(new Error('Failed to call tool get_tactics: fetch failed'));
+      const agent = makeAgent();
+      // The wrapped tool is what createMCPTools() builds — its callTool
+      // rejection is tagged 'server' so the query aborts as a server failure.
+      const wrapped = agent.mcpToolToLangChain({ name: 'get_tactics', description: 'List', inputSchema: { type: 'object' } });
+      stubReadyAgent(agent, { tools: [wrapped] });
+      agent.llmWithTools.invoke.mockResolvedValue({
+        content: '', tool_calls: [{ id: 'c1', name: 'get_tactics', args: {} }],
+      });
+
+      const response = await agent.processQuery('list tactics');
+      expect(response).toMatchObject({ error: true, kind: 'server', retryable: true });
+      expect(response.message).toMatch(/could not be reached/);
+      expect(agent.getHistory().at(-1).role).toBe('error');
+    });
+
+    it('F-UX-009: converts an LLM failure into a typed llm error result', async () => {
       const agent = makeAgent();
       stubReadyAgent(agent, { invoke: vi.fn().mockRejectedValue(new Error('connection refused')) });
 
       const response = await agent.processQuery('boom');
-      expect(response).toMatch(/I encountered an error/);
-      expect(response).toMatch(/Ollama is running locally/);
+      expect(response).toMatchObject({ error: true, kind: 'llm', retryable: true });
+      expect(response.message).toMatch(/connection refused/);
+      expect(response.message).toMatch(/Ollama is running/);
       expect(agent.getHistory().at(-1).role).toBe('error');
     });
 

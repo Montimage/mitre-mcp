@@ -7,10 +7,18 @@ import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 
+// Header labels for the typed agent failures (F-UX-009) — they name the
+// failing subsystem instead of a generic "Assistant" answer.
+const ERROR_KIND_LABELS = {
+  llm: 'LLM error',
+  tool: 'Tool error',
+  server: 'Server error'
+};
+
 // Memoised (F-PERF-012): the chat re-renders on every state change, so a
 // message whose props are unchanged must not re-render with them. Keys on
 // the message list are stable ids — see ChatBox.
-const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, onAlwaysAllow, decision }) {
+const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, onAlwaysAllow, decision, errorKind, retryable, retryQuery, onRetry }) {
   const [copied, setCopied] = useState(false);
 
   // Format timestamp
@@ -152,7 +160,9 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
       maxWidth: 'max-w-[90%]'
     },
     error: {
-      container: 'mr-auto bg-gray-200 border border-gray-400 text-gray-900',
+      // Distinct error styling (F-UX-009): a failure reads as an alert,
+      // not as a muted assistant bubble.
+      container: 'mr-auto bg-red-50 border border-red-400 text-red-900',
       maxWidth: 'max-w-[85%]'
     }
   };
@@ -160,11 +170,11 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
   const currentStyle = styles[type] || styles.user;
 
   return (
-    <div className={`${currentStyle.maxWidth} ${currentStyle.container} p-3 mb-3 shadow-md`}>
+    <div role={type === 'error' ? 'alert' : undefined} className={`${currentStyle.maxWidth} ${currentStyle.container} p-3 mb-3 shadow-md`}>
       {/* Message Header */}
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs font-semibold uppercase tracking-wide opacity-75">
-          {type === 'user' ? 'You' : type === 'assistant' ? 'Assistant' : type === 'system' ? 'System' : 'Error'}
+          {type === 'user' ? 'You' : type === 'assistant' ? 'Assistant' : type === 'system' ? 'System' : (ERROR_KIND_LABELS[errorKind] || 'Error')}
         </span>
         <span className="text-xs opacity-60">{formatTime(timestamp)}</span>
       </div>
@@ -184,7 +194,8 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
         </ReactMarkdown>
       </div>
 
-      {/* Message Actions */}
+      {/* Message Actions — assistant answers get Copy; retryable failures
+          get Retry and never a Copy button (F-UX-009). */}
       {type === 'assistant' && (
         <div className="mt-2 pt-2 border-t border-gray-300 flex justify-end">
           <button
@@ -193,6 +204,16 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
             title="Copy message"
           >
             {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      )}
+      {type === 'error' && retryable !== false && retryQuery && onRetry && (
+        <div className="mt-2 pt-2 border-t border-red-300 flex justify-end">
+          <button
+            onClick={() => onRetry(retryQuery)}
+            className="text-xs text-red-800 hover:text-black transition-colors font-medium"
+          >
+            Retry
           </button>
         </div>
       )}
