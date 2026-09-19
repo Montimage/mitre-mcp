@@ -3,11 +3,14 @@
  *
  * Displays individual chat messages with different styling based on message type
  */
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 
-export default function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, decision }) {
+// Memoised (F-PERF-012): the chat re-renders on every state change, so a
+// message whose props are unchanged must not re-render with them. Keys on
+// the message list are stable ids — see ChatBox.
+const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestamp, toolCalls, onApprove, onDeny, decision }) {
   const [copied, setCopied] = useState(false);
 
   // Format timestamp
@@ -55,7 +58,7 @@ export default function ChatMessage({ message, type = 'user', timestamp, toolCal
 
         <div className="space-y-2 mb-4">
           {toolCalls.map((toolCall, index) => (
-            <div key={index} className="border border-yellow-300 bg-white p-3 rounded">
+            <div key={toolCall.id ?? index} className="border border-yellow-300 bg-white p-3 rounded">
               <div className="font-medium text-sm text-black mb-1">
                 📋 {toolCall.name}
               </div>
@@ -160,4 +163,6 @@ export default function ChatMessage({ message, type = 'user', timestamp, toolCal
       )}
     </div>
   );
-}
+});
+
+export default ChatMessage;
