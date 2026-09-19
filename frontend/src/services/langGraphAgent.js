@@ -2,7 +2,8 @@
  * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements an agent pattern similar to LangGraph but browser-compatible.
- * Supports Ollama for local LLM inference, Google Gemini, and OpenRouter for cloud-based inference.
+ * Supports Ollama for local LLM inference, Google Gemini, OpenRouter, and any
+ * OpenAI-compatible endpoint for cloud-based inference.
  *
  * Architecture:
  * 1. LLM with tool binding (ChatOllama, ChatGoogleGenerativeAI, or ChatOpenAI)
@@ -21,6 +22,7 @@ import {
   initOllama,
   initGemini,
   initOpenRouter,
+  initOpenAiCompatible,
   buildAgentErrorMessage
 } from './llmProviders.js';
 import {
@@ -50,7 +52,8 @@ export const MAX_HISTORY_MESSAGES = 20;
  * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements intelligent query routing and tool execution
- * using Ollama for local LLM inference, Google Gemini, or OpenRouter for cloud-based inference.
+ * using Ollama for local LLM inference, Google Gemini, OpenRouter, or an
+ * OpenAI-compatible endpoint for cloud-based inference.
  */
 export default class LangGraphAgent {
   /**
@@ -81,6 +84,8 @@ export default class LangGraphAgent {
       llmInit = initGemini(this, config);
     } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
       llmInit = initOpenRouter(this, config);
+    } else if (this.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE) {
+      llmInit = initOpenAiCompatible(this, config);
     } else {
       llmInit = initOllama(this, config);
     }
@@ -539,6 +544,9 @@ export default class LangGraphAgent {
       status.geminiModel = this.geminiConfig?.model;
     } else if (this.llmProvider === LLM_PROVIDERS.OPENROUTER) {
       status.openrouterModel = this.openrouterConfig?.model;
+    } else if (this.llmProvider === LLM_PROVIDERS.OPENAI_COMPATIBLE) {
+      status.openaiCompatibleModel = this.openaiCompatibleConfig?.model;
+      status.openaiCompatibleBaseUrl = this.openaiCompatibleConfig?.baseUrl;
     } else {
       status.ollamaModel = this.ollamaConfig?.model;
       status.ollamaBaseUrl = this.ollamaConfig?.baseUrl;
