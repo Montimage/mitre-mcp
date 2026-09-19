@@ -6,6 +6,7 @@
 import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import remarkGfm from 'remark-gfm';
 
 // Header labels for the typed agent failures (F-UX-009) — they name the
 // failing subsystem instead of a generic "Assistant" answer.
@@ -52,11 +53,11 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
     // treatment, exactly as before.
     const allReadOnly = toolCalls.length > 0 && toolCalls.every((tc) => tc.readOnly === true);
     const palette = allReadOnly
-      ? { card: 'bg-blue-50 border-blue-400', icon: 'text-blue-600', header: 'text-blue-800', time: 'text-blue-700', inner: 'border-blue-300', divider: 'border-blue-300' }
-      : { card: 'bg-yellow-50 border-yellow-400', icon: 'text-yellow-600', header: 'text-yellow-800', time: 'text-yellow-700', inner: 'border-yellow-300', divider: 'border-yellow-300' };
+      ? { card: 'bg-paper-card border-rule-strong', icon: 'text-blue-600', header: 'text-gray-500', time: 'text-gray-500', inner: 'border-rule', divider: 'border-rule' }
+      : { card: 'bg-paper-sunk border-rule-strong border-l-2 border-l-brass', icon: 'text-amber-700', header: 'text-brass-700', time: 'text-gray-600', inner: 'border-rule-strong', divider: 'border-rule-strong' };
 
     return (
-      <div className={`max-w-[90%] mr-auto border-2 p-4 mb-3 shadow-md ${palette.card}`}>
+      <div className={`mr-auto mb-3 max-w-[90%] border p-4 shadow-sheet ${palette.card}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -69,11 +70,11 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             )}
-            <span className={`text-sm font-semibold uppercase tracking-wide ${palette.header}`}>
+            <span className={`font-mono text-[11px] uppercase tracking-[0.14em] ${palette.header}`}>
               {allReadOnly ? 'Read-only lookup' : 'Tool Execution Request'}
             </span>
           </div>
-          <span className={`text-xs ${palette.time}`}>{formatTime(timestamp)}</span>
+          <span className={`font-mono text-[10px] ${palette.time}`}>{formatTime(timestamp)}</span>
         </div>
 
         {/* Tool Call Details — plain-language first, raw JSON tucked behind a disclosure */}
@@ -85,8 +86,8 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
 
         <div className="space-y-2 mb-4">
           {toolCalls.map((toolCall, index) => (
-            <div key={toolCall.id ?? index} className={`border ${palette.inner} bg-white p-3 rounded`}>
-              <div className="font-medium text-sm text-black">
+            <div key={toolCall.id ?? index} className={`border ${palette.inner} bg-paper-card p-3`}>
+              <div className="text-sm font-medium text-ink">
                 {toolCall.title || toolCall.name}
               </div>
               {toolCall.description && (
@@ -94,7 +95,7 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
               )}
               <details className="mt-1">
                 <summary className="text-xs text-gray-500 cursor-pointer select-none">Arguments</summary>
-                <div className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded mt-1">
+                <div className="mt-1 border border-rule bg-paper p-2 font-mono text-xs text-gray-600">
                   {JSON.stringify(toolCall.args || {}, null, 2)}
                 </div>
               </details>
@@ -106,10 +107,10 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
         <div className={`pt-3 border-t ${palette.divider}`}>
           {decision ? (
             // Show decision
-            <div className={`px-4 py-2 text-sm font-medium text-center ${
+            <div className={`px-4 py-2 text-center font-mono text-[11px] uppercase tracking-[0.14em] ${
               decision === 'approved'
-                ? 'bg-green-100 text-green-800 border border-green-300'
-                : 'bg-red-100 text-red-800 border border-red-300'
+                ? 'border border-green-300 bg-green-50 text-green-800'
+                : 'border border-red-300 bg-red-50 text-red-800'
             }`}>
               {decision === 'approved' ? '✓ Approved by user' : '✗ Denied by user'}
             </div>
@@ -120,21 +121,21 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
             <div className="flex gap-3">
               <button
                 onClick={onApprove}
-                className="flex-1 px-4 py-2 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+                className="flex-1 bg-black px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800"
               >
                 ✓ Approve
               </button>
               {allReadOnly && onAlwaysAllow && (
                 <button
                   onClick={onAlwaysAllow}
-                  className="flex-1 px-4 py-2 bg-white text-blue-800 text-sm font-medium border border-blue-400 hover:bg-blue-100 transition-colors"
+                  className="flex-1 border border-blue-600 bg-paper-card px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-blue-700 transition-colors hover:bg-blue-50"
                 >
                   Always allow lookups
                 </button>
               )}
               <button
                 onClick={onDeny}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-900 text-sm font-medium hover:bg-gray-400 transition-colors"
+                className="flex-1 border border-rule-strong bg-paper-card px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-gray-600 transition-colors hover:border-ink hover:text-ink"
               >
                 ✗ Deny
               </button>
@@ -152,11 +153,11 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
       maxWidth: 'max-w-[80%]'
     },
     assistant: {
-      container: 'mr-auto bg-white border border-gray-300 text-gray-900',
+      container: 'mr-auto bg-paper-card border border-rule text-gray-800',
       maxWidth: 'max-w-[85%]'
     },
     system: {
-      container: 'mx-auto bg-gray-100 border border-gray-400 text-gray-900',
+      container: 'mx-auto bg-paper-sunk border border-rule text-gray-600',
       maxWidth: 'max-w-[90%]'
     },
     error: {
@@ -170,11 +171,15 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
   const currentStyle = styles[type] || styles.user;
 
   return (
-    <div role={type === 'error' ? 'alert' : undefined} className={`${currentStyle.maxWidth} ${currentStyle.container} p-3 mb-3 shadow-md`}>
+    <div role={type === 'error' ? 'alert' : undefined} className={`${currentStyle.maxWidth} ${currentStyle.container} mb-3 p-3.5 shadow-sheet`}>
       {/* Message Header — the error bubble leads with a warning icon so the
-          failure reads as an alert at a glance, not by colour alone (F-UX-008). */}
+          failure reads as an alert at a glance, not by colour alone (F-UX-008).
+          The caption inherits the bubble's solid text colour: dimming it with
+          opacity drops several variants below the 4.5:1 WCAG AA floor (system
+          ~3.2:1, timestamps ~2.2:1). Opacity is kept only for decorative marks
+          like list bullets. */}
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide opacity-75 flex items-center gap-1">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em]">
           {type === 'error' && (
             <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -182,17 +187,53 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
           )}
           {type === 'user' ? 'You' : type === 'assistant' ? 'Assistant' : type === 'system' ? 'System' : (ERROR_KIND_LABELS[errorKind] || 'Error')}
         </span>
-        <span className="text-xs opacity-60">{formatTime(timestamp)}</span>
+        <span className="font-mono text-[10px]">{formatTime(timestamp)}</span>
       </div>
 
       {/* Message Content — rendered via react-markdown (safe: never injects raw HTML);
-          remark-breaks preserves the old one-line-per-block visual structure */}
-      <div className="text-sm leading-relaxed whitespace-pre-wrap">
+          remark-breaks preserves the one-line-per-block visual structure, and
+          remark-gfm adds tables, which both the scripted demo answers and real
+          model output use constantly — without it they render as raw pipes.
+          Neither plugin enables raw HTML, so the sanitisation guarantee holds. */}
+      <div className="text-sm leading-relaxed">
         <ReactMarkdown
-          remarkPlugins={[remarkBreaks]}
+          remarkPlugins={[remarkGfm, remarkBreaks]}
           components={{
             code: ({ children }) => (
-              <code className="bg-gray-200 px-1 rounded text-sm">{children}</code>
+              <code className="border border-rule bg-paper-sunk px-1 font-mono text-[0.85em]">{children}</code>
+            ),
+            // Tables get the page's hairline treatment rather than the
+            // browser default, which has no borders at all.
+            table: ({ children }) => (
+              <div className="my-3 overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">{children}</table>
+              </div>
+            ),
+            th: ({ children }) => (
+              <th className="border-b border-rule-strong px-2 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em]">
+                {children}
+              </th>
+            ),
+            td: ({ children }) => (
+              <td className="border-b border-rule px-2 py-1.5 align-top">{children}</td>
+            ),
+            ul: ({ children }) => (
+              <ul className="my-2 list-disc space-y-1 pl-5 marker:opacity-50">{children}</ul>
+            ),
+            ol: ({ children }) => (
+              <ol className="my-2 list-decimal space-y-1 pl-5 marker:opacity-50">{children}</ol>
+            ),
+            li: ({ children }) => <li className="pl-0.5">{children}</li>,
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            a: ({ href, children }) => (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2"
+              >
+                {children}
+              </a>
             ),
           }}
         >
@@ -203,10 +244,10 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
       {/* Message Actions — assistant answers get Copy; retryable failures
           get Retry and never a Copy button (F-UX-009). */}
       {type === 'assistant' && (
-        <div className="mt-2 pt-2 border-t border-gray-300 flex justify-end">
+        <div className="mt-3 flex justify-end border-t border-rule pt-2">
           <button
             onClick={handleCopy}
-            className="text-xs text-gray-600 hover:text-black transition-colors font-medium"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-gray-500 transition-colors hover:text-ink"
             title="Copy message"
           >
             {copied ? 'Copied' : 'Copy'}
@@ -214,10 +255,10 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
         </div>
       )}
       {type === 'error' && retryable !== false && retryQuery && onRetry && (
-        <div className="mt-2 pt-2 border-t border-red-300 flex justify-end">
+        <div className="mt-3 flex justify-end border-t border-red-300 pt-2">
           <button
             onClick={() => onRetry(retryQuery)}
-            className="text-xs text-red-800 hover:text-black transition-colors font-medium"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-red-800 transition-colors hover:text-ink"
           >
             Retry
           </button>

@@ -53,6 +53,18 @@ describe('ChatMessage', () => {
     expect(screen.queryByTitle('Copy message')).toBeNull();
   });
 
+  it.each(['user', 'assistant', 'system', 'error'])(
+    'keeps the %s bubble caption text undimmed — opacity dimming falls below WCAG AA',
+    (bubbleType) => {
+      render(<ChatMessage type={bubbleType} message="hi" timestamp="2026-01-01T10:00:00Z" />);
+      const label = screen.getByText(/^(You|Assistant|System|Error)$/);
+      const headerRow = label.parentElement;
+      // Label and timestamp inherit the bubble's solid text colour; any
+      // opacity-* utility here lands under 4.5:1 on the paper palette.
+      expect(headerRow.querySelector('[class*="opacity-"]')).toBeNull();
+    }
+  );
+
   describe('typed error bubble (F-UX-009)', () => {
     it.each([
       ['llm', 'LLM error'],
@@ -185,6 +197,18 @@ describe('ChatMessage', () => {
 
       expect(screen.getByText('Tool Execution Request')).toBeTruthy();
       expect(screen.queryByRole('button', { name: /always allow lookups/i })).toBeNull();
+    });
+
+    it('keeps the warning-card timestamp legible — gray-600 on paper-sunk, not gray-500 (4.28:1)', () => {
+      const calls = [{ id: 'c1', name: 'run_query', args: {}, readOnly: false }];
+      const { container } = render(
+        <ChatMessage type="tool-approval" toolCalls={calls} onApprove={vi.fn()} onDeny={vi.fn()} timestamp="2026-01-01T10:00:00Z" />
+      );
+
+      const card = container.firstChild;
+      expect(card.className).toContain('bg-paper-sunk');
+      const timestamp = screen.getByText(/\d{1,2}:\d{2}/);
+      expect(timestamp.className).toContain('text-gray-600');
     });
 
     it('F-UX-010: a mixed batch keeps the warning card — always-allow only applies to all-read-only batches', () => {

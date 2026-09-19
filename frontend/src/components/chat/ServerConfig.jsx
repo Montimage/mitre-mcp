@@ -18,6 +18,7 @@ import { useState, useEffect, useRef } from 'react';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
 import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
+import { DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL } from '../../services/llmProviders.js';
 import McpServerForm from './config/McpServerForm.jsx';
 import StatusBanner from './config/StatusBanner.jsx';
 import OllamaForm from './config/OllamaForm.jsx';
@@ -34,8 +35,8 @@ const DEFAULT_CONFIG = {
   host: DEFAULT_MCP_HOST,
   port: DEFAULT_MCP_PORT,
   llmProvider: LLM_PROVIDERS.OLLAMA,
-  ollamaBaseUrl: 'http://localhost:11434',
-  ollamaModel: 'llama3.1:8b',
+  ollamaBaseUrl: DEFAULT_OLLAMA_BASE_URL,
+  ollamaModel: DEFAULT_OLLAMA_MODEL,
   geminiApiKey: '',
   geminiModel: 'gemini-2.5-flash',
   openrouterApiKey: '',
@@ -313,7 +314,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
   };
 
   return (
-    <div className="bg-gray-50 p-6">
+    <div className="bg-paper-card p-6 sm:p-8">
       <div className="max-w-3xl mx-auto">
         {/* MCP Server Configuration */}
         <McpServerForm
@@ -326,52 +327,52 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
         />
 
         {/* Divider */}
-        <div className="border-t border-gray-300 my-6"></div>
+        <div className="border-t border-rule my-8"></div>
 
         {/* LLM Configuration */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wide">
+          <h3 className="dossier-section mb-4">
             LLM Configuration
           </h3>
 
           {/* Provider Selection */}
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">
+            <label className="mb-2.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-gray-500">
               LLM Provider
             </label>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center cursor-pointer">
+            <div className="flex flex-wrap gap-2">
+              <label className="flex cursor-pointer items-center border border-rule-strong px-3 py-2 transition-colors hover:border-ink has-checked:border-ink has-checked:bg-paper-sunk">
                 <input
                   type="radio"
                   name="llmProvider"
                   value={LLM_PROVIDERS.OLLAMA}
                   checked={config.llmProvider === LLM_PROVIDERS.OLLAMA}
                   onChange={(e) => handleChange('llmProvider', e.target.value)}
-                  className="mr-2"
+                  className="mr-2 accent-brass-700"
                 />
-                <span className="text-sm">Ollama (Local)</span>
+                <span className="text-sm text-gray-700">Ollama (Local)</span>
               </label>
-              <label className="flex items-center cursor-pointer">
+              <label className="flex cursor-pointer items-center border border-rule-strong px-3 py-2 transition-colors hover:border-ink has-checked:border-ink has-checked:bg-paper-sunk">
                 <input
                   type="radio"
                   name="llmProvider"
                   value={LLM_PROVIDERS.GEMINI}
                   checked={config.llmProvider === LLM_PROVIDERS.GEMINI}
                   onChange={(e) => handleChange('llmProvider', e.target.value)}
-                  className="mr-2"
+                  className="mr-2 accent-brass-700"
                 />
-                <span className="text-sm">Google Gemini</span>
+                <span className="text-sm text-gray-700">Google Gemini</span>
               </label>
-              <label className="flex items-center cursor-pointer">
+              <label className="flex cursor-pointer items-center border border-rule-strong px-3 py-2 transition-colors hover:border-ink has-checked:border-ink has-checked:bg-paper-sunk">
                 <input
                   type="radio"
                   name="llmProvider"
                   value={LLM_PROVIDERS.OPENROUTER}
                   checked={config.llmProvider === LLM_PROVIDERS.OPENROUTER}
                   onChange={(e) => handleChange('llmProvider', e.target.value)}
-                  className="mr-2"
+                  className="mr-2 accent-brass-700"
                 />
-                <span className="text-sm">OpenRouter</span>
+                <span className="text-sm text-gray-700">OpenRouter</span>
               </label>
             </div>
           </div>
@@ -410,7 +411,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
         </div>
 
         {/* Divider */}
-        <div className="border-t border-gray-300 my-6"></div>
+        <div className="border-t border-rule my-8"></div>
 
         {/* Save Error — same alert+icon treatment as the probe banners (F-UX-008) */}
         <StatusBanner result={saveError ? { type: 'error', message: saveError } : null} />
@@ -420,7 +421,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="bg-black px-4 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {saving ? 'Saving...' : 'Save & Close'}
           </button>
@@ -428,7 +429,7 @@ export default function ServerConfig({ onConfigChange, onDirtyChange, initialCon
           <button
             onClick={handleReset}
             disabled={saving}
-            className="px-4 py-2 bg-gray-300 text-gray-900 text-xs font-medium hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            className="border border-rule-strong bg-paper-card px-4 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-600 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:text-gray-400"
           >
             Reset to Defaults
           </button>

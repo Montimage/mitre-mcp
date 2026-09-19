@@ -26,7 +26,7 @@ const TYPE_STYLES = {
   },
   info: {
     role: 'status',
-    classes: 'bg-gray-50 text-gray-900 border-gray-300',
+    classes: 'bg-paper-sunk text-gray-700 border-rule-strong',
     icon: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     )
@@ -38,7 +38,7 @@ export default function StatusBanner({ result }) {
   const { role, classes, icon } = TYPE_STYLES[result.type] || TYPE_STYLES.info;
 
   return (
-    <div role={role} className={`mb-4 p-3 text-xs border whitespace-pre-line flex items-start gap-2 ${classes}`}>
+    <div role={role} className={`mb-4 flex items-start gap-2.5 whitespace-pre-line border p-3 text-xs leading-relaxed ${classes}`}>
       <svg aria-hidden="true" className="w-4 h-4 shrink-0 mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         {icon}
       </svg>

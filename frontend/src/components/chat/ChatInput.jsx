@@ -74,7 +74,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
   const atLimit = charCount >= maxChars;
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="bg-white p-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="bg-paper-card p-4">
       <div className="flex flex-col space-y-3">
         {/* Textarea */}
         <textarea
@@ -87,7 +87,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           disabled={isLoading}
           maxLength={maxChars}
           rows={1}
-          className="w-full px-4 py-3 border-2 border-gray-300 resize-none focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          className="w-full resize-none border border-rule-strong bg-paper px-4 py-3 text-sm text-ink placeholder:text-gray-500 transition-colors focus:border-ink focus:bg-paper-card focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100"
           style={{
             minHeight: '52px',
             maxHeight: '200px'
@@ -100,7 +100,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           <div className="flex items-center gap-3">
             <span
               role={atLimit ? 'status' : undefined}
-              className={`text-xs ${atLimit ? 'text-amber-700 font-medium' : 'text-gray-500'}`}
+              className={`font-mono text-[11px] ${atLimit ? 'font-medium text-amber-700' : 'text-gray-500'}`}
             >
               {charCount} / {maxChars}
               {atLimit ? ' — character limit reached' : ''}
@@ -109,7 +109,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
             {/* Model Badge */}
             {modelInfo && (
               <span
-                className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded ${modelInfo.color} text-white`}
+                className={`inline-flex items-center gap-1.5 border border-rule-strong border-l-2 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-gray-600 ${modelInfo.accent}`}
                 title={`Provider: ${modelInfo.provider}\nModel: ${modelInfo.model}`}
               >
                 {modelInfo.provider}: {modelInfo.model.length > 20 ? modelInfo.model.substring(0, 20) + '...' : modelInfo.model}
@@ -120,7 +120,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
             {/* Keyboard Hint */}
-            <span className="text-xs text-gray-500 hidden sm:inline">
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-gray-500 sm:inline">
               Enter to send
             </span>
 
@@ -129,7 +129,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="px-6 py-2 min-h-11 sm:min-h-0 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+              className="px-6 py-2 min-h-11 sm:min-h-0 bg-black font-mono text-[11px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {isLoading ? (
                 <span className="flex items-center space-x-2">
