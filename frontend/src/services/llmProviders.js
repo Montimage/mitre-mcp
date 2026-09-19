@@ -1,15 +1,18 @@
 /**
  * LLM provider construction for the browser agent
  *
- * Builds the LangChain chat model for each supported provider and records the
- * provider-specific config on the agent (`ollamaConfig`, `geminiConfig`,
- * `openrouterConfig`) plus the model on `agent.llm`. Also owns the
- * provider-hinted error message shown when the agent loop fails.
+ * Validates the provider-specific config and records it on the agent
+ * (`ollamaConfig`, `geminiConfig`, `openrouterConfig`), then builds the
+ * LangChain chat model on `agent.llm`. Also owns the provider-hinted error
+ * message shown when the agent loop fails.
+ *
+ * Each provider SDK is loaded with a dynamic `import()` so the bundle only
+ * downloads the one provider the configuration selects — the landing page
+ * never fetches the other two (F-PERF-007). The init functions stay
+ * synchronous up to the dynamic import so missing-API-key validation still
+ * throws synchronously from the agent constructor; the returned promise
+ * resolves to the constructed chat model.
  */
-
-import { ChatOllama } from '@langchain/ollama';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { ChatOpenAI } from '@langchain/openai';
 
 /**
  * LLM Provider types
@@ -25,6 +28,7 @@ export const LLM_PROVIDERS = {
  *
  * @param {Object} agent - Agent instance to configure
  * @param {Object} config - Configuration options
+ * @returns {Promise<*>} Resolves to the constructed ChatOllama (also on agent.llm)
  */
 export const initOllama = (agent, config) => {
   const defaultOllamaUrl = 'http://localhost:11434';
@@ -49,7 +53,11 @@ export const initOllama = (agent, config) => {
     usingProxy: import.meta.env.DEV && isDefaultOllama
   });
 
-  agent.llm = new ChatOllama(agent.ollamaConfig);
+  // Dynamic import: the SDK chunk is fetched only when Ollama is selected.
+  return import('@langchain/ollama').then(({ ChatOllama }) => {
+    agent.llm = new ChatOllama(agent.ollamaConfig);
+    return agent.llm;
+  });
 };
 
 /**
@@ -57,6 +65,7 @@ export const initOllama = (agent, config) => {
  *
  * @param {Object} agent - Agent instance to configure
  * @param {Object} config - Configuration options
+ * @returns {Promise<*>} Resolves to the constructed ChatGoogleGenerativeAI (also on agent.llm)
  */
 export const initGemini = (agent, config) => {
   const apiKey = config.geminiApiKey;
@@ -76,7 +85,11 @@ export const initGemini = (agent, config) => {
     hasApiKey: !!apiKey
   });
 
-  agent.llm = new ChatGoogleGenerativeAI(agent.geminiConfig);
+  // Dynamic import: the SDK chunk is fetched only when Gemini is selected.
+  return import('@langchain/google-genai').then(({ ChatGoogleGenerativeAI }) => {
+    agent.llm = new ChatGoogleGenerativeAI(agent.geminiConfig);
+    return agent.llm;
+  });
 };
 
 /**
@@ -86,6 +99,7 @@ export const initGemini = (agent, config) => {
  *
  * @param {Object} agent - Agent instance to configure
  * @param {Object} config - Configuration options
+ * @returns {Promise<*>} Resolves to the constructed ChatOpenAI (also on agent.llm)
  */
 export const initOpenRouter = (agent, config) => {
   const apiKey = config.openrouterApiKey;
@@ -104,17 +118,21 @@ export const initOpenRouter = (agent, config) => {
     hasApiKey: !!apiKey
   });
 
-  agent.llm = new ChatOpenAI({
-    model: agent.openrouterConfig.model,
-    temperature: agent.openrouterConfig.temperature,
-    apiKey: apiKey,
-    configuration: {
-      baseURL: 'https://openrouter.ai/api/v1',
-      defaultHeaders: {
-        'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
-        'X-Title': 'MITRE MCP Chat'
+  // Dynamic import: the SDK chunk is fetched only when OpenRouter is selected.
+  return import('@langchain/openai').then(({ ChatOpenAI }) => {
+    agent.llm = new ChatOpenAI({
+      model: agent.openrouterConfig.model,
+      temperature: agent.openrouterConfig.temperature,
+      apiKey: apiKey,
+      configuration: {
+        baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173',
+          'X-Title': 'MITRE MCP Chat'
+        }
       }
-    }
+    });
+    return agent.llm;
   });
 };
 

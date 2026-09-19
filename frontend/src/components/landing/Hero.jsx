@@ -2,8 +2,16 @@
  * Hero Section Component
  *
  * Main landing section with project branding, description, and integrated chatbox
+ *
+ * The chat is lazy-loaded (F-PERF-007): ChatBox pulls in the agent, the MCP
+ * client and the LLM provider SDKs — nearly the whole app payload — so it is
+ * split out of the landing entry chunk and fetched in parallel with first
+ * paint. The Suspense fallback keeps the chat slot's dimensions so the
+ * section does not reflow when the chunk lands.
  */
-import ChatBox from '../chat/ChatBox';
+import { Suspense, lazy } from 'react';
+
+const ChatBox = lazy(() => import('../chat/ChatBox'));
 
 export default function Hero() {
   return (
@@ -101,7 +109,24 @@ export default function Hero() {
 
           {/* Right Column - ChatBox */}
           <div className="lg:sticky lg:top-8">
-            <ChatBox />
+            <Suspense
+              fallback={
+                <div className="w-full bg-white border-2 border-gray-300 shadow-xl">
+                  <div className="border-b-2 border-gray-300 bg-black text-white p-4">
+                    <h2 className="text-lg font-bold">Ask a Question</h2>
+                    <p className="text-xs text-gray-400 mt-1">AI-Powered MITRE ATT&CK Assistant</p>
+                  </div>
+                  <div
+                    role="status"
+                    className="h-[500px] flex items-center justify-center text-gray-400 bg-gray-50 border-b-2 border-gray-300"
+                  >
+                    <p className="text-sm">Loading chat…</p>
+                  </div>
+                </div>
+              }
+            >
+              <ChatBox />
+            </Suspense>
           </div>
         </div>
       </div>
