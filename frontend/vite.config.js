@@ -1,8 +1,13 @@
+import process from 'node:process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Project sites on GitHub Pages are served under /<repo>/, so the Pages
+  // workflow sets VITE_BASE_PATH=/mitre-mcp/. Everywhere else (dev, Netlify)
+  // deploys at the domain root.
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     react(),
   ],
