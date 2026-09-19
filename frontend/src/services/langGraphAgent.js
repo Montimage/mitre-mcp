@@ -21,13 +21,17 @@ import {
   initOllama,
   initGemini,
   initOpenRouter,
-  buildProviderErrorMessage
+  buildAgentErrorMessage
 } from './llmProviders.js';
 import {
   normalizeContent,
   contentText,
   formatToolResult as formatToolResultText,
-  buildSystemPrompt as buildSystemPromptText
+  buildSystemPrompt as buildSystemPromptText,
+  AGENT_ERROR_KINDS,
+  agentErrorResult,
+  agentErrorKind,
+  tagAgentError
 } from './agentMessages.js';
 
 export { LLM_PROVIDERS };
@@ -182,7 +186,15 @@ export default class LangGraphAgent {
 
     return tool(
       async (args) => {
-        const envelope = await client.callTool(name, args ?? {});
+        let envelope;
+        try {
+          envelope = await client.callTool(name, args ?? {});
+        } catch (error) {
+          // A rejected tools/call is transport-level — the server is
+          // unreachable or the session died. Tag it so the query surfaces a
+          // 'server' failure rather than a tool-level one (F-UX-009).
+          throw tagAgentError(error, AGENT_ERROR_KINDS.SERVER);
+        }
         const result = envelope?.result;
 
         // MCP reports tool-level failures as isError + text content —
@@ -237,7 +249,8 @@ export default class LangGraphAgent {
             tool_call_id: toolCall.id,
             role: 'tool',
             name: toolCall.name,
-            content: JSON.stringify({ error: `Tool ${toolCall.name} not found` })
+            content: JSON.stringify({ error: `Tool ${toolCall.name} not found` }),
+            failed: true
           });
           continue;
         }
@@ -253,11 +266,22 @@ export default class LangGraphAgent {
         });
       } catch (error) {
         console.error(`[Agent] Error executing tool ${toolCall.name}:`, error);
+
+        // A transport-level failure means the server is gone — feeding it
+        // back to the model only burns iterations on calls that cannot
+        // succeed, so it aborts the query as a typed 'server' error
+        // (F-UX-009). Tool-level failures still go back for the model to
+        // recover from (fixed arguments, a different tool).
+        if (error?.agentKind === AGENT_ERROR_KINDS.SERVER) {
+          throw error;
+        }
+
         results.push({
           tool_call_id: toolCall.id,
           role: 'tool',
           name: toolCall.name,
-          content: JSON.stringify({ error: error.message })
+          content: JSON.stringify({ error: error.message }),
+          failed: true
         });
       }
     }
@@ -277,11 +301,21 @@ export default class LangGraphAgent {
   /**
    * Process user query through the agent loop
    *
+   * Resolves to the assistant's answer string on success. On failure it
+   * resolves to a typed error result — `{ error: true, kind, message,
+   * retryable }` where kind is 'llm' (provider/model failure), 'tool' (an
+   * MCP tool call kept failing) or 'server' (the MCP server was
+   * unreachable) — so the caller can render an error with a Retry action
+   * instead of an assistant answer (F-UX-009).
+   *
    * @param {string} query - User's natural language query
    * @param {Function} onToolCallRequest - Optional callback for tool approval (toolCalls) => Promise<boolean>
-   * @returns {Promise<string>} Agent response
+   * @returns {Promise<string|{error: true, kind: string, message: string, retryable: boolean}>} Agent response or typed error
    */
   async processQuery(query, onToolCallRequest = null) {
+    // Set when a tool-level failure was fed back into the loop this query —
+    // it decides whether a max-iterations exit is a 'tool' or 'llm' failure.
+    let toolFailed = false;
     try {
       console.log('[Agent] Processing query:', query);
 
@@ -325,8 +359,14 @@ export default class LangGraphAgent {
         iteration++;
         console.log(`[Agent] Iteration ${iteration}`);
 
-        // Invoke LLM
-        const response = await this.llmWithTools.invoke(currentMessages);
+        // Invoke LLM — a rejection here is a provider/model failure,
+        // tagged 'llm' for the query-level catch (F-UX-009)
+        let response;
+        try {
+          response = await this.llmWithTools.invoke(currentMessages);
+        } catch (invokeError) {
+          throw tagAgentError(invokeError, AGENT_ERROR_KINDS.LLM);
+        }
 
         // Debug: log the response shape (content preview + tool calls)
         console.log('[Agent] LLM response:', {
@@ -378,11 +418,23 @@ export default class LangGraphAgent {
             tool_calls: toolCalls
           });
 
-          // Execute tools
+          // Execute tools — a transport-level failure throws out of here
+          // tagged 'server'; tool-level failures come back as tool results
+          // flagged `failed` (an internal marker, stripped before the model
+          // sees them) so a max-iterations exit can be classified (F-UX-009)
           const toolResults = await this.executeTools(toolCalls);
+          if (toolResults.some((r) => r.failed)) {
+            toolFailed = true;
+          }
 
-          // Add tool results to messages
-          currentMessages.push(...toolResults);
+          // Add tool results to messages — the internal `failed` marker is
+          // stripped so the wire shape stays exactly what the model expects
+          currentMessages.push(...toolResults.map((r) => ({
+            tool_call_id: r.tool_call_id,
+            role: r.role,
+            name: r.name,
+            content: r.content
+          })));
 
           // Continue loop to let LLM process results
           continue;
@@ -403,28 +455,39 @@ export default class LangGraphAgent {
         return finalResponse;
       }
 
-      // Max iterations reached
-      const fallbackResponse = 'I apologize, but I reached the maximum number of iterations while processing your query. Please try rephrasing your question or breaking it into smaller parts.';
-
-      this.conversationHistory.push({
-        role: 'assistant',
-        content: fallbackResponse,
-        timestamp: new Date()
-      });
-
-      return normalizeContent(fallbackResponse);
-    } catch (error) {
-      console.error('[Agent] Error:', error);
-
-      const errorMessage = buildProviderErrorMessage(this, error);
+      // Max iterations reached — a real failure, returned as a typed error
+      // (F-UX-009): when a tool call failed along the way the tools are the
+      // subsystem that could not satisfy the query ('tool'); otherwise the
+      // model kept looping without a final answer ('llm').
+      const kind = toolFailed ? AGENT_ERROR_KINDS.TOOL : AGENT_ERROR_KINDS.LLM;
+      const message = buildAgentErrorMessage(
+        this,
+        new Error('the agent reached the maximum number of iterations without a final answer'),
+        kind
+      );
 
       this.conversationHistory.push({
         role: 'error',
-        content: errorMessage,
+        content: message,
+        kind,
         timestamp: new Date()
       });
 
-      return normalizeContent(errorMessage);
+      return agentErrorResult(kind, message);
+    } catch (error) {
+      console.error('[Agent] Error:', error);
+
+      const kind = agentErrorKind(error);
+      const message = buildAgentErrorMessage(this, error, kind);
+
+      this.conversationHistory.push({
+        role: 'error',
+        content: message,
+        kind,
+        timestamp: new Date()
+      });
+
+      return agentErrorResult(kind, message);
     }
   }
 

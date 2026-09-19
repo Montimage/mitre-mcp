@@ -137,18 +137,44 @@ export const initOpenRouter = (agent, config) => {
 };
 
 /**
- * Build the provider-hinted error message shown when the agent loop fails
+ * One-line actionable hint for the configured provider (F-UX-009)
+ *
+ * Deliberately short: it names the thing to check — the key, the model, the
+ * local daemon — without the old checklist that ended by blaming the user's
+ * query.
+ *
+ * @param {Object} agent - Agent instance (reads llmProvider + provider config)
+ * @returns {string} Provider-specific check hint
+ */
+export const buildProviderErrorHint = (agent) => {
+  if (agent.llmProvider === LLM_PROVIDERS.GEMINI) {
+    return `Check that the Gemini API key is valid and the ${agent.geminiConfig?.model || 'gemini-2.5-flash'} model is available.`;
+  }
+  if (agent.llmProvider === LLM_PROVIDERS.OPENROUTER) {
+    return `Check that the OpenRouter API key is valid, has credits, and the ${agent.openrouterConfig?.model || 'anthropic/claude-3.5-sonnet'} model is available.`;
+  }
+  const model = agent.ollamaConfig?.model || 'llama3.1:8b';
+  return `Check that Ollama is running locally and the ${model} model is installed (ollama pull ${model}).`;
+};
+
+/**
+ * User-facing message for a typed agent failure (F-UX-009)
+ *
+ * States the failing subsystem and the cause — never the generic checklist
+ * that blamed the user's query.
  *
  * @param {Object} agent - Agent instance (reads llmProvider + provider config)
  * @param {Error} error - The failure that aborted the query
+ * @param {string} kind - One of AGENT_ERROR_KINDS ('llm' | 'tool' | 'server')
  * @returns {string} User-facing error text
  */
-export const buildProviderErrorMessage = (agent, error) => {
-  if (agent.llmProvider === LLM_PROVIDERS.GEMINI) {
-    return `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Your Gemini API key is valid\n- The ${agent.geminiConfig?.model || 'gemini-2.5-flash'} model is available\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+export const buildAgentErrorMessage = (agent, error, kind) => {
+  const cause = error?.message || 'unknown error';
+  if (kind === 'server') {
+    return `The MITRE MCP server could not be reached: ${cause}`;
   }
-  if (agent.llmProvider === LLM_PROVIDERS.OPENROUTER) {
-    return `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Your OpenRouter API key is valid\n- The ${agent.openrouterConfig?.model || 'anthropic/claude-3.5-sonnet'} model is available\n- You have sufficient credits on OpenRouter\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+  if (kind === 'tool') {
+    return `A tool call failed: ${cause}`;
   }
-  return `I encountered an error while processing your query: ${error.message}\n\nPlease make sure:\n- Ollama is running locally (http://localhost:11434)\n- The ${agent.ollamaConfig?.model || 'llama3.1:8b'} model is installed (run: ollama pull ${agent.ollamaConfig?.model || 'llama3.1:8b'})\n- The mitre-mcp server is running\n- Your query is clear and specific`;
+  return `The LLM provider could not answer: ${cause}\n${buildProviderErrorHint(agent)}`;
 };
