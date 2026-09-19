@@ -60,12 +60,9 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
             # it instead of blocking start-up (the Task 2.7 stale-serve
             # behaviour, moved off the critical path).
             logger.info(
-                "ATT&CK cache expired — serving stale data while "
-                "refreshing in the background"
+                "ATT&CK cache expired — serving stale data while " "refreshing in the background"
             )
-            refresh_task = asyncio.create_task(
-                entry.download_and_save_attack_data_async(data_dir)
-            )
+            refresh_task = asyncio.create_task(entry.download_and_save_attack_data_async(data_dir))
         else:
             paths = await entry.download_and_save_attack_data_async(
                 data_dir, force=args.force_download

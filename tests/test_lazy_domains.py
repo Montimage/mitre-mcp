@@ -62,9 +62,7 @@ def _patch_runtime(monkeypatch, tmp_path):
 
 def _ctx_namespace(attack_context):
     """Wrap a real AttackContext in the Context shape the tools read."""
-    return SimpleNamespace(
-        request_context=SimpleNamespace(lifespan_context=attack_context)
-    )
+    return SimpleNamespace(request_context=SimpleNamespace(lifespan_context=attack_context))
 
 
 class TestStaleCacheServable:
@@ -222,9 +220,7 @@ class TestLazyLoadThroughTools:
 
         download = AsyncMock(return_value=FIXTURE_PATHS)
         with (
-            patch.object(
-                mod.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
-            ),
+            patch.object(mod.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))),
             patch.object(mod, "download_and_save_attack_data_async", download),
             patch.object(mod, "MitreAttackData", counting_mad),
         ):
@@ -276,9 +272,7 @@ class TestLazyLoadThroughTools:
 class TestBackgroundRefresh:
     """An expired cache serves stale data while the refresh runs behind it."""
 
-    async def test_first_request_served_stale_before_refresh_completes(
-        self, monkeypatch, tmp_path
-    ):
+    async def test_first_request_served_stale_before_refresh_completes(self, monkeypatch, tmp_path):
         _write_cache(tmp_path, expired=True)
         _patch_runtime(monkeypatch, tmp_path)
 
@@ -335,9 +329,7 @@ class TestBackgroundRefresh:
 
         assert refresh_cancelled.is_set()
 
-    async def test_failed_background_refresh_is_logged(
-        self, monkeypatch, tmp_path, caplog
-    ):
+    async def test_failed_background_refresh_is_logged(self, monkeypatch, tmp_path, caplog):
         """A failed background refresh warns instead of crashing teardown."""
         _write_cache(tmp_path, expired=True)
         _patch_runtime(monkeypatch, tmp_path)
@@ -351,6 +343,4 @@ class TestBackgroundRefresh:
             async with attack_lifespan(MagicMock()):
                 await asyncio.sleep(0.05)  # let the task fail
 
-        assert any(
-            "refresh failed" in record.message.lower() for record in caplog.records
-        )
+        assert any("refresh failed" in record.message.lower() for record in caplog.records)

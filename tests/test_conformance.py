@@ -44,6 +44,7 @@ def _patch_data_dir(tmp_path):
         server_module.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
     )
 
+
 # Root properties each tool's outputSchema must name — the success payload keys
 # observed on the wire before structured output was added (issue #48), with the
 # pagination block added by the issues #83/#84 paging contract.

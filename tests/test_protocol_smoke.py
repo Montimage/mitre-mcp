@@ -35,6 +35,7 @@ def _patch_data_dir(tmp_path):
         server_module.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
     )
 
+
 EXPECTED_TOOLS = {
     "get_groups",
     "get_mitigations",
