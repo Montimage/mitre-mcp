@@ -126,9 +126,9 @@ def test_all_tools_within_default_argument_budget(enterprise_ctx):
     for name, call in calls.items():
         size = _size(call())
         assert size <= MEASURED_CEILING, f"{name}: {size} B over the measured ceiling"
-        assert size <= DEFAULT_ARGUMENT_BUDGET, (
-            f"{name}: {size} B over the {DEFAULT_ARGUMENT_BUDGET} B budget"
-        )
+        assert (
+            size <= DEFAULT_ARGUMENT_BUDGET
+        ), f"{name}: {size} B over the {DEFAULT_ARGUMENT_BUDGET} B budget"
 
 
 def test_relationship_tools_worst_cases_within_budget(enterprise_ctx):
@@ -177,9 +177,9 @@ def test_relationship_tools_worst_cases_within_budget(enterprise_ctx):
     for name, call in worst_cases.items():
         result = call()
         size = _size(result)
-        assert size <= DEFAULT_ARGUMENT_BUDGET, (
-            f"{name}: {size} B over the {DEFAULT_ARGUMENT_BUDGET} B budget"
-        )
+        assert (
+            size <= DEFAULT_ARGUMENT_BUDGET
+        ), f"{name}: {size} B over the {DEFAULT_ARGUMENT_BUDGET} B budget"
         # The scan found a genuinely heavy mapping, not an empty page.
         assert result["pagination"]["total"] > 0, name
 

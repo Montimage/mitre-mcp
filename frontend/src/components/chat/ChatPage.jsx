@@ -17,9 +17,11 @@ export default function ChatPage() {
   return (
     <div className="flex h-dvh flex-col bg-paper bg-grain">
       <header className="flex shrink-0 items-center border-b border-rule bg-paper/85 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-paper/70">
+        {/* min-h-11 keeps the tap target at least 44px tall on small
+            screens, matching the ChatBox header controls (F-UX-019). */}
         <a
           href="#"
-          className="font-mono text-[11px] uppercase tracking-[0.14em] text-gray-600 transition-colors hover:text-ink"
+          className="inline-flex items-center px-3 py-1.5 min-h-11 sm:min-h-0 font-mono text-[11px] uppercase tracking-[0.14em] text-gray-600 transition-colors hover:text-ink"
         >
           ← Back to landing
         </a>
