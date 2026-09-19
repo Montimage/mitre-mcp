@@ -724,4 +724,44 @@ describe('ChatBox', () => {
       expect(llmPill.textContent).toContain('Checking…');
     });
   });
+
+  describe('F-UX-020: dedicated full-size layout', () => {
+    it('the embedded default keeps the 500px/70dvh message-pane cap', async () => {
+      const { container } = render(<ChatBox />);
+      await screen.findByText(WELCOME);
+
+      const pane = container.querySelector('[aria-live="polite"]');
+      expect(pane.className).toContain('h-[min(500px,70dvh)]');
+      expect(pane.className).not.toContain('flex-1');
+    });
+
+    it('layout="full" lets the message pane fill the remaining viewport', async () => {
+      const { container } = render(<ChatBox layout="full" />);
+      await screen.findByText(WELCOME);
+
+      const pane = container.querySelector('[aria-live="polite"]');
+      expect(pane.className).toContain('flex-1');
+      expect(pane.className).toContain('min-h-0');
+      expect(pane.className).not.toContain('h-[min(500px,70dvh)]');
+    });
+
+    it('the embedded header has an open-in-page control pointing at #/chat', async () => {
+      render(<ChatBox />);
+      await screen.findByText(WELCOME);
+
+      const link = screen.getByRole('link', { name: /open in page/i });
+      expect(link.getAttribute('href')).toBe('#/chat');
+    });
+
+    it('the full layout omits the open-in-page control — already on the dedicated page', async () => {
+      render(<ChatBox layout="full" />);
+      await screen.findByText(WELCOME);
+
+      expect(screen.queryByRole('link', { name: /open in page/i })).toBeNull();
+      // Parity: Clear, Settings and the composer stay available.
+      expect(screen.getByText('Clear')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
+      expect(screen.getByPlaceholderText('Ask about MITRE ATT&CK...')).toBeTruthy();
+    });
+  });
 });
