@@ -56,6 +56,11 @@ export default function ChatBox() {
 
   // Initialize agent
   useEffect(() => {
+    // StrictMode double-mounts this effect in dev: the stale run must bail at
+    // every await boundary so the last *live* finisher wins and nothing sets
+    // state after unmount.
+    let cancelled = false;
+
     const initAgent = async () => {
       // Load config from localStorage
       const savedConfig = localStorage.getItem('mcp-server-config');
@@ -75,6 +80,8 @@ export default function ChatBox() {
         getApiKey('openrouterApiKey')
       ]);
 
+      if (cancelled) return;
+
       config.geminiApiKey = geminiKey;
       config.openrouterApiKey = openrouterKey;
 
@@ -89,6 +96,7 @@ export default function ChatBox() {
         // Test MCP server connection
         try {
           const connected = await newAgent.testConnection();
+          if (cancelled) return;
           if (connected) {
             setMcpServerStatus('connected');
           } else {
@@ -96,14 +104,18 @@ export default function ChatBox() {
             setMcpServerStatus('disconnected');
           }
         } catch (error) {
+          if (cancelled) return;
           console.warn('MCP server not reachable:', error);
           setMcpServerStatus('disconnected');
         }
       } catch (error) {
+        if (cancelled) return;
         console.error('Failed to initialize agent:', error);
         setLlmStatus('not-configured');
         setMcpServerStatus('unknown');
       }
+
+      if (cancelled) return;
 
       // Add welcome message
       setMessages([{
@@ -114,6 +126,8 @@ export default function ChatBox() {
     };
 
     initAgent();
+
+    return () => { cancelled = true; };
   }, []);
 
   // Scroll to bottom of messages container (not the page)
