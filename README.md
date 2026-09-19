@@ -65,6 +65,11 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 | `get_mitigations`                        | List all security mitigations                            |
 | `get_techniques_mitigated_by_mitigation` | Get techniques addressed by a specific mitigation        |
 
+All list and relationship tools accept `limit`/`offset` paging parameters
+(default page size 20, maximum 200 — see `MITRE_DEFAULT_PAGE_SIZE` and
+`MITRE_MAX_PAGE_SIZE` in `CONTRIBUTING.md`) and return a `pagination`
+block (`total`, `offset`, `limit`, `has_more`).
+
 ## Quick Start
 
 ### Installation

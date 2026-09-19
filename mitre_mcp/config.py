@@ -60,7 +60,9 @@ class Config:
 
     # Pagination
     DEFAULT_PAGE_SIZE = _env_int("MITRE_DEFAULT_PAGE_SIZE", 20)
-    MAX_PAGE_SIZE = _env_int("MITRE_MAX_PAGE_SIZE", 1000)
+    # Cap kept at ~662 B/item so one max-size get_techniques page stays
+    # within the 135,000 B response budget (F-PERF-005).
+    MAX_PAGE_SIZE = _env_int("MITRE_MAX_PAGE_SIZE", 200)
 
     # Formatting
     MAX_DESCRIPTION_LENGTH = _env_int("MITRE_MAX_DESC_LENGTH", 500)

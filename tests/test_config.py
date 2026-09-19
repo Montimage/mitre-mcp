@@ -18,7 +18,7 @@ class TestConfig:
         assert Config.CACHE_EXPIRY_DAYS == 1
         assert Config.REQUIRED_DISK_SPACE_MB == 200
         assert Config.DEFAULT_PAGE_SIZE == 20
-        assert Config.MAX_PAGE_SIZE == 1000
+        assert Config.MAX_PAGE_SIZE == 200
         assert Config.MAX_DESCRIPTION_LENGTH == 500
 
     def test_get_data_urls(self):

@@ -54,8 +54,9 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
         cls.mobile_attack = MitreAttackData(os.path.join(TEST_DATA_DIR, "mobile-attack.json"))
         cls.ics_attack = MitreAttackData(os.path.join(TEST_DATA_DIR, "ics-attack.json"))
 
-        # Build indices
+        # Build indices and the precomputed per-domain lists (F-PERF-005)
         from mitre_mcp.mitre_mcp_server import (
+            build_domain_lists,
             build_group_index,
             build_mitigation_index,
             build_technique_index,
@@ -64,6 +65,11 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
         cls.groups_index = build_group_index(cls.enterprise_attack)
         cls.mitigations_index = build_mitigation_index(cls.enterprise_attack)
         cls.techniques_index = build_technique_index(cls.enterprise_attack)
+        cls.domain_lists = {
+            "enterprise-attack": build_domain_lists(cls.enterprise_attack),
+            "mobile-attack": build_domain_lists(cls.mobile_attack),
+            "ics-attack": build_domain_lists(cls.ics_attack),
+        }
 
         # Create a test context
         cls.ctx = MagicMock()
@@ -75,6 +81,7 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
             groups_index=cls.groups_index,
             mitigations_index=cls.mitigations_index,
             techniques_by_mitre_id=cls.techniques_index,
+            domain_lists=cls.domain_lists,
         )
 
     def test_get_techniques(self):

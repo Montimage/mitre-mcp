@@ -99,7 +99,13 @@ async def test_sync_tool_runs_on_worker_thread():
         patch.object(server_module, "get_attack_data", spy_get_attack_data),
     ):
         async with Client(mcp) as client:
-            call = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})
+            # A relationship tool — it still resolves the store handle per
+            # call (the list tools serve default-argument calls from the
+            # precomputed per-domain lists instead, issue #85).
+            call = await client.call_tool(
+                "get_techniques_by_tactic",
+                {"tactic_shortname": "persistence", "domain": "enterprise-attack"},
+            )
 
     assert not call.is_error
     assert seen_threads, "spy was never invoked"

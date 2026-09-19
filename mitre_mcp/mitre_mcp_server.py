@@ -40,6 +40,8 @@ from .cli import (
 from .config import Config
 from .data import (
     AttackContext,
+    DomainLists,
+    build_domain_lists,
     build_group_index,
     build_mitigation_index,
     build_technique_index,
@@ -71,6 +73,7 @@ from .models import (
     TechniquesPageResult,
     format_relationship_map,
     format_technique,
+    truncate_description,
 )
 from .server import attack_lifespan, get_server_info, mcp
 from .tools import (
@@ -92,6 +95,7 @@ __all__ = [
     "AttackContext",
     "AttackDomain",
     "Config",
+    "DomainLists",
     "EntityRef",
     "FormattedTechnique",
     "GroupResult",
@@ -112,6 +116,7 @@ __all__ = [
     "TechniquesPageResult",
     "attack_lifespan",
     "build_config_banner",
+    "build_domain_lists",
     "build_group_index",
     "build_http_app",
     "build_mitigation_index",
@@ -124,6 +129,7 @@ __all__ = [
     "emit_startup_banner",
     "format_relationship_map",
     "format_technique",
+    "truncate_description",
     "get_attack_data",
     "get_cli_args",
     "get_groups",

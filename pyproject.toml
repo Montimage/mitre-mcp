@@ -102,6 +102,7 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "asyncio: Asynchronous tests",
+    "fulldata: Tests requiring the full ATT&CK dataset (skipped when absent)",
 ]
 
 [tool.mypy]
