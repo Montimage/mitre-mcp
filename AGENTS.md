@@ -12,7 +12,7 @@ Run the commands of record verbatim from `CLAUDE.md` `## Commands` — they are 
 
 ## Layout
 
-- `mitre_mcp/` — server package: `mitre_mcp_server.py` entry point, `config.py` env-driven config, `validators.py`
+- `mitre_mcp/` — server package: `mitre_mcp_server.py` thin entry point and public re-export surface; `data.py` download/cache/indices, `models.py` result schemas, `server.py` the `mcp` object + lifespan, `tools.py` the nine tools, `cli.py` argv/banner/signals, `http.py` transport security + ASGI app, `config.py` env-driven config, `validators.py`
 - `tests/` — pytest suite; `tests/integration/` needs a committed STIX fixture
 - `frontend/` — React/Vite chat UI with its own lint and build pipeline
 - `clients/` — Python and Node.js sample clients
