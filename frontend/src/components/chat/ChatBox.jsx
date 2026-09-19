@@ -39,7 +39,7 @@ const getModelDisplayInfo = (config) => {
   }
 };
 
-export default function ChatBox() {
+export default function ChatBox({ onSetupStatusChange }) {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -214,6 +214,18 @@ export default function ChatBox() {
 
     return () => { cancelled = true; };
   }, []);
+
+  // Report setup status upward so the landing "first-run checklist" reflects
+  // the same LLM probe / MCP connection results as the status dots
+  // (F-UX-003). Optional prop — Hero is the only consumer; the checklist
+  // reads "checking" until the lazy chunk mounts and this first fires.
+  useEffect(() => {
+    onSetupStatusChange?.({
+      llm: llmStatus,
+      llmError: llmSetupError,
+      mcp: mcpServerStatus,
+    });
+  }, [llmStatus, llmSetupError, mcpServerStatus, onSetupStatusChange]);
 
   // Scroll to bottom of messages container (not the page)
   const messagesContainerRef = useRef(null);

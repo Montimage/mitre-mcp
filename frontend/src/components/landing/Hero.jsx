@@ -9,11 +9,28 @@
  * paint. The Suspense fallback keeps the chat slot's dimensions so the
  * section does not reflow when the chunk lands.
  */
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useCallback, useState } from 'react';
 
 const ChatBox = lazy(() => import('../chat/ChatBox'));
 
+// Maps a reported setup status to a checklist dot colour: green once the
+// chat's probes proved it works, red once they proved it does not, grey
+// while the lazy chunk is still mounting or a probe is in flight.
+const checklistDotClass = (status) =>
+  status === 'connected' || status === 'ready'
+    ? 'bg-green-500'
+    : status === 'disconnected' || status === 'not-configured'
+      ? 'bg-red-500'
+      : 'bg-gray-400';
+
 export default function Hero() {
+  // First-run checklist state — populated by ChatBox's onSetupStatusChange
+  // once the lazy chat chunk mounts and its init probes run (F-UX-003).
+  const [setupStatus, setSetupStatus] = useState({ llm: 'checking', llmError: null, mcp: 'checking' });
+  // Stable identity: ChatBox re-reports on every status change, and an
+  // unstable callback would re-fire its effect on every render.
+  const handleSetupStatus = useCallback((status) => setSetupStatus(status), []);
+
   return (
     <section className="relative bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
@@ -90,25 +107,72 @@ export default function Hero() {
                   </div>
                 </li>
                 <li>
-                  <span className="font-medium">Open the website and ask questions:</span>
-                  <div className="mt-1 ml-5">
-                    <a
-                      href="https://mitre-mcp.montimage.eu"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
-                    >
-                      mitre-mcp.montimage.eu
-                    </a>
-                    <span className="text-xs text-gray-500 ml-2">- Ask questions about MITRE ATT&CK</span>
+                  <span className="font-medium">Pick a model and ask in the chat:</span>
+                  <div className="mt-1 ml-5 space-y-2">
+                    <p className="text-xs text-gray-500">
+                      Install Ollama and run{' '}
+                      <code className="font-mono text-gray-900">ollama pull llama3.1:8b</code>
+                      {' '}— or open Settings in the chat and set a Gemini or OpenRouter API key.
+                    </p>
+                    <div>
+                      <a
+                        href="#chat"
+                        className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
+                      >
+                        Jump to the chat ↓
+                      </a>
+                      <span className="text-xs text-gray-500 ml-2">- Ask questions about MITRE ATT&CK</span>
+                    </div>
                   </div>
                 </li>
               </ol>
+
+              {/* First-run checklist — mirrors the setup probes the lazy chat
+                  runs (F-UX-003), so a first-time user sees whether the
+                  assistant will actually answer before typing. ChatBox
+                  reports through onSetupStatusChange once its chunk mounts;
+                  until then every row reads "checking". */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h5 className="font-semibold text-gray-900 mb-2 text-xs uppercase tracking-wide">
+                  First-run checklist
+                </h5>
+                <ul className="space-y-1.5 text-xs text-gray-700">
+                  <li
+                    className="flex items-start gap-2"
+                    data-status={setupStatus.mcp}
+                    title={`MCP Server: ${setupStatus.mcp}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.mcp)}`}
+                    />
+                    <span>MCP server reachable</span>
+                  </li>
+                  <li
+                    className="flex items-start gap-2"
+                    data-status={setupStatus.llm}
+                    title={`LLM: ${setupStatus.llm}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.llm)}`}
+                    />
+                    <span>
+                      LLM provider ready — model installed or API key set
+                      {setupStatus.llm === 'not-configured' && setupStatus.llmError ? (
+                        <span className="text-yellow-800"> — {setupStatus.llmError.split('\n')[0]}</span>
+                      ) : null}
+                    </span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
-          {/* Right Column - ChatBox */}
-          <div className="lg:sticky lg:top-8">
+          {/* Right Column - ChatBox — id="chat" is the Getting Started
+              anchor target (F-UX-017); scroll-mt keeps it clear of the
+              sticky navbar. */}
+          <div id="chat" className="lg:sticky lg:top-8 scroll-mt-24">
             <Suspense
               fallback={
                 <div className="w-full bg-white border-2 border-gray-300 shadow-xl">
@@ -125,7 +189,7 @@ export default function Hero() {
                 </div>
               }
             >
-              <ChatBox />
+              <ChatBox onSetupStatusChange={handleSetupStatus} />
             </Suspense>
           </div>
         </div>

@@ -401,4 +401,36 @@ describe('ChatBox', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByText(/Gemini:/)).toBeTruthy();
   });
+
+  it('F-UX-003: reports setup status upward — a failed probe reports not-configured with the cause', async () => {
+    const onSetupStatusChange = vi.fn();
+    mocks.probeLlmProvider.mockResolvedValue({
+      type: 'error',
+      message: 'Cannot connect to Ollama: connection refused'
+    });
+    render(<ChatBox onSetupStatusChange={onSetupStatusChange} />);
+
+    // The "not set up yet" banner proves the probe resolved as an error.
+    await screen.findByText(/not set up yet/);
+    await waitFor(() => {
+      expect(onSetupStatusChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          llm: 'not-configured',
+          llmError: 'Cannot connect to Ollama: connection refused'
+        })
+      );
+    });
+  });
+
+  it('F-UX-003: reports setup status upward — a successful probe reports ready', async () => {
+    const onSetupStatusChange = vi.fn();
+    render(<ChatBox onSetupStatusChange={onSetupStatusChange} />);
+
+    await screen.findByText(WELCOME);
+    await waitFor(() => {
+      expect(onSetupStatusChange).toHaveBeenCalledWith(
+        expect.objectContaining({ llm: 'ready', llmError: null, mcp: 'connected' })
+      );
+    });
+  });
 });
