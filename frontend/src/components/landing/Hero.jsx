@@ -34,8 +34,13 @@ export default function Hero() {
   return (
     <section className="relative bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          {/* Left Column - Content */}
+        {/* Three grid children, ordered so the chat renders before Getting
+            Started below lg (F-UX-012): single-column DOM order there is
+            intro → chat → setup. On lg the intro and Getting Started stack
+            in column 1 (rows 1-2, lg:gap-y-8 keeps the old space-y-8 rhythm)
+            while the chat spans both rows in column 2. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-y-8 items-start">
+          {/* Intro Column - Content */}
           <div className="space-y-8">
             {/* Main Title */}
             <div>
@@ -86,93 +91,15 @@ export default function Hero() {
                 Fully Configurable
               </span>
             </div>
-
-
-            {/* Getting Started Instructions */}
-            <div className="mt-8 p-6 bg-gray-50 border border-gray-200 shadow-sm">
-              <h4 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">
-                Getting Started
-              </h4>
-              <ol className="list-decimal list-inside space-y-3 text-sm text-gray-700">
-                <li>
-                  <span className="font-medium">Install mitre-mcp:</span>
-                  <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
-                    pip install mitre-mcp
-                  </div>
-                </li>
-                <li>
-                  <span className="font-medium">Start the server:</span>
-                  <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
-                    mitre-mcp --http --host 0.0.0.0 --port 8000
-                  </div>
-                </li>
-                <li>
-                  <span className="font-medium">Pick a model and ask in the chat:</span>
-                  <div className="mt-1 ml-5 space-y-2">
-                    <p className="text-xs text-gray-500">
-                      Install Ollama and run{' '}
-                      <code className="font-mono text-gray-900">ollama pull llama3.1:8b</code>
-                      {' '}— or open Settings in the chat and set a Gemini or OpenRouter API key.
-                    </p>
-                    <div>
-                      <a
-                        href="#chat"
-                        className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
-                      >
-                        Jump to the chat ↓
-                      </a>
-                      <span className="text-xs text-gray-500 ml-2">- Ask questions about MITRE ATT&CK</span>
-                    </div>
-                  </div>
-                </li>
-              </ol>
-
-              {/* First-run checklist — mirrors the setup probes the lazy chat
-                  runs (F-UX-003), so a first-time user sees whether the
-                  assistant will actually answer before typing. ChatBox
-                  reports through onSetupStatusChange once its chunk mounts;
-                  until then every row reads "checking". */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h5 className="font-semibold text-gray-900 mb-2 text-xs uppercase tracking-wide">
-                  First-run checklist
-                </h5>
-                <ul className="space-y-1.5 text-xs text-gray-700">
-                  <li
-                    className="flex items-start gap-2"
-                    data-status={setupStatus.mcp}
-                    title={`MCP Server: ${setupStatus.mcp}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.mcp)}`}
-                    />
-                    <span>MCP server reachable</span>
-                  </li>
-                  <li
-                    className="flex items-start gap-2"
-                    data-status={setupStatus.llm}
-                    title={`LLM: ${setupStatus.llm}`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.llm)}`}
-                    />
-                    <span>
-                      LLM provider ready — model installed or API key set
-                      {setupStatus.llm === 'not-configured' && setupStatus.llmError ? (
-                        <span className="text-yellow-800"> — {setupStatus.llmError.split('\n')[0]}</span>
-                      ) : null}
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            </div>
           </div>
 
-          {/* Right Column - ChatBox — id="chat" is the Getting Started
-              anchor target (F-UX-017); scroll-mt keeps it clear of the
-              sticky navbar. */}
-          <div id="chat" className="lg:sticky lg:top-8 scroll-mt-24">
+          {/* Chat — second grid child: below lg the single column follows
+              DOM order, so the chat renders before Getting Started
+              (F-UX-012). On lg it is the right column spanning both rows.
+              top-20 clears the 64px sticky navbar (F-UX-019); id="chat" is
+              the Getting Started anchor target (F-UX-017) and scroll-mt-24
+              keeps it clear of the navbar. */}
+          <div id="chat" className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-20 scroll-mt-24">
             <Suspense
               fallback={
                 <div className="w-full bg-white border-2 border-gray-300 shadow-xl">
@@ -182,7 +109,7 @@ export default function Hero() {
                   </div>
                   <div
                     role="status"
-                    className="h-[500px] flex items-center justify-center text-gray-400 bg-gray-50 border-b-2 border-gray-300"
+                    className="h-[min(500px,70dvh)] flex items-center justify-center text-gray-400 bg-gray-50 border-b-2 border-gray-300"
                   >
                     <p className="text-sm">Loading chat…</p>
                   </div>
@@ -191,6 +118,88 @@ export default function Hero() {
             >
               <ChatBox onSetupStatusChange={handleSetupStatus} />
             </Suspense>
+          </div>
+
+          {/* Getting Started Instructions — third grid child: below lg it
+              follows the chat; on lg it stacks under the intro in column 1,
+              row 2 (the grid's lg:gap-y-8 keeps the old space-y-8 rhythm). */}
+          <div className="lg:col-start-1 lg:row-start-2 p-6 bg-gray-50 border border-gray-200 shadow-sm">
+            <h4 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">
+              Getting Started
+            </h4>
+            <ol className="list-decimal list-inside space-y-3 text-sm text-gray-700">
+              <li>
+                <span className="font-medium">Install mitre-mcp:</span>
+                <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
+                  pip install mitre-mcp
+                </div>
+              </li>
+              <li>
+                <span className="font-medium">Start the server:</span>
+                <div className="mt-1 ml-5 p-2 bg-white border border-gray-300 text-xs text-gray-900 font-mono">
+                  mitre-mcp --http --host 0.0.0.0 --port 8000
+                </div>
+              </li>
+              <li>
+                <span className="font-medium">Pick a model and ask in the chat:</span>
+                <div className="mt-1 ml-5 space-y-2">
+                  <p className="text-xs text-gray-500">
+                    Install Ollama and run{' '}
+                    <code className="font-mono text-gray-900">ollama pull llama3.1:8b</code>
+                    {' '}— or open Settings in the chat and set a Gemini or OpenRouter API key.
+                  </p>
+                  <div>
+                    <a
+                      href="#chat"
+                      className="text-blue-600 hover:text-blue-800 underline text-xs font-medium"
+                    >
+                      Jump to the chat ↓
+                    </a>
+                    <span className="text-xs text-gray-500 ml-2">- Ask questions about MITRE ATT&CK</span>
+                  </div>
+                </div>
+              </li>
+            </ol>
+
+            {/* First-run checklist — mirrors the setup probes the lazy chat
+                runs (F-UX-003), so a first-time user sees whether the
+                assistant will actually answer before typing. ChatBox
+                reports through onSetupStatusChange once its chunk mounts;
+                until then every row reads "checking". */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h5 className="font-semibold text-gray-900 mb-2 text-xs uppercase tracking-wide">
+                First-run checklist
+              </h5>
+              <ul className="space-y-1.5 text-xs text-gray-700">
+                <li
+                  className="flex items-start gap-2"
+                  data-status={setupStatus.mcp}
+                  title={`MCP Server: ${setupStatus.mcp}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.mcp)}`}
+                  />
+                  <span>MCP server reachable</span>
+                </li>
+                <li
+                  className="flex items-start gap-2"
+                  data-status={setupStatus.llm}
+                  title={`LLM: ${setupStatus.llm}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${checklistDotClass(setupStatus.llm)}`}
+                  />
+                  <span>
+                    LLM provider ready — model installed or API key set
+                    {setupStatus.llm === 'not-configured' && setupStatus.llmError ? (
+                      <span className="text-yellow-800"> — {setupStatus.llmError.split('\n')[0]}</span>
+                    ) : null}
+                  </span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

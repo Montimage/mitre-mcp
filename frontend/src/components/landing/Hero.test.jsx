@@ -11,6 +11,12 @@
  *    chat reports.
  *  - F-UX-017 (#92): the last step links to the in-page chat anchor instead
  *    of opening the site the user is already on in a new tab.
+ *  - F-UX-012 (#98): below lg the chat renders before the Getting Started
+ *    block — the chat is the second grid child, Getting Started the third,
+ *    so single-column DOM order puts the chat first.
+ *  - F-UX-019 (#98): the sticky chat offset clears the 64px navbar
+ *    (lg:top-20, was lg:top-8) and the Suspense fallback tracks the
+ *    responsive pane height.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
@@ -103,5 +109,42 @@ describe('Hero', () => {
     // No link opens the site's own URL — in a new tab or anywhere else.
     const selfLinks = [...document.querySelectorAll('a[href*="mitre-mcp.montimage.eu"]')];
     expect(selfLinks).toHaveLength(0);
+  });
+
+  it('F-UX-012: the chat precedes Getting Started in DOM order (mobile render order)', async () => {
+    render(<Hero />);
+    await screen.findByTestId('chatbox-stub');
+
+    const chatSlot = document.getElementById('chat');
+    const gettingStarted = screen.getByText('Getting Started').closest('div');
+    // Below lg the grid is a single column in DOM order, so the chat must
+    // come first in the document for it to render first on small screens.
+    expect(
+      chatSlot.compareDocumentPosition(gettingStarted) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('F-UX-012: on lg the chat spans both rows in column 2, Getting Started stacks under the intro', async () => {
+    render(<Hero />);
+    await screen.findByTestId('chatbox-stub');
+
+    const chatSlot = document.getElementById('chat');
+    expect(chatSlot.className).toContain('lg:col-start-2');
+    expect(chatSlot.className).toContain('lg:row-span-2');
+
+    const gettingStarted = screen.getByText('Getting Started').closest('div');
+    expect(gettingStarted.className).toContain('lg:col-start-1');
+    expect(gettingStarted.className).toContain('lg:row-start-2');
+  });
+
+  it('F-UX-019: the sticky chat offset clears the 64px navbar — no sub-navbar offset remains', async () => {
+    render(<Hero />);
+    await screen.findByTestId('chatbox-stub');
+
+    const chatSlot = document.getElementById('chat');
+    expect(chatSlot.className).toContain('lg:top-20');
+    expect(chatSlot.className).not.toContain('top-8');
+    // The anchor still scrolls clear of the sticky navbar.
+    expect(chatSlot.className).toContain('scroll-mt-24');
   });
 });

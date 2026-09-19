@@ -485,9 +485,10 @@ export default function ChatBox({ onSetupStatusChange }) {
 
   return (
     <div className="w-full bg-white border-2 border-gray-300 shadow-xl">
-      {/* Header */}
+      {/* Header — flex-wrap lets the controls drop below the title on
+          narrow screens instead of overflowing (F-UX-019). */}
       <div className="border-b-2 border-gray-300 bg-black text-white p-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-2">
           <div>
             <h2 className="text-lg font-bold">Ask a Question</h2>
             <p className="text-xs text-gray-400 mt-1">
@@ -519,20 +520,21 @@ export default function ChatBox({ onSetupStatusChange }) {
               </div>
             </div>
 
-            {/* Clear Chat Button */}
+            {/* Clear Chat Button — min-h-11 keeps the tap target at least
+                44px tall on small screens (F-UX-019). */}
             <button
               onClick={handleClearChat}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
+              className="px-3 py-1.5 min-h-11 sm:min-h-0 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
               title="Clear chat history"
             >
               Clear
             </button>
 
-            {/* Config Button */}
+            {/* Config Button — same 44px small-screen floor as Clear. */}
             <button
               ref={settingsButtonRef}
               onClick={() => (showConfig ? requestCloseSettings() : setShowConfig(true))}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
+              className="px-3 py-1.5 min-h-11 sm:min-h-0 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
               title="Configure server"
             >
               Settings
@@ -551,7 +553,7 @@ export default function ChatBox({ onSetupStatusChange }) {
           </p>
           <button
             onClick={() => setShowConfig(true)}
-            className="shrink-0 px-3 py-1 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+            className="shrink-0 px-3 py-1 min-h-11 sm:min-h-0 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
           >
             Open Settings
           </button>
@@ -610,11 +612,13 @@ export default function ChatBox({ onSetupStatusChange }) {
         </div>
       )}
 
-      {/* Messages Container — aria-live so appended messages are announced */}
+      {/* Messages Container — aria-live so appended messages are announced.
+          Height caps at 70% of the dynamic viewport below the 500px desktop
+          size so the input stays reachable on small screens (F-UX-019). */}
       <div
         ref={messagesContainerRef}
         aria-live="polite"
-        className="h-[500px] overflow-y-auto p-4 bg-gray-50 border-b-2 border-gray-300"
+        className="h-[min(500px,70dvh)] overflow-y-auto p-4 bg-gray-50 border-b-2 border-gray-300"
       >
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400">
@@ -644,7 +648,7 @@ export default function ChatBox({ onSetupStatusChange }) {
                   <div className="mr-auto mb-3 -mt-1 max-w-[85%]">
                     <button
                       onClick={() => setShowConfig(true)}
-                      className="px-3 py-1.5 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
+                      className="px-3 py-1.5 min-h-11 sm:min-h-0 bg-black text-white text-xs font-medium hover:bg-gray-800 transition-colors"
                     >
                       Open Settings
                     </button>
