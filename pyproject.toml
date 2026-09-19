@@ -89,7 +89,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=79",
+    "--cov-fail-under=90.7",
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

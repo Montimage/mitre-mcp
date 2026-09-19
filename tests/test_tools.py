@@ -295,3 +295,34 @@ class TestGetTechniquesMitigatedByMitigation:
                 mitigation_name="Application Isolation and Sandboxing",
                 domain="invalid",
             )
+
+
+class TestGetAttackData:
+    """``get_attack_data`` — the domain→bundle selector shared by all tools."""
+
+    def test_invalid_domain_raises_value_error(self, mock_context):
+        """Direct calls with an unknown domain hit the explicit else-branch."""
+        from mitre_mcp.tools import get_attack_data
+
+        with pytest.raises(ValueError, match="Invalid domain: bogus"):
+            get_attack_data("bogus", mock_context)
+
+
+class TestDomainHelpers:
+    """Duck-typed contexts without precomputed lookups miss cleanly (F-PERF-011)."""
+
+    def test_domain_indices_non_dict_returns_none(self, mock_context):
+        from mitre_mcp.tools import _domain_indices
+
+        mock_context.request_context.lifespan_context.domain_indices = ["not", "a", "dict"]
+
+        assert _domain_indices(mock_context, "enterprise-attack") is None
+
+    def test_domain_indices_absent_returns_none(self):
+        from types import SimpleNamespace
+
+        from mitre_mcp.tools import _domain_indices
+
+        ctx = SimpleNamespace(request_context=SimpleNamespace(lifespan_context=SimpleNamespace()))
+
+        assert _domain_indices(ctx, "enterprise-attack") is None

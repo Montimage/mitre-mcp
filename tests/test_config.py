@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from mitre_mcp.config import Config
+from mitre_mcp.config import Config, _env_int, _env_log_level
 
 
 class TestConfig:
@@ -203,3 +203,60 @@ class TestConfigEnvValidation:
         assert len(lines) == 1
         assert "MITRE_LOG_LEVEL" in lines[0]
         assert "Traceback" not in proc.stderr
+
+
+class TestEnvInt:
+    """Direct in-process tests for ``_env_int`` (subprocess tests cover the
+    import-time path; these pin the helper branches themselves)."""
+
+    def test_returns_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("MITRE_TEST_INT", raising=False)
+        assert _env_int("MITRE_TEST_INT", 7) == 7
+
+    def test_parses_integer_value(self, monkeypatch):
+        monkeypatch.setenv("MITRE_TEST_INT", "42")
+        assert _env_int("MITRE_TEST_INT", 7) == 42
+
+    def test_malformed_value_exits_naming_variable(self, monkeypatch):
+        monkeypatch.setenv("MITRE_TEST_INT", "abc")
+        with pytest.raises(SystemExit, match="MITRE_TEST_INT must be an integer"):
+            _env_int("MITRE_TEST_INT", 7)
+
+
+class TestEnvLogLevel:
+    """Direct tests for ``_env_log_level``."""
+
+    def test_valid_level_returned(self, monkeypatch):
+        monkeypatch.setenv("MITRE_TEST_LEVEL", "debug")
+        assert _env_log_level("MITRE_TEST_LEVEL", "INFO") == "debug"
+
+    def test_invalid_level_exits_naming_variable(self, monkeypatch):
+        monkeypatch.setenv("MITRE_TEST_LEVEL", "LOUD")
+        with pytest.raises(SystemExit, match="MITRE_TEST_LEVEL must be a logging level"):
+            _env_log_level("MITRE_TEST_LEVEL", "INFO")
+
+
+class TestConfigValidate:
+    """Each bound check in ``Config.validate`` exits naming its variable."""
+
+    def test_download_timeout_below_one_exits(self, monkeypatch):
+        monkeypatch.setattr(Config, "DOWNLOAD_TIMEOUT_SECONDS", 0)
+        with pytest.raises(SystemExit, match="MITRE_DOWNLOAD_TIMEOUT must be a positive integer"):
+            Config.validate()
+
+    def test_cache_expiry_negative_exits(self, monkeypatch):
+        monkeypatch.setattr(Config, "CACHE_EXPIRY_DAYS", -1)
+        with pytest.raises(
+            SystemExit, match="MITRE_CACHE_EXPIRY_DAYS must be a non-negative integer"
+        ):
+            Config.validate()
+
+    def test_default_page_size_below_one_exits(self, monkeypatch):
+        monkeypatch.setattr(Config, "DEFAULT_PAGE_SIZE", 0)
+        with pytest.raises(SystemExit, match="MITRE_DEFAULT_PAGE_SIZE must be between 1 and"):
+            Config.validate()
+
+    def test_default_page_size_above_max_exits(self, monkeypatch):
+        monkeypatch.setattr(Config, "DEFAULT_PAGE_SIZE", Config.MAX_PAGE_SIZE + 1)
+        with pytest.raises(SystemExit, match="MITRE_DEFAULT_PAGE_SIZE must be between 1 and"):
+            Config.validate()
