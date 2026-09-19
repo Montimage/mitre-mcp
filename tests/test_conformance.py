@@ -137,9 +137,9 @@ async def test_tool_annotations_and_domain_enum(tmp_path):
         assert output is not None, f"{tool.name} has no outputSchema"
         assert output.get("type") == "object", tool.name
         expected = EXPECTED_OUTPUT_PROPERTIES[tool.name]
-        assert (
-            set(output.get("properties", {})) == expected
-        ), f"{tool.name} outputSchema properties do not match the observed payload keys"
+        assert set(output.get("properties", {})) == expected, (
+            f"{tool.name} outputSchema properties do not match the observed payload keys"
+        )
         assert set(output.get("required", [])) == expected, tool.name
 
         # Issues #83/#84: the four list tools and three relationship tools
@@ -152,9 +152,9 @@ async def test_tool_annotations_and_domain_enum(tmp_path):
         # Issue #72: the F-CLEAN-007 options-model refactor is internal only —
         # get_techniques' published inputSchema property names are unchanged.
         if tool.name == "get_techniques":
-            assert (
-                set(tool.input_schema["properties"]) == GET_TECHNIQUES_INPUT_PROPERTIES
-            ), "get_techniques inputSchema property names changed"
+            assert set(tool.input_schema["properties"]) == GET_TECHNIQUES_INPUT_PROPERTIES, (
+                "get_techniques inputSchema property names changed"
+            )
 
 
 @pytest.mark.asyncio
