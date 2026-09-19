@@ -75,9 +75,25 @@ READ_ONLY_TOOL = ToolAnnotations(
 
 
 # Helper functions
+def _ensure_domain_loaded(lifespan_context: AttackContext, domain: str) -> None:
+    """Trigger the lazy mobile/ICS load when the context supports it (F-PERF-010).
+
+    Duck-typed test contexts carry no ``ensure_domain`` — their stores are
+    already set eagerly, so there is nothing to trigger.
+    """
+    ensure = getattr(lifespan_context, "ensure_domain", None)
+    if callable(ensure):
+        ensure(domain)
+
+
 def get_attack_data(domain: str, ctx: Context) -> MitreAttackData:
     """Get the appropriate MITRE ATT&CK data based on the domain."""
     lifespan_context = cast(AttackContext, ctx.request_context.lifespan_context)
+    ensure = getattr(lifespan_context, "ensure_domain", None)
+    if callable(ensure):
+        # F-PERF-010: enterprise returns at once; mobile/ICS parse on
+        # their first call, thread-safe under the worker-thread handlers.
+        return ensure(domain)
     if domain == "enterprise-attack":
         return lifespan_context.enterprise_attack
     elif domain == "mobile-attack":
@@ -95,6 +111,7 @@ def _domain_lists(ctx: Context, domain: str) -> DomainLists | None:
     fall back to the store exactly as before (F-PERF-005).
     """
     lifespan_context = cast(AttackContext, ctx.request_context.lifespan_context)
+    _ensure_domain_loaded(lifespan_context, domain)
     lists_by_domain = getattr(lifespan_context, "domain_lists", None)
     if not isinstance(lists_by_domain, dict):
         return None
@@ -104,12 +121,14 @@ def _domain_lists(ctx: Context, domain: str) -> DomainLists | None:
 def _domain_indices(ctx: Context, domain: str) -> DomainIndices | None:
     """Return the precomputed lookup indices for a domain, or None when absent.
 
-    Built once per domain at load for all three domains, so name, alias
-    and ID lookups never scan query results (F-BUG-015, F-PERF-011).
-    Duck-typed test contexts may not carry ``domain_indices``; lookups on
-    those contexts simply miss.
+    Enterprise indices are built at start-up; mobile/ICS indices land here
+    when ``_ensure_domain_loaded`` parses the domain on first use
+    (F-PERF-010), so name, alias and ID lookups still never scan query
+    results (F-BUG-015, F-PERF-011). Duck-typed test contexts may not
+    carry ``domain_indices``; lookups on those contexts simply miss.
     """
     lifespan_context = cast(AttackContext, ctx.request_context.lifespan_context)
+    _ensure_domain_loaded(lifespan_context, domain)
     indices_by_domain = getattr(lifespan_context, "domain_indices", None)
     if not isinstance(indices_by_domain, dict):
         return None

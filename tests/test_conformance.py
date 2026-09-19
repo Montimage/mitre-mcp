@@ -35,6 +35,16 @@ FIXTURE_PATHS = {
     "ics": os.path.join(FIXTURE_DIR, "ics-attack.json"),
 }
 
+
+def _patch_data_dir(tmp_path):
+    """Point the cache lookup at an empty dir so the suite never reads the
+    developer machine's real ``~/.cache/mitre-mcp`` — an expired cache
+    there would now take the stale-serve path and parse real bundles."""
+    return patch.object(
+        server_module.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
+    )
+
+
 # Root properties each tool's outputSchema must name — the success payload keys
 # observed on the wire before structured output was added (issue #48), with the
 # pagination block added by the issues #83/#84 paging contract.
@@ -78,10 +88,15 @@ GET_TECHNIQUES_INPUT_PROPERTIES = {
 
 
 @pytest.mark.asyncio
-async def test_server_discover():
+async def test_server_discover(tmp_path):
     """server/discover exposes name, package version, and instructions."""
-    with patch.object(
-        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    with (
+        _patch_data_dir(tmp_path),
+        patch.object(
+            server_module,
+            "download_and_save_attack_data_async",
+            AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             info = client.server_info
@@ -92,10 +107,15 @@ async def test_server_discover():
 
 
 @pytest.mark.asyncio
-async def test_tool_annotations_and_domain_enum():
+async def test_tool_annotations_and_domain_enum(tmp_path):
     """Every tool has a title, read-only annotations, and a domain enum."""
-    with patch.object(
-        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    with (
+        _patch_data_dir(tmp_path),
+        patch.object(
+            server_module,
+            "download_and_save_attack_data_async",
+            AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             result = await client.list_tools()
@@ -138,10 +158,15 @@ async def test_tool_annotations_and_domain_enum():
 
 
 @pytest.mark.asyncio
-async def test_structured_content_matches_unstructured():
+async def test_structured_content_matches_unstructured(tmp_path):
     """structuredContent equals the JSON in content[0].text — payload unchanged."""
-    with patch.object(
-        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    with (
+        _patch_data_dir(tmp_path),
+        patch.object(
+            server_module,
+            "download_and_save_attack_data_async",
+            AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             calls = [
@@ -170,10 +195,15 @@ async def test_structured_content_matches_unstructured():
 
 
 @pytest.mark.asyncio
-async def test_tool_failures_report_is_error():
+async def test_tool_failures_report_is_error(tmp_path):
     """Failures surface as MCP tool errors (isError), not success payloads."""
-    with patch.object(
-        server_module, "download_and_save_attack_data_async", AsyncMock(return_value=FIXTURE_PATHS)
+    with (
+        _patch_data_dir(tmp_path),
+        patch.object(
+            server_module,
+            "download_and_save_attack_data_async",
+            AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             bad_domain = await client.call_tool("get_tactics", {"domain": "bogus-domain"})

@@ -6,9 +6,10 @@ Two guarantees are pinned here:
   exactly once per server process — connecting sessions no longer re-parse
   ~46MB of STIX per session as they did under SDK v1.
 - F-PERF-003: synchronous ``def`` tool handlers run on an anyio worker
-  thread instead of blocking the event loop; the lookup indices they share
-  are precomputed inside the lifespan (the "guarded by precompute" option),
-  so concurrent handlers only read immutable state.
+  thread instead of blocking the event loop; the enterprise lookup indices
+  they share are precomputed inside the lifespan (the "guarded by
+  precompute" option — mobile/ICS now build lazily on first use,
+  F-PERF-010), so concurrent handlers only read immutable state.
 
 The download step is patched to feed the committed STIX fixtures, as in
 ``test_protocol_smoke.py``.
@@ -36,11 +37,23 @@ FIXTURE_PATHS = {
 }
 
 
+def _patch_data_dir(tmp_path):
+    """Point the cache lookup at an empty dir so the suite never reads the
+    developer machine's real ``~/.cache/mitre-mcp`` — an expired cache
+    there would now take the stale-serve path and parse real bundles."""
+    return patch.object(
+        server_module.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
+    )
+
+
 @pytest.mark.asyncio
-async def test_lifespan_once_across_two_http_sessions():
+async def test_lifespan_once_across_two_http_sessions(tmp_path):
     """Two streamable-HTTP sessions on one server share one lifespan entry."""
     download = AsyncMock(return_value=FIXTURE_PATHS)
-    with patch.object(server_module, "download_and_save_attack_data_async", download):
+    with (
+        _patch_data_dir(tmp_path),
+        patch.object(server_module, "download_and_save_attack_data_async", download),
+    ):
         # Pre-bind the socket so the port is known without a bind race.
         sock = socket.socket()
         sock.bind(("127.0.0.1", 0))
@@ -83,7 +96,7 @@ async def test_lifespan_once_across_two_http_sessions():
 
 
 @pytest.mark.asyncio
-async def test_sync_tool_runs_on_worker_thread():
+async def test_sync_tool_runs_on_worker_thread(tmp_path):
     """Sync `def` handlers execute off the event-loop thread (worker thread)."""
     loop_thread = threading.get_ident()
     seen_threads = []
@@ -95,6 +108,7 @@ async def test_sync_tool_runs_on_worker_thread():
 
     download = AsyncMock(return_value=FIXTURE_PATHS)
     with (
+        _patch_data_dir(tmp_path),
         patch.object(server_module, "download_and_save_attack_data_async", download),
         patch.object(server_module, "get_attack_data", spy_get_attack_data),
     ):
@@ -113,7 +127,7 @@ async def test_sync_tool_runs_on_worker_thread():
 
 
 @pytest.mark.asyncio
-async def test_lifespan_once_indices_precomputed():
+async def test_lifespan_once_indices_precomputed(tmp_path):
     """Lookup indices are built once at load and shared read-only by handlers."""
     original_build = server_module.build_domain_indices
     build_calls = []
@@ -124,13 +138,16 @@ async def test_lifespan_once_indices_precomputed():
 
     download = AsyncMock(return_value=FIXTURE_PATHS)
     with (
+        _patch_data_dir(tmp_path),
         patch.object(server_module, "download_and_save_attack_data_async", download),
         patch.object(server_module, "build_domain_indices", counting_build),
     ):
         async with Client(mcp) as client:
             # Concurrent calls force parallel worker threads to read the
-            # shared index; a lazy rebuild would show up as build_calls > 3
-            # (the builder runs once per domain at load, issue #69).
+            # shared index; a lazy rebuild would show up as build_calls > 1
+            # (only enterprise is built at load, F-PERF-010 — mobile/ICS
+            # build on their first call, and these calls all target
+            # enterprise).
             calls = await asyncio.gather(
                 *[
                     client.call_tool(
@@ -142,4 +159,4 @@ async def test_lifespan_once_indices_precomputed():
             )
 
     assert all(not c.is_error for c in calls)
-    assert len(build_calls) == 3  # one build per domain at load, never per call
+    assert len(build_calls) == 1  # enterprise only at load, never per call

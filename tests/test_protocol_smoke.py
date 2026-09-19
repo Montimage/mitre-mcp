@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.client import Client
 
+import mitre_mcp.mitre_mcp_server as server_module
 from mitre_mcp.mitre_mcp_server import mcp
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
@@ -24,6 +25,16 @@ FIXTURE_PATHS = {
     "mobile": os.path.join(FIXTURE_DIR, "mobile-attack.json"),
     "ics": os.path.join(FIXTURE_DIR, "ics-attack.json"),
 }
+
+
+def _patch_data_dir(tmp_path):
+    """Point the cache lookup at an empty dir so the suite never reads the
+    developer machine's real ``~/.cache/mitre-mcp`` — an expired cache
+    there would now take the stale-serve path and parse real bundles."""
+    return patch.object(
+        server_module.Config, "get_data_dir", classmethod(lambda cls: str(tmp_path))
+    )
+
 
 EXPECTED_TOOLS = {
     "get_groups",
@@ -39,10 +50,13 @@ EXPECTED_TOOLS = {
 
 
 @pytest.mark.asyncio
-async def test_tools_list_returns_exactly_the_nine_registered_tools():
-    with patch(
-        "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
-        new=AsyncMock(return_value=FIXTURE_PATHS),
+async def test_tools_list_returns_exactly_the_nine_registered_tools(tmp_path):
+    with (
+        _patch_data_dir(tmp_path),
+        patch(
+            "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
+            new=AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             result = await client.list_tools()
@@ -51,10 +65,13 @@ async def test_tools_list_returns_exactly_the_nine_registered_tools():
 
 
 @pytest.mark.asyncio
-async def test_tools_call_returns_non_error_result_with_fixture_data():
-    with patch(
-        "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
-        new=AsyncMock(return_value=FIXTURE_PATHS),
+async def test_tools_call_returns_non_error_result_with_fixture_data(tmp_path):
+    with (
+        _patch_data_dir(tmp_path),
+        patch(
+            "mitre_mcp.mitre_mcp_server.download_and_save_attack_data_async",
+            new=AsyncMock(return_value=FIXTURE_PATHS),
+        ),
     ):
         async with Client(mcp) as client:
             call = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})

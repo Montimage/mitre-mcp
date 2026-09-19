@@ -42,6 +42,7 @@ from .data import (
     AttackContext,
     DomainIndices,
     DomainLists,
+    attack_data_paths,
     build_domain_indices,
     build_domain_lists,
     check_disk_space,
@@ -49,6 +50,7 @@ from .data import (
     download_domain,
     load_metadata,
     parse_timestamp,
+    stale_cache_servable,
     validate_metadata,
     validate_stix_bundle,
 )
@@ -114,6 +116,7 @@ __all__ = [
     "TechniqueResult",
     "TechniquesListResult",
     "TechniquesPageResult",
+    "attack_data_paths",
     "attack_lifespan",
     "build_config_banner",
     "build_domain_indices",
@@ -148,6 +151,7 @@ __all__ = [
     "parse_timestamp",
     "setup_http_server",
     "setup_logging",
+    "stale_cache_servable",
     "validate_metadata",
     "validate_stix_bundle",
 ]
