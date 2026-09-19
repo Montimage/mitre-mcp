@@ -115,7 +115,7 @@ async def test_sync_tool_runs_on_worker_thread():
 @pytest.mark.asyncio
 async def test_lifespan_once_indices_precomputed():
     """Lookup indices are built once at load and shared read-only by handlers."""
-    original_build = server_module.build_group_index
+    original_build = server_module.build_domain_indices
     build_calls = []
 
     def counting_build(data):
@@ -125,11 +125,12 @@ async def test_lifespan_once_indices_precomputed():
     download = AsyncMock(return_value=FIXTURE_PATHS)
     with (
         patch.object(server_module, "download_and_save_attack_data_async", download),
-        patch.object(server_module, "build_group_index", counting_build),
+        patch.object(server_module, "build_domain_indices", counting_build),
     ):
         async with Client(mcp) as client:
             # Concurrent calls force parallel worker threads to read the
-            # shared index; a lazy rebuild would show up as build_calls > 1.
+            # shared index; a lazy rebuild would show up as build_calls > 3
+            # (the builder runs once per domain at load, issue #69).
             calls = await asyncio.gather(
                 *[
                     client.call_tool(
@@ -141,4 +142,4 @@ async def test_lifespan_once_indices_precomputed():
             )
 
     assert all(not c.is_error for c in calls)
-    assert len(build_calls) == 1
+    assert len(build_calls) == 3  # one build per domain at load, never per call

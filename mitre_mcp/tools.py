@@ -25,7 +25,7 @@ from mitreattack.stix20 import MitreAttackData
 # Local imports
 from ._entry import load as _entry
 from .config import Config
-from .data import AttackContext, DomainLists
+from .data import AttackContext, DomainIndices, DomainLists
 from .models import (
     EntityRef,
     GroupResult,
@@ -98,6 +98,21 @@ def _domain_lists(ctx: Context, domain: str) -> DomainLists | None:
     if not isinstance(lists_by_domain, dict):
         return None
     return lists_by_domain.get(domain)
+
+
+def _domain_indices(ctx: Context, domain: str) -> DomainIndices | None:
+    """Return the precomputed lookup indices for a domain, or None when absent.
+
+    Built once per domain at load for all three domains, so name, alias
+    and ID lookups never scan query results (F-BUG-015, F-PERF-011).
+    Duck-typed test contexts may not carry ``domain_indices``; lookups on
+    those contexts simply miss.
+    """
+    lifespan_context = cast(AttackContext, ctx.request_context.lifespan_context)
+    indices_by_domain = getattr(lifespan_context, "domain_indices", None)
+    if not isinstance(indices_by_domain, dict):
+        return None
+    return indices_by_domain.get(domain)
 
 
 def _resolve_paging(limit: int | None, offset: int) -> tuple[int, int]:
@@ -421,19 +436,9 @@ def get_techniques_used_by_group(
 
     data = _entry().get_attack_data(domain, ctx)
 
-    # Use index for O(1) lookup (enterprise domain only)
-    if domain == "enterprise-attack":
-        group = cast(AttackContext, ctx.request_context.lifespan_context).groups_index.get(
-            group_name.lower()
-        )
-    else:
-        # Fallback to linear search for other domains
-        groups = data.get_groups()
-        group = None
-        for g in groups:
-            if g.get("name", "").lower() == group_name.lower():
-                group = g
-                break
+    # O(1) index lookup on every domain — names and aliases (F-BUG-015).
+    indices = _domain_indices(ctx, domain)
+    group = indices.groups.get(group_name.lower()) if indices is not None else None
 
     if not group:
         raise ToolError(f"Group '{group_name}' not found")
@@ -528,19 +533,9 @@ def get_techniques_mitigated_by_mitigation(
 
     data = _entry().get_attack_data(domain, ctx)
 
-    # Use index for O(1) lookup (enterprise domain only)
-    if domain == "enterprise-attack":
-        mitigation = cast(
-            AttackContext, ctx.request_context.lifespan_context
-        ).mitigations_index.get(mitigation_name.lower())
-    else:
-        # Fallback to linear search for other domains
-        mitigations = data.get_mitigations()
-        mitigation = None
-        for m in mitigations:
-            if m.get("name", "").lower() == mitigation_name.lower():
-                mitigation = m
-                break
+    # O(1) index lookup on every domain (F-PERF-011).
+    indices = _domain_indices(ctx, domain)
+    mitigation = indices.mitigations.get(mitigation_name.lower()) if indices is not None else None
 
     if not mitigation:
         raise ToolError(f"Mitigation '{mitigation_name}' not found")
@@ -576,26 +571,9 @@ def get_technique_by_id(
     except ValidationError as e:
         raise ToolError(str(e)) from e
 
-    # Use index for O(1) lookup (enterprise domain)
-    if domain == "enterprise-attack":
-        technique = cast(
-            AttackContext, ctx.request_context.lifespan_context
-        ).techniques_by_mitre_id.get(technique_id)
-    else:
-        # Fallback to linear search for other domains
-        data = _entry().get_attack_data(domain, ctx)
-        techniques = data.get_techniques()
-        technique = None
-        for t in techniques:
-            for ref in t.get("external_references", []):
-                if (
-                    ref.get("source_name") == "mitre-attack"
-                    and ref.get("external_id") == technique_id
-                ):
-                    technique = t
-                    break
-            if technique:
-                break
+    # O(1) index lookup on every domain (F-PERF-011).
+    indices = _domain_indices(ctx, domain)
+    technique = indices.techniques_by_mitre_id.get(technique_id) if indices is not None else None
 
     if not technique:
         raise ToolError(f"Technique '{technique_id}' not found")

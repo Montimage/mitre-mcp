@@ -297,10 +297,14 @@ class TestAttackLifespan:
             assert ctx.enterprise_attack is fake
             assert ctx.mobile_attack is fake
             assert ctx.ics_attack is fake
-            assert "g1" in ctx.groups_index
-            assert "ga" in ctx.groups_index  # aliases are indexed too
-            assert "m1" in ctx.mitigations_index
-            assert "T1000" in ctx.techniques_by_mitre_id
+            # F-PERF-011: indices are built for EVERY domain, not just
+            # enterprise — same fake data underlies all three here.
+            for domain in ("enterprise-attack", "mobile-attack", "ics-attack"):
+                idx = ctx.domain_indices[domain]
+                assert "g1" in idx.groups
+                assert "ga" in idx.groups  # aliases are indexed too (F-BUG-015)
+                assert "m1" in idx.mitigations
+                assert "T1000" in idx.techniques_by_mitre_id
 
         dl_mock.assert_awaited_once_with(str(tmp_path), force=False)
 

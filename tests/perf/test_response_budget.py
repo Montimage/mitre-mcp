@@ -27,10 +27,8 @@ from mitreattack.stix20 import MitreAttackData
 from mitre_mcp.mitre_mcp_server import (
     AttackContext,
     Config,
+    build_domain_indices,
     build_domain_lists,
-    build_group_index,
-    build_mitigation_index,
-    build_technique_index,
     get_groups,
     get_mitigations,
     get_software,
@@ -79,15 +77,18 @@ def enterprise_ctx():
         )
     data = MitreAttackData(path)
     domain_lists = build_domain_lists(data)
+    indices = build_domain_indices(data)
     ctx = MagicMock()
     ctx.request_context = MagicMock()
     ctx.request_context.lifespan_context = AttackContext(
         enterprise_attack=data,
         mobile_attack=data,
         ics_attack=data,
-        groups_index=build_group_index(data),
-        mitigations_index=build_mitigation_index(data),
-        techniques_by_mitre_id=build_technique_index(data),
+        domain_indices={
+            "enterprise-attack": indices,
+            "mobile-attack": indices,
+            "ics-attack": indices,
+        },
         domain_lists={
             "enterprise-attack": domain_lists,
             "mobile-attack": domain_lists,

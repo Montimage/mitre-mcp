@@ -20,6 +20,25 @@
           "url": "https://attack.mitre.org/tactics/TA0099"
         }
       ]
+    },
+    {
+      "type": "intrusion-set",
+      "id": "intrusion-set--00000000-0000-4000-8000-000000000194",
+      "created": "2020-01-01T00:00:00.000Z",
+      "modified": "2020-01-01T00:00:00.000Z",
+      "name": "Fixture Mobile Group",
+      "description": "Test fixture group.",
+      "revoked": false,
+      "aliases": ["MobileAlias"],
+      "x_mitre_domains": ["mobile-attack"],
+      "x_mitre_version": "1.0",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "G9001",
+          "url": "https://attack.mitre.org/groups/G9001"
+        }
+      ]
     }
   ]
 }

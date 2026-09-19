@@ -54,17 +54,18 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
         cls.mobile_attack = MitreAttackData(os.path.join(TEST_DATA_DIR, "mobile-attack.json"))
         cls.ics_attack = MitreAttackData(os.path.join(TEST_DATA_DIR, "ics-attack.json"))
 
-        # Build indices and the precomputed per-domain lists (F-PERF-005)
+        # Build per-domain indices (F-PERF-011) and the precomputed
+        # per-domain lists (F-PERF-005) — one builder, every domain.
         from mitre_mcp.mitre_mcp_server import (
+            build_domain_indices,
             build_domain_lists,
-            build_group_index,
-            build_mitigation_index,
-            build_technique_index,
         )
 
-        cls.groups_index = build_group_index(cls.enterprise_attack)
-        cls.mitigations_index = build_mitigation_index(cls.enterprise_attack)
-        cls.techniques_index = build_technique_index(cls.enterprise_attack)
+        cls.domain_indices = {
+            "enterprise-attack": build_domain_indices(cls.enterprise_attack),
+            "mobile-attack": build_domain_indices(cls.mobile_attack),
+            "ics-attack": build_domain_indices(cls.ics_attack),
+        }
         cls.domain_lists = {
             "enterprise-attack": build_domain_lists(cls.enterprise_attack),
             "mobile-attack": build_domain_lists(cls.mobile_attack),
@@ -78,9 +79,7 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
             enterprise_attack=cls.enterprise_attack,
             mobile_attack=cls.mobile_attack,
             ics_attack=cls.ics_attack,
-            groups_index=cls.groups_index,
-            mitigations_index=cls.mitigations_index,
-            techniques_by_mitre_id=cls.techniques_index,
+            domain_indices=cls.domain_indices,
             domain_lists=cls.domain_lists,
         )
 
@@ -151,6 +150,16 @@ class TestMcpToolsIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("techniques", result)
         # Some groups might not have techniques in the test dataset
         # So we just check the structure, not the content
+
+    def test_get_techniques_used_by_group_by_alias_mobile_and_ics(self):
+        """F-BUG-015: group lookup by alias resolves on mobile and ICS too,
+        not just enterprise — the per-domain index covers aliases everywhere."""
+        for domain, alias, expected_name in (
+            ("mobile-attack", "mobilealias", "Fixture Mobile Group"),
+            ("ics-attack", "icsalias", "Fixture ICS Group"),
+        ):
+            result = get_techniques_used_by_group(self.ctx, group_name=alias, domain=domain)
+            self.assertEqual(result["group"]["name"], expected_name, domain)
 
     def test_get_mitigations(self):
         """Test get_mitigations with default parameters."""

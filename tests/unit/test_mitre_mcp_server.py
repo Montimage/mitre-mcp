@@ -45,9 +45,7 @@ class TestMitreMcpServer(unittest.TestCase):
             enterprise_attack=MagicMock(),
             mobile_attack=MagicMock(),
             ics_attack=MagicMock(),
-            groups_index={},
-            mitigations_index={},
-            techniques_by_mitre_id={},
+            domain_indices={},
         )
 
         # Sample technique data
