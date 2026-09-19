@@ -301,7 +301,7 @@ Set before starting `mitre-mcp` to customize behavior:
 | `MITRE_DOWNLOAD_TIMEOUT`                                    | `30`                           | HTTP timeout in seconds for bundle downloads                                         |
 | `MITRE_CACHE_EXPIRY_DAYS`                                   | `1`                            | Maximum age before cached data is refreshed                                          |
 | `MITRE_REQUIRED_SPACE_MB`                                   | `200`                          | Disk space threshold checked before downloading                                      |
-| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `1000`                  | Default and maximum records returned by list tools                                   |
+| `MITRE_DEFAULT_PAGE_SIZE` / `MITRE_MAX_PAGE_SIZE`           | `20` / `200`                   | Default and maximum records returned by list tools                                   |
 | `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                              |
 | `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                       |
 | `MITRE_CORS_ORIGINS`                                        | localhost origins              | CORS allowed origins for HTTP mode (comma-separated list; `*` is an explicit opt-in) |
