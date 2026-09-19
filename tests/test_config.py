@@ -1,6 +1,8 @@
 """Tests for configuration module."""
 
 import os
+import subprocess
+import sys
 
 import pytest
 
@@ -137,3 +139,38 @@ class TestConfig:
         reload(config_module)
 
         assert config_module.Config.CORS_ORIGINS == origins
+
+
+class TestConfigEnvValidation:
+    """F-BUG-030: invalid ``MITRE_*`` values fail start-up with a one-line
+    error naming the variable — never a raw traceback."""
+
+    def _import_server(self, env_overrides):
+        """Import the entry module in a fresh interpreter with the given env."""
+        env = {**os.environ, **env_overrides}
+        return subprocess.run(
+            [sys.executable, "-c", "import mitre_mcp.mitre_mcp_server"],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_invalid_int_env_var_names_variable(self):
+        """``MITRE_MAX_PAGE_SIZE=abc`` → one-line error naming the variable."""
+        proc = self._import_server({"MITRE_MAX_PAGE_SIZE": "abc"})
+
+        assert proc.returncode != 0
+        lines = [line for line in proc.stderr.splitlines() if line.strip()]
+        assert len(lines) == 1
+        assert "MITRE_MAX_PAGE_SIZE" in lines[0]
+        assert "Traceback" not in proc.stderr
+
+    def test_invalid_log_level_names_variable(self):
+        """``MITRE_LOG_LEVEL=LOUD`` → one-line error naming the variable."""
+        proc = self._import_server({"MITRE_LOG_LEVEL": "LOUD"})
+
+        assert proc.returncode != 0
+        lines = [line for line in proc.stderr.splitlines() if line.strip()]
+        assert len(lines) == 1
+        assert "MITRE_LOG_LEVEL" in lines[0]
+        assert "Traceback" not in proc.stderr

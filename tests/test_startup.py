@@ -1,7 +1,7 @@
 """Characterisation tests for the server start-up path.
 
 These tests pin the behaviour of the single ``argparse`` parser
-(``build_parser``/``parse_cli_args``/``get_cli_args``), ``signal_handler``,
+(``build_parser``/``parse_cli_args``/``get_cli_args``),
 ``build_config_banner``, ``main`` and ``attack_lifespan``.
 
 Tasks 6.3/6.4 consolidated three hand-rolled ``sys.argv`` scans and three
@@ -14,6 +14,10 @@ behaviour was the bug:
 - ``--host --port`` no longer lets ``--host`` swallow the next flag as its
   value (F-DEAD-002);
 - an invalid ``--port`` exits 2 (argparse's convention) instead of 1.
+
+Task 6.9 removed the custom ``signal_handler`` (F-BUG-029): ``main`` no
+longer installs SIGINT/SIGTERM handlers — uvicorn owns them in HTTP mode
+and stdio mode relies on default ``KeyboardInterrupt`` propagation.
 """
 
 import signal
@@ -27,7 +31,6 @@ from mitre_mcp.mitre_mcp_server import (
     attack_lifespan,
     build_config_banner,
     parse_cli_args,
-    signal_handler,
 )
 
 
@@ -187,20 +190,6 @@ class TestStartupBanner:
         assert "is ready" not in captured.err
 
 
-class TestSignalHandler:
-    """Pin graceful-shutdown exit codes."""
-
-    def test_sigint_exits_zero(self):
-        with pytest.raises(SystemExit) as exc_info:
-            signal_handler(signal.SIGINT, None)
-        assert exc_info.value.code == 0
-
-    def test_sigterm_exits_zero(self):
-        with pytest.raises(SystemExit) as exc_info:
-            signal_handler(signal.SIGTERM, None)
-        assert exc_info.value.code == 0
-
-
 class TestMain:
     """Pin the entry-point dispatch behaviour."""
 
@@ -208,7 +197,6 @@ class TestMain:
         monkeypatch.setattr(sys, "argv", ["mitre-mcp", "--help"])
         run_mock = MagicMock()
         monkeypatch.setattr(mod.mcp, "run", run_mock)
-        monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         with pytest.raises(SystemExit) as exc_info:
             mod.main()
@@ -217,22 +205,21 @@ class TestMain:
         assert "usage" in capsys.readouterr().out.lower()
         run_mock.assert_not_called()
 
-    def test_registers_sigint_and_sigterm_handlers(self, monkeypatch):
+    def test_does_not_install_signal_handlers(self, monkeypatch):
+        """F-BUG-029: signal handling is owned by the runtime, not main()."""
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
         sig_mock = MagicMock()
-        monkeypatch.setattr(mod.signal, "signal", sig_mock)
+        monkeypatch.setattr(signal, "signal", sig_mock)
         monkeypatch.setattr(mod.mcp, "run", MagicMock())
 
         mod.main()
 
-        sig_mock.assert_any_call(signal.SIGINT, mod.signal_handler)
-        sig_mock.assert_any_call(signal.SIGTERM, mod.signal_handler)
+        sig_mock.assert_not_called()
 
     def test_stdio_mode_runs_default_transport(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
         run_mock = MagicMock()
         monkeypatch.setattr(mod.mcp, "run", run_mock)
-        monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         mod.main()
 
@@ -251,7 +238,6 @@ class TestMain:
         monkeypatch.setattr(mod, "build_http_app", build_mock)
         monkeypatch.setattr(mod, "uvicorn", uvicorn_mock)
         monkeypatch.setattr(mod.asyncio, "run", run_mock)
-        monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         mod.main()
 
@@ -264,7 +250,6 @@ class TestMain:
     def test_keyboard_interrupt_exits_zero(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
         monkeypatch.setattr(mod.mcp, "run", MagicMock(side_effect=KeyboardInterrupt()))
-        monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         with pytest.raises(SystemExit) as exc_info:
             mod.main()
@@ -273,7 +258,6 @@ class TestMain:
     def test_unhandled_error_exits_1(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["mitre-mcp"])
         monkeypatch.setattr(mod.mcp, "run", MagicMock(side_effect=RuntimeError("boom")))
-        monkeypatch.setattr(mod.signal, "signal", MagicMock())
 
         with pytest.raises(SystemExit) as exc_info:
             mod.main()
