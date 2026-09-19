@@ -7,7 +7,54 @@
  * the UI can render the outcome directly.
  */
 
+import { DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL } from './llmProviders.js';
+
 const PROBE_TIMEOUT_MS = 10000;
+
+/**
+ * Read a probe response as JSON, failing with a message about the *service*
+ * rather than about JSON syntax.
+ *
+ * A probe URL that resolves to a web server — a relative URL answered by the
+ * SPA fallback, a wrong host, a captive portal — returns an HTML page with
+ * status 200. `response.json()` then throws `Unexpected token '<'`, which
+ * tells the user nothing about what to fix.
+ *
+ * The body is inspected through `clone()` so the original stream is still
+ * intact for the caller; where `clone` is unavailable the message degrades
+ * to the generic form rather than throwing again.
+ */
+const readProbeJson = async (response, service, url) => {
+  const copy = typeof response.clone === 'function' ? response.clone() : null;
+  try {
+    return await response.json();
+  } catch {
+    let body = '';
+    if (copy) {
+      try {
+        body = await copy.text();
+      } catch {
+        // Body already consumed — fall through to the generic message.
+      }
+    }
+    const where = response.url || url || 'the configured URL';
+    throw new Error(
+      body.trimStart().startsWith('<')
+        ? `${where} returned a web page, not the ${service} API. Check the server URL in Settings.`
+        : `${where} did not return valid ${service} JSON.`
+    );
+  }
+};
+
+/** Best-effort error text from a non-OK response, tolerant of a non-JSON body. */
+const readProbeError = async (response) => {
+  try {
+    const data = await readProbeJson(response, 'API');
+    return data.error?.message || `API returned ${response.status}`;
+  } catch {
+    return `API returned ${response.status}`;
+  }
+};
 
 /**
  * Probe the MCP server. Dynamically imports the client cache so the module
@@ -44,32 +91,46 @@ export const probeMcpServer = async ({ host, port }) => {
  * @returns {Promise<{type: string, message: string}>}
  */
 export const probeOllama = async ({ ollamaBaseUrl, ollamaModel }) => {
+  // Defaulted here, not assumed: a first run has no saved settings, so both
+  // fields arrive undefined (see DEFAULT_OLLAMA_BASE_URL for what that used
+  // to produce).
+  const baseUrl = ollamaBaseUrl || DEFAULT_OLLAMA_BASE_URL;
+  const model = ollamaModel || DEFAULT_OLLAMA_MODEL;
+
   try {
     // Use the dev proxy for the default localhost URL to avoid CORS
-    const isDefaultOllama = ollamaBaseUrl === 'http://localhost:11434';
+    const isDefaultOllama = baseUrl === DEFAULT_OLLAMA_BASE_URL;
     const ollamaUrl = (import.meta.env.DEV && isDefaultOllama)
       ? '/ollama/api/tags'
-      : `${ollamaBaseUrl}/api/tags`;
+      : `${baseUrl}/api/tags`;
 
     const response = await fetch(ollamaUrl, {
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama server returned ${response.status}`);
+      // 502/503/504 come from something in front of Ollama that could not
+      // reach it — in dev that is Vite's /ollama proxy. Reporting the raw
+      // status would point the user at a gateway they did not configure.
+      const unreachable = response.status === 502 || response.status === 503 || response.status === 504;
+      throw new Error(
+        unreachable
+          ? `${baseUrl} is not responding (${response.status}).`
+          : `Ollama server returned ${response.status}`
+      );
     }
 
-    const data = await response.json();
-    const modelExists = data.models?.some(m => m.name === ollamaModel);
+    const data = await readProbeJson(response, 'Ollama', ollamaUrl);
+    const modelExists = data.models?.some(m => m.name === model);
 
     if (modelExists) {
-      return { type: 'success', message: `Ollama is running! Model "${ollamaModel}" is available.` };
+      return { type: 'success', message: `Ollama is running! Model "${model}" is available.` };
     }
 
     const availableModels = data.models?.map(m => m.name).join(', ') || 'none';
     return {
       type: 'error',
-      message: `Model "${ollamaModel}" not found. Available models: ${availableModels}\n\nRun: ollama pull ${ollamaModel}`
+      message: `Model "${model}" not found. Available models: ${availableModels}\n\nRun: ollama pull ${model}`
     };
   } catch (error) {
     return {
@@ -100,11 +161,10 @@ export const probeGemini = async ({ geminiApiKey, geminiModel }) => {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || `API returned ${response.status}`);
+      throw new Error(await readProbeError(response));
     }
 
-    const data = await response.json();
+    const data = await readProbeJson(response, 'Gemini');
     const modelExists = data.models?.some(m => m.name.includes(geminiModel.replace('gemini-', '')));
 
     if (modelExists) {
@@ -169,11 +229,10 @@ export const probeOpenRouter = async ({ openrouterApiKey, openrouterModel }) => 
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || `API returned ${response.status}`);
+      throw new Error(await readProbeError(response));
     }
 
-    const data = await response.json();
+    const data = await readProbeJson(response, 'OpenRouter');
     const modelExists = data.data?.some(m => m.id === openrouterModel);
 
     if (modelExists) {

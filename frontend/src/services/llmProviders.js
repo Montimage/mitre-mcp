@@ -15,6 +15,18 @@
  */
 
 /**
+ * Ollama defaults, exported so the probe, the agent and the settings dialog
+ * all resolve the same URL and model. They used to be spelled out in each of
+ * the three, and llmProbes.js was the one that forgot to apply them — on a
+ * first run the config carries no `ollamaBaseUrl`, so the probe fetched the
+ * literal string "undefined/api/tags", a *relative* URL that the dev server
+ * and GitHub Pages both answer with index.html. The probe then reported
+ * `Unexpected token '<'` instead of anything about Ollama.
+ */
+export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
+export const DEFAULT_OLLAMA_MODEL = 'llama3.1:8b';
+
+/**
  * LLM Provider types
  */
 export const LLM_PROVIDERS = {
@@ -31,17 +43,16 @@ export const LLM_PROVIDERS = {
  * @returns {Promise<*>} Resolves to the constructed ChatOllama (also on agent.llm)
  */
 export const initOllama = (agent, config) => {
-  const defaultOllamaUrl = 'http://localhost:11434';
-  const ollamaBaseUrl = config.ollamaBaseUrl || defaultOllamaUrl;
+  const ollamaBaseUrl = config.ollamaBaseUrl || DEFAULT_OLLAMA_BASE_URL;
 
   // Use proxy in dev mode for default localhost:11434 to avoid CORS
-  const isDefaultOllama = ollamaBaseUrl === defaultOllamaUrl;
+  const isDefaultOllama = ollamaBaseUrl === DEFAULT_OLLAMA_BASE_URL;
   const finalOllamaUrl = (import.meta.env.DEV && isDefaultOllama)
     ? window.location.origin + '/ollama'
     : ollamaBaseUrl;
 
   agent.ollamaConfig = {
-    model: config.ollamaModel || 'llama3.1:8b',
+    model: config.ollamaModel || DEFAULT_OLLAMA_MODEL,
     baseUrl: finalOllamaUrl,
     temperature: config.temperature ?? 0.7
   };

@@ -12,7 +12,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         {/* Ollama Base URL */}
         <div>
-          <label htmlFor="ollamaBaseUrl" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
+          <label htmlFor="ollamaBaseUrl" className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-gray-500">
             Ollama Server URL
           </label>
           <input
@@ -21,7 +21,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
             value={config.ollamaBaseUrl}
             onChange={(e) => onChange('ollamaBaseUrl', e.target.value)}
             aria-invalid={Boolean(errors.ollamaBaseUrl)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
+            className="w-full border border-rule-strong bg-paper px-3 py-2 text-sm text-ink transition-colors focus:border-ink focus:bg-paper-card focus:outline-none"
             placeholder="http://localhost:11434"
           />
           {errors.ollamaBaseUrl && (
@@ -31,7 +31,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
 
         {/* Ollama Model */}
         <div>
-          <label htmlFor="ollamaModel" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
+          <label htmlFor="ollamaModel" className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-gray-500">
             Model Name
           </label>
           <input
@@ -39,7 +39,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
             type="text"
             value={config.ollamaModel}
             onChange={(e) => onChange('ollamaModel', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
+            className="w-full border border-rule-strong bg-paper px-3 py-2 text-sm text-ink transition-colors focus:border-ink focus:bg-paper-card focus:outline-none"
             placeholder="llama3.1:8b"
           />
         </div>
@@ -53,7 +53,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
         <button
           onClick={onTest}
           disabled={testing}
-          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+          className="bg-black px-4 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
           {testing ? 'Testing Ollama...' : 'Test Ollama Connection'}
         </button>
@@ -62,10 +62,10 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
       {/* Ollama Help Text */}
       <div className="text-xs text-gray-600 space-y-1">
         <p>
-          Start Ollama: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">ollama serve</code>
+          Start Ollama: <code className="border border-rule bg-paper px-2 py-1 font-mono text-ink">ollama serve</code>
         </p>
         <p>
-          Pull model: <code className="bg-white px-2 py-1 border border-gray-300 font-mono">ollama pull {config.ollamaModel}</code>
+          Pull model: <code className="border border-rule bg-paper px-2 py-1 font-mono text-ink">ollama pull {config.ollamaModel}</code>
         </p>
       </div>
     </>

@@ -2,10 +2,45 @@
  * Playbooks Component
  *
  * Interactive scenarios and example queries from MITRE MCP Playbooks
+ *
+ * Design: a card catalogue. Scenarios are ruled tiles that fill with ink
+ * when filed open; queries are ruled rows, each a line of the dossier with
+ * its two actions set flush right. Action buttons stay visible at all times
+ * — never hover-revealed (F-UX-011).
  */
 import { useState } from 'react';
 import { askChat } from '../../services/askChat.js';
 import { getMcpServerAddress } from '../../services/mcpConfig.js';
+
+/**
+ * One ruled query row, shared by the scenario detail and the quick-start
+ * list so both carry identical affordances. The query text sits directly
+ * inside the row element — Playbooks.test.jsx reaches the two actions
+ * through that text node's parentElement. Defined at module scope so state
+ * changes in Playbooks do not remount every row.
+ */
+function QueryRow({ query, copyKey, copiedQuery, onCopy }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-rule px-4 py-3.5 transition-colors last:border-b-0 hover:bg-paper-sunk/70 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <p className="text-sm leading-relaxed text-gray-700">{query}</p>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={() => askChat(query)}
+          className="bg-black px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-gray-800"
+          title="Place this query in the chat input"
+        >
+          Ask
+        </button>
+        <button
+          onClick={() => onCopy(query, copyKey)}
+          className="border border-rule-strong px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-600 transition-colors hover:border-ink hover:text-ink"
+        >
+          {copiedQuery === copyKey ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function Playbooks() {
   const [selectedScenario, setSelectedScenario] = useState(null);
@@ -162,102 +197,98 @@ export default function Playbooks() {
   ];
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50 border-b border-gray-200">
+    <section className="border-b border-rule bg-paper-sunk px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
-        <div className="mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
+        <div className="max-w-2xl">
+          <p className="dossier-eyebrow mb-5">03 — Playbooks</p>
+          <h2 className="font-display text-4xl sm:text-5xl font-semibold text-ink">
             Interactive Playbooks
           </h2>
-          <div className="h-1 w-20 bg-black mb-6"></div>
-          <p className="text-lg text-gray-700 max-w-3xl">
-            Try these pre-built scenarios and queries. Click on any scenario to explore example questions,
-            then send them straight to the chatbox above or copy them.
+          <div className="dossier-rule mt-6 mb-6" />
+          <p className="text-lg leading-relaxed text-gray-600">
+            Try these pre-built scenarios and queries. Select a scenario to explore example questions,
+            then send them straight to the chat above or copy them.
           </p>
         </div>
 
-        {/* Scenario Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {scenarios.map((scenario) => (
-            <button
-              key={scenario.id}
-              onClick={() => setSelectedScenario(selectedScenario === scenario.id ? null : scenario.id)}
-              className={`p-6 text-left transition-all duration-200 border-2 shadow-md ${
-                selectedScenario === scenario.id
-                  ? 'bg-black text-white border-black shadow-xl scale-105'
-                  : 'bg-white border-gray-300 hover:border-black hover:shadow-lg'
-              }`}
-            >
-              <h3 className={`text-base font-bold mb-2 ${
-                selectedScenario === scenario.id ? 'text-white' : 'text-black'
-              }`}>
-                {scenario.title}
-              </h3>
-              <p className={`text-sm ${
-                selectedScenario === scenario.id ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                {scenario.description}
-              </p>
-            </button>
-          ))}
+        {/* Scenario Catalogue — ruled tiles; the open one fills with ink and
+            keeps a brass rule along its top edge. */}
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-l border-rule">
+          {scenarios.map((scenario) => {
+            const isOpen = selectedScenario === scenario.id;
+            return (
+              <button
+                key={scenario.id}
+                onClick={() => setSelectedScenario(isOpen ? null : scenario.id)}
+                aria-pressed={isOpen}
+                className={`relative border-b border-r border-rule p-6 text-left transition-colors duration-300 ${
+                  isOpen ? 'bg-black' : 'bg-paper-card hover:bg-paper'
+                }`}
+              >
+                {/* Brass edge marks the open drawer. */}
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-0 top-0 h-0.5 bg-brass transition-opacity duration-300 ${
+                    isOpen ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+                <h3
+                  className={`font-display text-lg font-semibold ${isOpen ? 'text-white' : 'text-ink'}`}
+                >
+                  {scenario.title}
+                </h3>
+                <p className={`mt-2 text-sm leading-relaxed ${isOpen ? 'text-gray-300' : 'text-gray-500'}`}>
+                  {scenario.description}
+                </p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Selected Scenario Details */}
         {selectedScenario && (
-          <div className="bg-white border-2 border-gray-300 shadow-xl p-6 md:p-8 animate-fadeIn">
+          <div className="mt-10 border border-rule bg-paper-card shadow-sheet animate-fadeIn">
             {scenarios
               .filter(s => s.id === selectedScenario)
               .map((scenario) => (
                 <div key={scenario.id}>
-                  <div className="mb-6 pb-4 border-b-2 border-gray-300">
-                    <h3 className="text-2xl font-bold text-black">
+                  <div className="border-b border-rule px-6 py-6 sm:px-8">
+                    <h3 className="font-display text-2xl font-semibold text-ink">
                       {scenario.title}
                     </h3>
-                    <p className="text-gray-600 mt-2 text-sm">
+                    <p className="mt-1.5 text-sm text-gray-500">
                       {scenario.description}
                     </p>
                   </div>
 
-                  {scenario.queries.map((category, catIdx) => (
-                    <div key={catIdx} className="mb-6 last:mb-0">
-                      <h4 className="text-sm font-bold text-black mb-3 uppercase tracking-wide">
-                        {category.category}
-                      </h4>
-                      <div className="space-y-2">
-                        {category.examples.map((query, queryIdx) => (
-                          <div
-                            key={queryIdx}
-                            className="flex items-start justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-300 transition-colors"
-                          >
-                            <p className="text-sm text-gray-700 flex-1 pr-4">
-                              {query}
-                            </p>
-                            <div className="flex-shrink-0 flex items-center gap-2">
-                              <button
-                                onClick={() => askChat(query)}
-                                className="px-3 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors"
-                                title="Place this query in the chat input"
-                              >
-                                Ask
-                              </button>
-                              <button
-                                onClick={() => copyToClipboard(query, `${catIdx}-${queryIdx}`)}
-                                className="px-3 py-1 text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
-                              >
-                                {copiedQuery === `${catIdx}-${queryIdx}` ? 'Copied' : 'Copy'}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                  <div className="px-2 py-2 sm:px-4 sm:py-4">
+                    {scenario.queries.map((category, catIdx) => (
+                      <div key={category.category} className="mb-6 last:mb-2">
+                        <h4 className="dossier-eyebrow px-4 py-3">
+                          {category.category}
+                        </h4>
+                        <div className="border-t border-rule">
+                          {category.examples.map((query, queryIdx) => (
+                            <QueryRow
+                              key={query}
+                              query={query}
+                              copyKey={`${catIdx}-${queryIdx}`}
+                              copiedQuery={copiedQuery}
+                              onCopy={copyToClipboard}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
 
-                  <div className="mt-6 p-4 bg-gray-100 border border-gray-300">
-                    <p className="text-xs text-gray-700">
-                      <strong>Tip:</strong> Click <strong>Ask</strong> to place a query in the chatbox above,
+                  <div className="border-t border-rule bg-paper px-6 py-5 sm:px-8">
+                    <p className="text-xs leading-relaxed text-gray-600">
+                      <strong className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass-700">Tip</strong>
+                      {' — '}Click <strong className="font-medium text-ink">Ask</strong> to place a query in the chat above,
                       or copy it to paste yourself. Make sure your mitre-mcp server is running on{' '}
-                      {getMcpServerAddress()}.
+                      <span className="font-mono text-ink">{getMcpServerAddress()}</span>.
                     </p>
                   </div>
                 </div>
@@ -267,14 +298,16 @@ export default function Playbooks() {
 
         {/* Quick Start Queries */}
         {!selectedScenario && (
-          <div className="mt-12 bg-white border-2 border-gray-300 shadow-lg p-8">
-            <h3 className="text-xl font-bold text-black mb-4">
-              Quick Start Queries
-            </h3>
-            <p className="text-gray-600 mb-6 text-sm">
-              Not sure where to start? Try these popular queries:
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="mt-10 border border-rule bg-paper-card shadow-sheet">
+            <div className="border-b border-rule px-6 py-6 sm:px-8">
+              <h3 className="font-display text-2xl font-semibold text-ink">
+                Quick Start Queries
+              </h3>
+              <p className="mt-1.5 text-sm text-gray-500">
+                Not sure where to start? Try these popular queries:
+              </p>
+            </div>
+            <div className="px-2 py-2 sm:px-4 sm:py-2">
               {[
                 "Show me all tactics in the enterprise domain",
                 "What is technique T1059?",
@@ -283,27 +316,13 @@ export default function Playbooks() {
                 "What mitigations exist for privilege escalation?",
                 "Show me techniques for the discovery tactic"
               ].map((query, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 hover:border-black hover:shadow-md transition-all"
-                >
-                  <span className="text-sm text-gray-700">{query}</span>
-                  <div className="flex-shrink-0 flex items-center gap-2 ml-3">
-                    <button
-                      onClick={() => askChat(query)}
-                      className="px-2 py-1 text-xs bg-black text-white hover:bg-gray-800 transition-colors"
-                      title="Place this query in the chat input"
-                    >
-                      Ask
-                    </button>
-                    <button
-                      onClick={() => copyToClipboard(query, `quick-${idx}`)}
-                      className="px-2 py-1 text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
-                    >
-                      {copiedQuery === `quick-${idx}` ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
+                <QueryRow
+                  key={query}
+                  query={query}
+                  copyKey={`quick-${idx}`}
+                  copiedQuery={copiedQuery}
+                  onCopy={copyToClipboard}
+                />
               ))}
             </div>
           </div>
