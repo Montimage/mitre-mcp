@@ -106,7 +106,7 @@ npm test
 | `MITRE_LOG_LEVEL`         | Logging level                                                                                                                                        |
 | `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode (defaults to localhost dev origins; add a hosted UI origin explicitly; credentials never allowed) |
 
-`mitre_mcp/mitre_mcp_server.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port).
+`mitre_mcp/cli.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port) for the `mitre_mcp.mitre_mcp_server` entry point.
 
 The frontend reads the `VITE_*` names listed in `frontend/.env.example` — names only; never copy values from `.env` or the `.mcpregistry_*token` files:
 
