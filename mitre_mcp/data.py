@@ -3,7 +3,8 @@
 Everything that touches the STIX bundles on disk or the wire lives here —
 disk-space checks, metadata and STIX-bundle validation, the parallel
 download path, the O(1) lookup indices the tools share, and the immutable
-per-domain lists precomputed at load for the paged tools (F-PERF-005).
+per-domain lists for the paged tools (F-PERF-005), precomputed eagerly
+for enterprise and lazily for mobile/ICS (F-PERF-010).
 The module is a leaf: it never imports the entry point, the server object
 or the tools, so it can be imported first from anywhere.
 """
@@ -14,6 +15,8 @@ import json
 import logging
 import os
 import shutil
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -34,9 +37,10 @@ class DomainLists:
     """Precomputed, immutable per-domain object lists (F-PERF-005).
 
     Each tuple holds the store's own objects in store order, captured once
-    at load with the tools' default arguments, so a paged call under those
-    defaults slices this list instead of re-querying the dataset. Calls
-    with non-default filters still go through the store.
+    per domain — at start-up for enterprise, on first use for mobile/ICS
+    (F-PERF-010) — with the tools' default arguments, so a paged call
+    under those defaults slices this list instead of re-querying the
+    dataset. Calls with non-default filters still go through the store.
     """
 
     techniques: tuple[dict[str, Any], ...]
@@ -63,19 +67,85 @@ class DomainIndices:
     techniques_by_mitre_id: dict[str, dict[str, Any]]
 
 
+# Domain name → context attribute for the lazily loaded domains (F-PERF-010).
+_LAZY_DOMAIN_ATTRS = {"mobile-attack": "mobile_attack", "ics-attack": "ics_attack"}
+
+
 # Define our application context
 @dataclass
 class AttackContext:
-    """Context for the MITRE ATT&CK MCP server with optimized lookups."""
+    """Context for the MITRE ATT&CK MCP server with optimized lookups.
+
+    Only enterprise is parsed at start-up (F-PERF-010): every tool
+    defaults to it, so the other two domains stay ``None`` until the
+    first call that targets them. ``ensure_domain`` then parses the
+    cached bundle and builds that domain's indices and precomputed
+    lists under a per-domain lock, so racing worker-thread handlers
+    load it exactly once.
+    """
 
     enterprise_attack: MitreAttackData
-    mobile_attack: MitreAttackData
-    ics_attack: MitreAttackData
+    mobile_attack: MitreAttackData | None = None
+    ics_attack: MitreAttackData | None = None
     # O(1) lookup indices, keyed by domain name — one set per domain so
     # name, alias and ID lookups never scan query results (F-PERF-011)
     domain_indices: dict[str, DomainIndices] = field(default_factory=dict)
     # Precomputed per-domain lists, keyed by domain name (F-PERF-005)
     domain_lists: dict[str, DomainLists] = field(default_factory=dict)
+    # Cache file backing each lazily loaded domain, keyed by domain name
+    domain_paths: dict[str, str] = field(default_factory=dict)
+    # path -> (data, indices, lists) triple; the lifespan injects a loader
+    # resolved through the entry module so tests keep their patch surface.
+    # ``None`` falls back to ``_load_domain_bundle``.
+    domain_loader: (
+        Callable[[str], tuple[MitreAttackData, "DomainIndices", "DomainLists"]] | None
+    ) = field(default=None, repr=False, compare=False)
+    # One lock per lazy domain — a mobile load never blocks an ICS one.
+    _domain_locks: dict[str, threading.Lock] = field(
+        default_factory=lambda: {d: threading.Lock() for d in _LAZY_DOMAIN_ATTRS},
+        repr=False,
+        compare=False,
+    )
+
+    def ensure_domain(self, domain: str) -> MitreAttackData:
+        """Return the domain's store, loading mobile/ICS on first use (F-PERF-010).
+
+        Enterprise stays eager and returns immediately. For the other two
+        domains the first call parses the bundle, builds the lookup
+        indices and the precomputed lists — the same bundle of work
+        start-up used to do for all three — inside a per-domain lock whose
+        re-check guarantees exactly one load however many tools race in.
+
+        Args:
+            domain: Domain name (``mobile-attack`` or ``ics-attack``)
+
+        Returns:
+            The domain's ``MitreAttackData`` store
+
+        Raises:
+            ValueError: Unknown domain, or no cache file is known for it
+        """
+        if domain == "enterprise-attack":
+            return self.enterprise_attack
+        attr = _LAZY_DOMAIN_ATTRS.get(domain)
+        if attr is None:
+            raise ValueError(f"Invalid domain: {domain}")
+        data = getattr(self, attr)
+        if data is None:
+            with self._domain_locks.setdefault(domain, threading.Lock()):
+                data = getattr(self, attr)
+                if data is None:
+                    path = self.domain_paths.get(domain)
+                    if path is None:
+                        raise ValueError(f"No cached file for domain: {domain}")
+                    load = self.domain_loader or _load_domain_bundle
+                    data, indices, lists = load(path)
+                    # Publish the lookups before flipping the attribute —
+                    # a thread that sees <attr> set sees the whole domain.
+                    self.domain_indices[domain] = indices
+                    self.domain_lists[domain] = lists
+                    setattr(self, attr, data)
+        return data
 
 
 def check_disk_space(directory: str, required_mb: int | None = None) -> None:
@@ -359,6 +429,49 @@ async def download_domain(
         raise
 
 
+def attack_data_paths(data_dir: str) -> dict[str, str]:
+    """Return the on-disk layout of the ATT&CK cache under *data_dir*.
+
+    Keys are the short domain names (``enterprise``, ``mobile``, ``ics``)
+    plus ``metadata`` — the same mapping the download path fills.
+    """
+    return {
+        "enterprise": os.path.join(data_dir, "enterprise-attack.json"),
+        "mobile": os.path.join(data_dir, "mobile-attack.json"),
+        "ics": os.path.join(data_dir, "ics-attack.json"),
+        "metadata": os.path.join(data_dir, "metadata.json"),
+    }
+
+
+def stale_cache_servable(paths: dict[str, str], force: bool = False) -> bool:
+    """Decide if start-up may serve the cache and refresh it in the background.
+
+    F-PERF-010: an expired cache no longer blocks the first request — the
+    stale bundles answer it while a background task re-downloads. Serving
+    stale needs every domain file on disk, the same completeness rule the
+    download-failure fallback uses; a missing or invalid metadata file
+    still counts as refresh-due since the bundles themselves are usable.
+    ``force`` (``--force-download``) stays blocking — the caller asked for
+    fresh bytes before serving.
+
+    Args:
+        paths: Cache layout from ``attack_data_paths``
+        force: Force-download flag from the CLI args
+
+    Returns:
+        True when the on-disk cache is complete AND refresh-due
+    """
+    if force:
+        return False
+    if not all(os.path.exists(paths[domain]) for domain in Config.get_data_urls()):
+        return False
+    metadata = load_metadata(paths["metadata"])
+    if metadata is None:
+        return True
+    age_days = (datetime.now(timezone.utc) - parse_timestamp(metadata["last_update"])).days
+    return age_days >= Config.CACHE_EXPIRY_DAYS
+
+
 async def download_and_save_attack_data_async(data_dir: str, force: bool = False) -> dict:
     """Download and save MITRE ATT&CK data asynchronously with parallel downloads.
 
@@ -373,12 +486,7 @@ async def download_and_save_attack_data_async(data_dir: str, force: bool = False
     urls = Config.get_data_urls()
 
     # File paths
-    paths = {
-        "enterprise": os.path.join(data_dir, "enterprise-attack.json"),
-        "mobile": os.path.join(data_dir, "mobile-attack.json"),
-        "ics": os.path.join(data_dir, "ics-attack.json"),
-        "metadata": os.path.join(data_dir, "metadata.json"),
-    }
+    paths = attack_data_paths(data_dir)
 
     # Check if we need to download new data
     need_download = force
@@ -519,7 +627,8 @@ def _technique_mitre_id_lookup(
 def build_domain_indices(data: MitreAttackData) -> DomainIndices:
     """Build one domain's O(1) lookup indices (F-BUG-015, F-PERF-011).
 
-    Called once per domain at load — every domain gets the same index
+    Called once per domain — at start-up for enterprise, on first use for
+    mobile/ICS (F-PERF-010) — and every domain gets the same index
     coverage, so group, mitigation and technique-ID lookups on mobile and
     ICS use the index exactly like enterprise instead of scanning query
     results. The group index keys lowercase names AND aliases (aliases
@@ -551,7 +660,8 @@ def build_domain_indices(data: MitreAttackData) -> DomainIndices:
 def build_domain_lists(data: MitreAttackData) -> DomainLists:
     """Precompute a domain's immutable object lists (F-PERF-005).
 
-    Called once per domain at load. Each list is captured exactly as the
+    Called once per domain — at start-up for enterprise, on first use for
+    mobile/ICS (F-PERF-010). Each list is captured exactly as the
     store returns it under the tools' default arguments — subtechniques
     included, revoked/deprecated objects kept — so default-argument calls
     can slice the snapshot and skip the store query entirely.
@@ -574,3 +684,16 @@ def build_domain_lists(data: MitreAttackData) -> DomainLists:
         len(lists.mitigations),
     )
     return lists
+
+
+def _load_domain_bundle(path: str) -> tuple[MitreAttackData, DomainIndices, DomainLists]:
+    """Parse one cached bundle and build its lookups (F-PERF-010).
+
+    The fallback ``AttackContext.domain_loader``, used when the context
+    was built outside the lifespan — scripts and hand-made test contexts —
+    so no loader was injected. It resolves this module's own names, so it
+    deliberately bypasses the entry patch surface; the lifespan injects a
+    loader that goes through it instead.
+    """
+    data = MitreAttackData(path)
+    return data, build_domain_indices(data), build_domain_lists(data)

@@ -42,7 +42,8 @@ Production-ready Model Context Protocol (MCP) server that exposes the [MITRE ATT
 
 - **Comprehensive MITRE ATT&CK Coverage** - All techniques, tactics, groups, software, and mitigations
 - **Multi-Domain Support** - Enterprise, Mobile, and ICS ATT&CK domains
-- **Intelligent Caching** - Atomic, per-user caching with conditional refreshes and configurable expiry (default: 14 days)
+- **Intelligent Caching** - Atomic, per-user caching with conditional refreshes, stale-serve with background refresh, and configurable expiry (default: 14 days)
+- **Fast Startup** - Enterprise loads eagerly; mobile and ICS domains lazy-load on first use
 - **Performance Optimized** - O(1) lookups using pre-built indices (80-95% faster)
 - **Dual Transport Modes** - stdio for local clients, HTTP for web integrations
 - **CORS-Enabled HTTP Server** - Async notifications and cross-origin request support
@@ -349,10 +350,16 @@ The server automatically caches MITRE ATT&CK data to improve performance:
    (`$XDG_CACHE_HOME/mitre-mcp`, or `~/.cache/mitre-mcp` by default)
 2. On subsequent runs, uses cached data if less than 14 days old
 3. Automatically refreshes data older than 14 days, using conditional
-   requests — a `304 Not Modified` answer reuses the cached bundles
+   requests — a `304 Not Modified` answer reuses the cached bundles.
+   Expired-but-present data is served immediately while the refresh runs in
+   the background; startup never blocks on it and a failed refresh keeps
+   the existing cache.
 4. Cache files are written atomically (temp file + rename), so a failed
    download never corrupts a good cache
-5. Use `--force-download` to force fresh download
+5. Only the enterprise domain is parsed at startup; the mobile and ICS
+   bundles are lazy-loaded on first use, so cold starts stay fast when they
+   are never queried
+6. Use `--force-download` to force fresh download
 
 ## Performance
 

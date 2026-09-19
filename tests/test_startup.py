@@ -303,18 +303,31 @@ class TestAttackLifespan:
 
         async with attack_lifespan(MagicMock()) as ctx:
             assert ctx.enterprise_attack is fake
+            # F-PERF-010: only enterprise is loaded at start-up — mobile
+            # and ICS stay unloaded until their first call.
+            assert ctx.mobile_attack is None
+            assert ctx.ics_attack is None
+            assert set(ctx.domain_indices) == {"enterprise-attack"}
+            assert set(ctx.domain_lists) == {"enterprise-attack"}
+            # F-PERF-011: the eager domain still gets its full indices.
+            idx = ctx.domain_indices["enterprise-attack"]
+            assert "g1" in idx.groups
+            assert "ga" in idx.groups  # aliases are indexed too (F-BUG-015)
+            assert "m1" in idx.mitigations
+            assert "T1000" in idx.techniques_by_mitre_id
+
+            # The lazy path loads a domain exactly once, indices and
+            # precomputed lists included, through the entry patch surface.
+            assert ctx.ensure_domain("mobile-attack") is fake
             assert ctx.mobile_attack is fake
-            assert ctx.ics_attack is fake
-            # F-PERF-011: indices are built for EVERY domain, not just
-            # enterprise — same fake data underlies all three here.
-            for domain in ("enterprise-attack", "mobile-attack", "ics-attack"):
-                idx = ctx.domain_indices[domain]
-                assert "g1" in idx.groups
-                assert "ga" in idx.groups  # aliases are indexed too (F-BUG-015)
-                assert "m1" in idx.mitigations
-                assert "T1000" in idx.techniques_by_mitre_id
+            assert "g1" in ctx.domain_indices["mobile-attack"].groups
+            assert "mobile-attack" in ctx.domain_lists
+            assert ctx.ensure_domain("mobile-attack") is fake  # second call: no reload
+            assert ctx.ensure_domain("ics-attack") is fake
 
         dl_mock.assert_awaited_once_with(str(tmp_path), force=False)
+        # One eager parse (enterprise) + one lazy parse per cold domain.
+        assert mod.MitreAttackData.call_count == 3
 
     async def test_force_download_flag_propagates(self, monkeypatch, tmp_path):
         dl_mock = AsyncMock(
