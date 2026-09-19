@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import LangGraphAgent, { LLM_PROVIDERS, MAX_HISTORY_MESSAGES } from './langGraphAgent.js';
+import { releaseMcpClient } from './mcpClientCache.js';
 
 // Hoisted fakes shared with the mocked MitreMCPClient below.
 const mcp = vi.hoisted(() => ({
@@ -47,6 +48,10 @@ const stubReadyAgent = (agent, { invoke, tools = [] } = {}) => {
 
 describe('LangGraphAgent', () => {
   beforeEach(() => {
+    // The agent now acquires the shared per-config client (F-PERF-009) —
+    // evict any leftover first so its close does not count toward this
+    // test's mocks, then start each test from an empty cache.
+    releaseMcpClient();
     vi.clearAllMocks();
     mcp.listTools.mockResolvedValue({ tools: [] });
     mcp.callTool.mockResolvedValue({ result: { content: [{ type: 'text', text: '{}' }] } });

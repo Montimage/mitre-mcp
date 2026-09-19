@@ -6,12 +6,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter, probeLlmProvider } from './llmProbes.js';
+import { releaseMcpClient } from './mcpClientCache.js';
 
-const mcp = vi.hoisted(() => ({ testConnection: vi.fn() }));
+const mcp = vi.hoisted(() => ({ ctor: vi.fn(), testConnection: vi.fn(), resetSession: vi.fn() }));
 
 vi.mock('./mcpClient.js', () => ({
   default: class {
+    constructor(...args) { mcp.ctor(...args); }
     testConnection(...args) { return mcp.testConnection(...args); }
+    resetSession(...args) { return mcp.resetSession(...args); }
   },
 }));
 
@@ -23,6 +26,9 @@ const jsonResponse = (body, { ok = true, status = 200 } = {}) => ({
 
 describe('llmProbes', () => {
   beforeEach(() => {
+    // Probes share the per-config client cache (F-PERF-009) — evict any
+    // leftover first so its close does not count toward this test's mocks.
+    releaseMcpClient();
     vi.clearAllMocks();
     mcp.testConnection.mockResolvedValue(true);
     vi.stubGlobal('fetch', vi.fn());
@@ -38,6 +44,17 @@ describe('llmProbes', () => {
       mcp.testConnection.mockResolvedValue(false);
       const result = await probeMcpServer({ host: 'localhost', port: 8000 });
       expect(result.type).toBe('error');
+    });
+
+    it('F-PERF-009: reuses one client for an unchanged config and closes it on change', async () => {
+      await probeMcpServer({ host: 'localhost', port: 8000 });
+      await probeMcpServer({ host: 'localhost', port: '8000' }); // same key, string port
+      expect(mcp.ctor).toHaveBeenCalledTimes(1);
+
+      // A different server evicts and closes the previous client.
+      await probeMcpServer({ host: 'other-host', port: 8000 });
+      expect(mcp.ctor).toHaveBeenCalledTimes(2);
+      expect(mcp.resetSession).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -10,16 +10,19 @@
 const PROBE_TIMEOUT_MS = 10000;
 
 /**
- * Probe the MCP server. Dynamically imports the client so the module is not
- * pulled in until the user actually tests the connection.
+ * Probe the MCP server. Dynamically imports the client cache so the module
+ * is not pulled in until the user actually tests the connection. The probe
+ * goes through the shared per-configuration cache (F-PERF-009): an
+ * unchanged host:port reuses the live client instead of building — and
+ * abandoning — a new one on every press.
  *
  * @param {{host: string, port: number}} config
  * @returns {Promise<{type: string, message: string}>}
  */
 export const probeMcpServer = async ({ host, port }) => {
   try {
-    const { default: MitreMCPClient } = await import('./mcpClient.js');
-    const client = new MitreMCPClient(host, port);
+    const { getMcpClient } = await import('./mcpClientCache.js');
+    const client = getMcpClient(host, port);
     const success = await client.testConnection();
 
     return success

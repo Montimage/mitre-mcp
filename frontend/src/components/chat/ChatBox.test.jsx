@@ -29,29 +29,54 @@ const mocks = vi.hoisted(() => ({
   getApiKey: vi.fn(),
   saveApiKey: vi.fn(),
   deleteApiKey: vi.fn(),
+  mcpClientCtor: vi.fn(),
+  clientTestConnection: vi.fn(),
+  clientResetSession: vi.fn(),
 }));
 
-vi.mock('../../services/langGraphAgent.js', () => ({
-  __esModule: true,
-  default: class {
-    constructor(host, port, config) {
-      if (mocks.constructorError) {
-        throw mocks.constructorError;
+vi.mock('../../services/langGraphAgent.js', async () => {
+  // The mocked agent mirrors the real constructor's order: it acquires the
+  // shared per-config client FIRST, so a later provider failure still finds
+  // the cache entry — and unchanged host:port reuses it (F-PERF-009).
+  const { getMcpClient } = await import('../../services/mcpClientCache.js');
+  return {
+    __esModule: true,
+    default: class {
+      constructor(host, port, config) {
+        this.mcpClient = getMcpClient(host, port);
+        if (mocks.constructorError) {
+          throw mocks.constructorError;
+        }
+        this.host = host;
+        this.port = port;
+        this.config = config;
+        this.cleared = false;
+        mocks.agents.push(this);
       }
+      testConnection() { return mocks.testConnection(); }
+      processQuery(...args) { return mocks.processQuery(...args); }
+      clearHistory() { this.cleared = true; }
+    },
+    LLM_PROVIDERS: { OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' },
+  };
+});
+
+vi.mock('../../services/mcpClient.js', () => ({
+  default: class {
+    constructor(host, port) {
+      mocks.mcpClientCtor(host, port);
       this.host = host;
       this.port = port;
-      this.config = config;
-      this.cleared = false;
-      mocks.agents.push(this);
     }
-    testConnection() { return mocks.testConnection(); }
-    processQuery(...args) { return mocks.processQuery(...args); }
-    clearHistory() { this.cleared = true; }
+    testConnection(...args) { return mocks.clientTestConnection(...args); }
+    resetSession(...args) { return mocks.clientResetSession(...args); }
   },
-  LLM_PROVIDERS: { OLLAMA: 'ollama', GEMINI: 'gemini', OPENROUTER: 'openrouter' },
 }));
 
-vi.mock('../../services/llmProbes.js', () => ({
+vi.mock('../../services/llmProbes.js', async (importActual) => ({
+  // The real probeMcpServer stays in place — it goes through the shared
+  // client cache, which the F-PERF-009 test asserts on.
+  ...(await importActual()),
   probeLlmProvider: (...args) => mocks.probeLlmProvider(...args),
 }));
 
@@ -80,6 +105,8 @@ describe('ChatBox', () => {
     mocks.getApiKey.mockResolvedValue('');
     mocks.saveApiKey.mockResolvedValue(undefined);
     mocks.deleteApiKey.mockResolvedValue(undefined);
+    mocks.clientTestConnection.mockResolvedValue(true);
+    mocks.clientResetSession.mockReturnValue(undefined);
     localStorage.clear();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
@@ -143,6 +170,34 @@ describe('ChatBox', () => {
     expect(screen.queryByText('Tool Execution Request')).toBeNull();
     expect(screen.getByText('Chat cleared. How can I help you?')).toBeTruthy();
     expect(mocks.agents[0].cleared).toBe(true);
+  });
+
+  it('F-PERF-009 regression: mount, unchanged save and double test-connection construct the MCP client once', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    // Agent init built the one shared client for localhost:8000.
+    expect(mocks.mcpClientCtor).toHaveBeenCalledTimes(1);
+
+    // Save WITHOUT edits — the agent rebuilds, but the client is reused
+    // because host:port is unchanged.
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(mocks.agents).toHaveLength(2);
+    expect(mocks.mcpClientCtor).toHaveBeenCalledTimes(1);
+
+    // Press "Test MCP Connection" twice — the probe reuses the same cached
+    // client; only its testConnection() runs again.
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: /test mcp connection/i }));
+    await screen.findByText(/connection successful/i);
+    fireEvent.click(screen.getByRole('button', { name: /test mcp connection/i }));
+    await waitFor(() => expect(mocks.clientTestConnection).toHaveBeenCalledTimes(2));
+
+    expect(mocks.mcpClientCtor).toHaveBeenCalledTimes(1);
   });
 
   it('F-BUG-023 regression: StrictMode mount/unmount/remount initialises one agent per live mount, nothing after unmount', async () => {

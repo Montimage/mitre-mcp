@@ -15,7 +15,7 @@
  */
 
 import { tool } from '@langchain/core/tools';
-import MitreMCPClient from './mcpClient.js';
+import { getMcpClient } from './mcpClientCache.js';
 import {
   LLM_PROVIDERS,
   initOllama,
@@ -57,7 +57,13 @@ export default class LangGraphAgent {
    * @param {Object} config - Agent configuration
    */
   constructor(host = 'localhost', port = 8000, config = {}) {
-    this.mcpClient = new MitreMCPClient(host, port);
+    // One client per server configuration (F-PERF-009): an unchanged
+    // host:port reuses the shared instance — and its session — across agent
+    // rebuilds; a changed one swaps the cache entry, which closes the
+    // evicted client. If this constructor throws after this line (provider
+    // init failure), the still-live previous agent's client was evicted but
+    // only reset, so it re-initializes lazily on its next call.
+    this.mcpClient = getMcpClient(host, port);
 
     // Determine LLM provider
     this.llmProvider = config.llmProvider || LLM_PROVIDERS.OLLAMA;

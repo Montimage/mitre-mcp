@@ -10,6 +10,7 @@ import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
 import { getApiKey } from '../../services/storage';
 import { probeLlmProvider } from '../../services/llmProbes';
+import { releaseMcpClient } from '../../services/mcpClientCache';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig';
 
 // Helper to get display name for LLM provider and model
@@ -38,6 +39,12 @@ const getModelDisplayInfo = (config) => {
       };
   }
 };
+
+// Stable message ids (F-PERF-012): the list is keyed by id, not index, so a
+// message keeps its identity as the array grows and the memoised
+// ChatMessage components are never remounted by reordering.
+let messageIdCounter = 0;
+const makeMessage = (msg) => ({ id: `msg-${++messageIdCounter}`, ...msg });
 
 export default function ChatBox({ onSetupStatusChange }) {
   const [messages, setMessages] = useState([]);
@@ -203,16 +210,20 @@ export default function ChatBox({ onSetupStatusChange }) {
       if (cancelled || !llmReady) return;
 
       // Add welcome message — only once the provider actually answered.
-      setMessages([{
+      setMessages([makeMessage({
         type: 'system',
         message: 'Welcome to the MITRE ATT&CK Intelligence Assistant! Ask me anything about tactics, techniques, groups, or mitigations.',
         timestamp: new Date().toISOString()
-      }]);
+      })]);
     };
 
     initAgent();
 
-    return () => { cancelled = true; };
+    // Teardown closes the shared MCP client (F-PERF-009). Under StrictMode
+    // this first cleanup runs while the async init is still parked on the
+    // IndexedDB read, so the cache is still empty and nothing is lost — the
+    // live mount's agent then populates it.
+    return () => { cancelled = true; releaseMcpClient(); };
   }, []);
 
   // Report setup status upward so the landing "first-run checklist" reflects
@@ -290,17 +301,19 @@ export default function ChatBox({ onSetupStatusChange }) {
     const modelInfo = getModelDisplayInfo(newConfig);
 
     // Add system message
-    setMessages(prev => [...prev, {
+    setMessages(prev => [...prev, makeMessage({
       type: 'system',
       message: `Configuration updated:\n- MCP Server: ${newConfig.host}:${newConfig.port}\n- LLM Provider: ${modelInfo.provider}\n- Model: ${modelInfo.model}`,
       timestamp: new Date().toISOString()
-    }]);
+    })]);
 
     return { ok: true };
   };
 
-  // Handle tool approval
-  const handleToolApproval = (approved) => {
+  // Handle tool approval — useCallback keeps the identity stable while no
+  // approval is pending, so memoised ChatMessage props stay referentially
+  // equal across unrelated re-renders (F-PERF-012).
+  const handleToolApproval = useCallback((approved) => {
     if (toolApprovalResolver) {
       // Update the tool-approval message to show the decision
       setMessages(prev => prev.map(msg => {
@@ -314,7 +327,10 @@ export default function ChatBox({ onSetupStatusChange }) {
       setPendingToolCalls(null);
       setToolApprovalResolver(null);
     }
-  };
+  }, [toolApprovalResolver, pendingToolCalls]);
+
+  const handleApprove = useCallback(() => handleToolApproval(true), [handleToolApproval]);
+  const handleDeny = useCallback(() => handleToolApproval(false), [handleToolApproval]);
 
   // Handle sending message
   const handleSendMessage = async (text) => {
@@ -322,33 +338,33 @@ export default function ChatBox({ onSetupStatusChange }) {
       // Name the real cause (missing key, unreachable provider) instead of
       // telling the user to refresh — a refresh fails the same way, so the
       // actionable path is opening Settings (F-UX-004).
-      setMessages(prev => [...prev, {
+      setMessages(prev => [...prev, makeMessage({
         type: 'error',
         message: `The agent is not set up${llmSetupError ? `: ${llmSetupError}` : '.'} Open Settings to configure the LLM provider.`,
         action: 'open-settings',
         timestamp: new Date().toISOString()
-      }]);
+      })]);
       return;
     }
 
     setIsLoading(true);
 
     // Add user message
-    setMessages(prev => [...prev, {
+    setMessages(prev => [...prev, makeMessage({
       type: 'user',
       message: text,
       timestamp: new Date().toISOString()
-    }]);
+    })]);
 
     try {
       // Callback for tool approval
       const requestToolApproval = async (toolCalls) => {
         // Add approval request message to chat
-        setMessages(prev => [...prev, {
+        setMessages(prev => [...prev, makeMessage({
           type: 'tool-approval',
           toolCalls: toolCalls,
           timestamp: new Date().toISOString()
-        }]);
+        })]);
 
         return new Promise((resolve) => {
           setPendingToolCalls(toolCalls);
@@ -360,20 +376,20 @@ export default function ChatBox({ onSetupStatusChange }) {
       const response = await agent.processQuery(text, requestToolApproval);
 
       // Add assistant response
-      setMessages(prev => [...prev, {
+      setMessages(prev => [...prev, makeMessage({
         type: 'assistant',
         message: response,
         timestamp: new Date().toISOString()
-      }]);
+      })]);
     } catch (error) {
       console.error('Error processing message:', error);
 
       // Add error message
-      setMessages(prev => [...prev, {
+      setMessages(prev => [...prev, makeMessage({
         type: 'error',
         message: `Error: ${error.message}\n\nPlease check:\n- mitre-mcp server is running\n- Server address is correct\n- Network connection is active`,
         timestamp: new Date().toISOString()
-      }]);
+      })]);
     } finally {
       setIsLoading(false);
     }
@@ -389,11 +405,11 @@ export default function ChatBox({ onSetupStatusChange }) {
         setToolApprovalResolver(null);
       }
 
-      setMessages([{
+      setMessages([makeMessage({
         type: 'system',
         message: 'Chat cleared. How can I help you?',
         timestamp: new Date().toISOString()
-      }]);
+      })]);
 
       if (agent) {
         agent.clearHistory();
@@ -540,16 +556,16 @@ export default function ChatBox({ onSetupStatusChange }) {
           </div>
         ) : (
           <>
-            {messages.map((msg, index) => (
-              <div key={index}>
+            {messages.map((msg) => (
+              <div key={msg.id}>
                 <ChatMessage
                   message={msg.message}
                   type={msg.type}
                   timestamp={msg.timestamp}
                   toolCalls={msg.toolCalls}
                   decision={msg.decision}
-                  onApprove={() => handleToolApproval(true)}
-                  onDeny={() => handleToolApproval(false)}
+                  onApprove={handleApprove}
+                  onDeny={handleDeny}
                 />
                 {/* Error messages can carry a fix action — "Open Settings"
                     points at the real remedy (F-UX-004). */}

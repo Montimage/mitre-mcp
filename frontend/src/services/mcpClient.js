@@ -95,7 +95,12 @@ export default class MitreMCPClient {
       );
       await client.connect(transport);
 
+      // The new session is live — retire the previous SDK client so a
+      // re-initialize (testConnection on an established session, or the
+      // expired-session retry) never abandons it server-side (F-PERF-009).
+      const previous = this.client;
       this.client = client;
+      previous?.close().catch(() => {});
       // Absent when the server runs stateless — transport handles both cases
       this.sessionId = transport.sessionId ?? null;
       this.sessionInitialized = true;
