@@ -3,7 +3,7 @@
  *
  * Main chat interface integrating all chat components
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
@@ -42,12 +42,50 @@ export default function ChatBox() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [serverConfig, setServerConfig] = useState({ host: DEFAULT_MCP_HOST, port: DEFAULT_MCP_PORT, llmProvider: 'ollama' });
   const [agent, setAgent] = useState(null);
   const [pendingToolCalls, setPendingToolCalls] = useState(null);
   const [toolApprovalResolver, setToolApprovalResolver] = useState(null);
   const [mcpServerStatus, setMcpServerStatus] = useState('unknown'); // 'connected', 'disconnected', 'unknown'
   const [llmStatus, setLlmStatus] = useState('unknown'); // 'ready', 'not-configured', 'unknown'
+
+  const settingsButtonRef = useRef(null);
+  const settingsDialogRef = useRef(null);
+
+  // Closing the dialog returns focus to the Settings trigger (F-UX-014).
+  const closeSettings = useCallback(() => {
+    setShowConfig(false);
+    setSettingsDirty(false);
+    settingsButtonRef.current?.focus();
+  }, []);
+
+  // Closing with unsaved edits warns first (F-UX-007).
+  const requestCloseSettings = useCallback(() => {
+    if (settingsDirty && !window.confirm('You have unsaved changes in Settings. Discard them?')) {
+      return;
+    }
+    closeSettings();
+  }, [settingsDirty, closeSettings]);
+
+  // Move focus into the dialog when it opens.
+  useEffect(() => {
+    if (showConfig) {
+      settingsDialogRef.current?.focus();
+    }
+  }, [showConfig]);
+
+  // Esc closes the dialog — through the same unsaved-changes guard.
+  useEffect(() => {
+    if (!showConfig) return;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        requestCloseSettings();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showConfig, requestCloseSettings]);
 
   // Initialize agent
   useEffect(() => {
@@ -324,7 +362,8 @@ export default function ChatBox() {
 
             {/* Config Button */}
             <button
-              onClick={() => setShowConfig(!showConfig)}
+              ref={settingsButtonRef}
+              onClick={() => (showConfig ? requestCloseSettings() : setShowConfig(true))}
               className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs transition-colors"
               title="Configure server"
             >
@@ -337,17 +376,31 @@ export default function ChatBox() {
       {/* Settings Modal */}
       {showConfig && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          {/* Modal */}
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-300">
+          {/* Modal — clicks on the backdrop (the flex container around the
+              dialog) close it through the unsaved-changes guard. */}
+          <div
+            className="flex min-h-full items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) requestCloseSettings();
+            }}
+          >
+            <div
+              ref={settingsDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="settings-dialog-title"
+              tabIndex={-1}
+              className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-300"
+            >
               {/* Modal Header */}
               <div className="sticky top-0 bg-black text-white px-6 py-4 flex justify-between items-center z-10">
-                <h3 className="text-lg font-bold">Settings</h3>
+                <h3 id="settings-dialog-title" className="text-lg font-bold">Settings</h3>
                 <button
-                  onClick={() => setShowConfig(false)}
+                  onClick={requestCloseSettings}
+                  aria-label="Close settings"
                   className="text-gray-400 hover:text-white transition-colors"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -357,8 +410,9 @@ export default function ChatBox() {
               <ServerConfig
                 onConfigChange={(config) => {
                   handleConfigChange(config);
-                  setShowConfig(false);
+                  closeSettings();
                 }}
+                onDirtyChange={setSettingsDirty}
                 initialConfig={serverConfig}
               />
             </div>
@@ -366,9 +420,10 @@ export default function ChatBox() {
         </div>
       )}
 
-      {/* Messages Container */}
+      {/* Messages Container — aria-live so appended messages are announced */}
       <div
         ref={messagesContainerRef}
+        aria-live="polite"
         className="h-[500px] overflow-y-auto p-4 bg-gray-50 border-b-2 border-gray-300"
       >
         {messages.length === 0 ? (
