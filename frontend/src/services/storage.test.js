@@ -13,12 +13,18 @@ const state = {
   storeCreated: true,
   dbExists: false,
   failOpen: false,
+  failTransaction: false,
+  opened: 0,
+  closed: 0,
 };
 
 const makeDb = () => ({
   objectStoreNames: { contains: (name) => name === 'api-keys' && state.storeCreated },
   createObjectStore: (name) => { if (name === 'api-keys') state.storeCreated = true; },
-  transaction: () => ({
+  close: () => { state.closed += 1; },
+  transaction: () => {
+    if (state.failTransaction) throw new Error('transaction failed');
+    return {
     objectStore: () => ({
       get: (key) => {
         const request = {};
@@ -45,7 +51,8 @@ const makeDb = () => ({
         return request;
       },
     }),
-  }),
+    };
+  },
 });
 
 const indexedDBStub = {
@@ -63,6 +70,7 @@ const indexedDBStub = {
         request.onupgradeneeded?.({ target: { result: db } });
         state.dbExists = true;
       }
+      state.opened += 1;
       request.result = db;
       request.onsuccess?.();
     });
@@ -76,6 +84,9 @@ describe('storage', () => {
     state.storeCreated = true;
     state.dbExists = false;
     state.failOpen = false;
+    state.failTransaction = false;
+    state.opened = 0;
+    state.closed = 0;
     vi.stubGlobal('indexedDB', indexedDBStub);
   });
 
@@ -103,5 +114,49 @@ describe('storage', () => {
     state.dbExists = true;      // existing DB, so no onupgradeneeded fires
     state.storeCreated = false; // ...but it predates the api-keys store
     await expect(getApiKey('geminiApiKey')).resolves.toBe('');
+  });
+
+  // F-BUG-033: every IndexedDB connection the module opens must be closed.
+  it('saveApiKey closes the connection it opened', async () => {
+    await saveApiKey('geminiApiKey', 'secret-123');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
+  });
+
+  it('getApiKey closes the connection it opened', async () => {
+    await saveApiKey('geminiApiKey', 'secret-123');
+    state.opened = 0;
+    state.closed = 0;
+    await getApiKey('geminiApiKey');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
+  });
+
+  it('deleteApiKey closes the connection it opened', async () => {
+    await deleteApiKey('geminiApiKey');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
+  });
+
+  it('getApiKey still closes when the object store is absent', async () => {
+    state.dbExists = true;
+    state.storeCreated = false;
+    await expect(getApiKey('geminiApiKey')).resolves.toBe('');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
+  });
+
+  it('getApiKey still closes when the transaction cannot be created', async () => {
+    state.failTransaction = true;
+    await expect(getApiKey('geminiApiKey')).resolves.toBe('');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
+  });
+
+  it('saveApiKey rejects and still closes when the transaction cannot be created', async () => {
+    state.failTransaction = true;
+    await expect(saveApiKey('geminiApiKey', 'secret-123')).rejects.toThrow('transaction failed');
+    expect(state.opened).toBeGreaterThan(0);
+    expect(state.closed).toBe(state.opened);
   });
 });

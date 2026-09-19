@@ -84,10 +84,11 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          aria-label="Chat message"
           disabled={isLoading}
           maxLength={maxChars}
           rows={1}
-          className="w-full px-4 py-3 border-2 border-gray-300 resize-none focus:outline-none focus:border-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          className="w-full px-4 py-3 border-2 border-gray-300 resize-none focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
           style={{
             minHeight: '52px',
             maxHeight: '200px'
@@ -124,7 +125,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, placeholde
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
+              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
             >
               {isLoading ? (
                 <span className="flex items-center space-x-2">

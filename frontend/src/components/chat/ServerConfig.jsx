@@ -7,8 +7,14 @@
  * delegates the per-section UI to `config/` form components, the IndexedDB
  * reads/writes to `services/storage.js`, and the "test connection" network
  * calls to `services/llmProbes.js`.
+ *
+ * Fields are validated inline: invalid input renders a per-field message and
+ * blocks the save. "Reset to Defaults" is destructive — it asks for
+ * confirmation, then notifies the parent with the defaults so the live agent
+ * drops the old keys. `onDirtyChange` reports whether the form diverges from
+ * the last persisted snapshot so the host can warn on close.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
 import { probeMcpServer, probeOllama, probeGemini, probeOpenRouter } from '../../services/llmProbes.js';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
@@ -35,7 +41,64 @@ const DEFAULT_CONFIG = {
   openrouterModel: 'anthropic/claude-3.5-sonnet'
 };
 
-export default function ServerConfig({ onConfigChange, initialConfig }) {
+const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
+
+/**
+ * Validate the form. Returns a map of field -> message; empty means valid.
+ * Only the fields of the selected provider are checked — a hidden Ollama URL
+ * must not block a Gemini save.
+ */
+const validateConfig = (cfg) => {
+  const errors = {};
+
+  const host = String(cfg.host ?? '').trim();
+  if (!host) {
+    errors.host = 'Host is required.';
+  } else if (/^https?:\/\//i.test(host)) {
+    try {
+      void new URL(host);
+    } catch {
+      errors.host = 'Enter a valid server URL (e.g. https://mcp.example.com/mcp).';
+    }
+  } else if (!/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(host)) {
+    errors.host = 'Enter a valid hostname or URL.';
+  }
+
+  const portText = String(cfg.port ?? '').trim();
+  if (!portText) {
+    errors.port = 'Port is required.';
+  } else if (!/^\d+$/.test(portText)) {
+    errors.port = 'Port must be a number.';
+  } else {
+    const portNum = parseInt(portText, 10);
+    if (portNum < 1 || portNum > 65535) {
+      errors.port = 'Port must be between 1 and 65535.';
+    }
+  }
+
+  if (cfg.llmProvider === LLM_PROVIDERS.OLLAMA) {
+    const url = String(cfg.ollamaBaseUrl ?? '').trim();
+    if (!url) {
+      errors.ollamaBaseUrl = 'Ollama server URL is required.';
+    } else {
+      try {
+        void new URL(url);
+      } catch {
+        errors.ollamaBaseUrl = 'Enter a valid URL (e.g. http://localhost:11434).';
+      }
+    }
+  }
+  if (cfg.llmProvider === LLM_PROVIDERS.GEMINI && !String(cfg.geminiApiKey ?? '').trim()) {
+    errors.geminiApiKey = 'Gemini API key is required when Gemini is selected.';
+  }
+  if (cfg.llmProvider === LLM_PROVIDERS.OPENROUTER && !String(cfg.openrouterApiKey ?? '').trim()) {
+    errors.openrouterApiKey = 'OpenRouter API key is required when OpenRouter is selected.';
+  }
+
+  return errors;
+};
+
+export default function ServerConfig({ onConfigChange, onDirtyChange, initialConfig }) {
   const [config, setConfig] = useState({
     host: initialConfig?.host || DEFAULT_CONFIG.host,
     port: initialConfig?.port || DEFAULT_CONFIG.port,
@@ -57,6 +120,12 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
   const [ollamaTestResult, setOllamaTestResult] = useState(null);
   const [geminiTestResult, setGeminiTestResult] = useState(null);
   const [openrouterTestResult, setOpenrouterTestResult] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [saveError, setSaveError] = useState(null);
+
+  // The last persisted form values — dirty tracking compares against this.
+  const snapshotRef = useRef({ ...config });
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     // Load saved config from localStorage
@@ -72,11 +141,14 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
             getApiKey('openrouterApiKey').catch(() => '')
           ]);
 
-          setConfig({
+          const loaded = {
             ...parsed,
             geminiApiKey: geminiKey || parsed.geminiApiKey || '',
             openrouterApiKey: openrouterKey || parsed.openrouterApiKey || ''
-          });
+          };
+          // Persisted state is the clean baseline — loading it is not an edit.
+          snapshotRef.current = { ...DEFAULT_CONFIG, ...loaded };
+          setConfig(loaded);
         } catch (error) {
           console.error('Failed to load saved config:', error);
         }
@@ -85,41 +157,78 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
     loadConfig();
   }, []);
 
+  // Dirty = any tracked field differs from the last persisted snapshot.
+  useEffect(() => {
+    const snap = snapshotRef.current;
+    setDirty(CONFIG_KEYS.some((key) => config[key] !== snap[key]));
+  }, [config]);
+
+  // Report dirty transitions to the host (it warns when closing with edits).
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   const handleChange = (field, value) => {
     const newConfig = { ...config, [field]: value };
     setConfig(newConfig);
+    // Editing a field clears its inline error so the message does not linger.
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
   };
 
   const handleSave = async () => {
+    setSaveError(null);
+    const errors = validateConfig(config);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return; // inline messages block the save — nothing is persisted
+    }
+
     setSaving(true);
 
-    // Save API keys to IndexedDB (more secure than localStorage)
+    const cleanConfig = {
+      ...config,
+      host: String(config.host).trim(),
+      port: parseInt(String(config.port).trim(), 10)
+    };
+
     try {
-      if (config.geminiApiKey) {
-        await saveApiKey('geminiApiKey', config.geminiApiKey);
+      // Save API keys to IndexedDB (more secure than localStorage)
+      if (cleanConfig.geminiApiKey) {
+        await saveApiKey('geminiApiKey', cleanConfig.geminiApiKey);
       } else {
         await deleteApiKey('geminiApiKey');
       }
-      if (config.openrouterApiKey) {
-        await saveApiKey('openrouterApiKey', config.openrouterApiKey);
+      if (cleanConfig.openrouterApiKey) {
+        await saveApiKey('openrouterApiKey', cleanConfig.openrouterApiKey);
       } else {
         await deleteApiKey('openrouterApiKey');
       }
+
+      // Save config to localStorage (without API keys for security)
+      const configToSave = {
+        ...cleanConfig,
+        geminiApiKey: '', // Don't store API keys in localStorage
+        openrouterApiKey: ''
+      };
+      localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
     } catch (error) {
-      console.error('Failed to save API keys to IndexedDB:', error);
+      console.error('Failed to save settings:', error);
+      setSaveError('Could not save settings. Check that browser storage is available and try again.');
+      setSaving(false);
+      return;
     }
 
-    // Save config to localStorage (without API keys for security)
-    const configToSave = {
-      ...config,
-      geminiApiKey: '', // Don't store API keys in localStorage
-      openrouterApiKey: ''
-    };
-    localStorage.setItem(MCP_CONFIG_STORAGE_KEY, JSON.stringify(configToSave));
+    snapshotRef.current = { ...cleanConfig };
+    // Reflect the persisted (trimmed/coerced) values so dirty tracking
+    // compares like with like.
+    setConfig(cleanConfig);
+    setDirty(false);
 
     // Notify parent component (with full config including API keys)
     if (onConfigChange) {
-      onConfigChange(config);
+      onConfigChange(cleanConfig);
     }
 
     setSaving(false);
@@ -142,6 +251,11 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
   const handleTestOpenRouter = () => runProbe(probeOpenRouter, setTestingOpenRouter, setOpenrouterTestResult);
 
   const handleReset = async () => {
+    // Destructive: wipes stored API keys and saved config — confirm first.
+    if (!window.confirm('Reset all settings to defaults? This removes the saved API keys and cannot be undone.')) {
+      return;
+    }
+
     setConfig({ ...DEFAULT_CONFIG });
     localStorage.removeItem(MCP_CONFIG_STORAGE_KEY);
 
@@ -151,6 +265,17 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
       await deleteApiKey('openrouterApiKey');
     } catch (error) {
       console.error('Failed to delete API keys from IndexedDB:', error);
+    }
+
+    snapshotRef.current = { ...DEFAULT_CONFIG };
+    setDirty(false);
+    setFieldErrors({});
+    setSaveError(null);
+
+    // The live agent must drop the old keys — apply the defaults, not just
+    // the wiped storage (F-BUG-019).
+    if (onConfigChange) {
+      onConfigChange({ ...DEFAULT_CONFIG });
     }
 
     setTestResult({
@@ -170,6 +295,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
           testing={testing}
           testResult={testResult}
           onTest={handleTestConnection}
+          errors={fieldErrors}
         />
 
         {/* Divider */}
@@ -231,6 +357,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               testing={testingOllama}
               testResult={ollamaTestResult}
               onTest={handleTestOllama}
+              errors={fieldErrors}
             />
           )}
           {config.llmProvider === LLM_PROVIDERS.GEMINI && (
@@ -240,6 +367,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               testing={testingGemini}
               testResult={geminiTestResult}
               onTest={handleTestGemini}
+              errors={fieldErrors}
             />
           )}
           {config.llmProvider === LLM_PROVIDERS.OPENROUTER && (
@@ -249,6 +377,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
               testing={testingOpenRouter}
               testResult={openrouterTestResult}
               onTest={handleTestOpenRouter}
+              errors={fieldErrors}
             />
           )}
         </div>
@@ -256,12 +385,19 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
         {/* Divider */}
         <div className="border-t border-gray-300 my-6"></div>
 
+        {/* Save Error */}
+        {saveError && (
+          <div role="alert" className="mb-4 p-3 text-xs border bg-gray-100 text-gray-900 border-gray-400">
+            {saveError}
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
+            className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
           >
             {saving ? 'Saving...' : 'Save & Close'}
           </button>
@@ -269,7 +405,7 @@ export default function ServerConfig({ onConfigChange, initialConfig }) {
           <button
             onClick={handleReset}
             disabled={saving}
-            className="px-4 py-2 bg-gray-300 text-gray-900 text-xs font-medium hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors focus:outline-none"
+            className="px-4 py-2 bg-gray-300 text-gray-900 text-xs font-medium hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
           >
             Reset to Defaults
           </button>

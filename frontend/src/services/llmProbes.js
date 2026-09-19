@@ -26,7 +26,10 @@ export const probeMcpServer = async ({ host, port }) => {
       ? { type: 'success', message: 'Connection successful! MCP server is responding.' }
       : { type: 'error', message: 'Connection failed. Please check server address and ensure mitre-mcp is running.' };
   } catch (error) {
-    return { type: 'error', message: `Connection error: ${error.message}\n\nCheck browser console for details.` };
+    // The console pointer is a developer diagnostic — only surface it in dev
+    // builds; production users get the actionable message only.
+    const hint = import.meta.env.DEV ? '\n\nCheck browser console for details.' : '';
+    return { type: 'error', message: `Connection error: ${error.message}${hint}` };
   }
 };
 

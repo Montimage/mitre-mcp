@@ -2,8 +2,9 @@
  * GeminiForm Component
  *
  * API key + model select and the Gemini "test connection" control.
+ * Per-field validation errors arrive via `errors` and render inline.
  */
-export default function GeminiForm({ config, onChange, testing, testResult, onTest }) {
+export default function GeminiForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -17,9 +18,13 @@ export default function GeminiForm({ config, onChange, testing, testResult, onTe
             type="password"
             value={config.geminiApiKey}
             onChange={(e) => onChange('geminiApiKey', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
+            aria-invalid={Boolean(errors.geminiApiKey)}
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
             placeholder="Enter API key"
           />
+          {errors.geminiApiKey && (
+            <p role="alert" className="text-xs text-red-700 mt-1">{errors.geminiApiKey}</p>
+          )}
         </div>
 
         {/* Gemini Model */}
@@ -31,7 +36,7 @@ export default function GeminiForm({ config, onChange, testing, testResult, onTe
             id="geminiModel"
             value={config.geminiModel}
             onChange={(e) => onChange('geminiModel', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm bg-white"
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm bg-white"
           >
             <optgroup label="Gemini 3 (Latest)">
               <option value="gemini-3-pro">gemini-3-pro (Most Intelligent)</option>
@@ -68,7 +73,7 @@ export default function GeminiForm({ config, onChange, testing, testResult, onTe
         <button
           onClick={onTest}
           disabled={testing}
-          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
+          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
         >
           {testing ? 'Testing Gemini...' : 'Test Gemini API'}
         </button>

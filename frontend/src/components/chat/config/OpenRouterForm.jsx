@@ -2,9 +2,10 @@
  * OpenRouterForm Component
  *
  * API key + model select (with a free-form model ID input) and the OpenRouter
- * "test connection" control.
+ * "test connection" control. Per-field validation errors arrive via `errors`
+ * and render inline.
  */
-export default function OpenRouterForm({ config, onChange, testing, testResult, onTest }) {
+export default function OpenRouterForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -18,9 +19,13 @@ export default function OpenRouterForm({ config, onChange, testing, testResult, 
             type="password"
             value={config.openrouterApiKey}
             onChange={(e) => onChange('openrouterApiKey', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
+            aria-invalid={Boolean(errors.openrouterApiKey)}
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
             placeholder="Enter API key"
           />
+          {errors.openrouterApiKey && (
+            <p role="alert" className="text-xs text-red-700 mt-1">{errors.openrouterApiKey}</p>
+          )}
           <p className="text-xs text-gray-500 mt-1">Stored securely in browser IndexedDB</p>
         </div>
 
@@ -33,7 +38,7 @@ export default function OpenRouterForm({ config, onChange, testing, testResult, 
             id="openrouterModel"
             value={config.openrouterModel}
             onChange={(e) => onChange('openrouterModel', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm bg-white"
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm bg-white"
           >
             <optgroup label="Anthropic">
               <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
@@ -78,7 +83,7 @@ export default function OpenRouterForm({ config, onChange, testing, testResult, 
           type="text"
           value={config.openrouterModel}
           onChange={(e) => onChange('openrouterModel', e.target.value)}
-          className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
+          className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
           placeholder="e.g., anthropic/claude-3.5-sonnet"
         />
       </div>
@@ -101,7 +106,7 @@ export default function OpenRouterForm({ config, onChange, testing, testResult, 
         <button
           onClick={onTest}
           disabled={testing}
-          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
+          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
         >
           {testing ? 'Testing OpenRouter...' : 'Test OpenRouter API'}
         </button>

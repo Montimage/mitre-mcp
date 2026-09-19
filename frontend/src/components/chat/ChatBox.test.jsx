@@ -158,4 +158,135 @@ describe('ChatBox', () => {
       consoleError.mockRestore();
     }
   });
+
+  it('F-UX-014: the settings modal is a labelled dialog and the close button has an accessible name', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    // Icon-only close control exposes an accessible name.
+    expect(screen.getByRole('button', { name: /close settings/i })).toBeTruthy();
+  });
+
+  it('F-UX-014: Esc closes the dialog and focus returns to the Settings trigger', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    const trigger = screen.getByRole('button', { name: 'Settings' });
+    fireEvent.click(trigger);
+    await screen.findByRole('dialog');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('F-UX-014: the close button closes the dialog and focus returns to the trigger', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    const trigger = screen.getByRole('button', { name: 'Settings' });
+    fireEvent.click(trigger);
+    await screen.findByRole('dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: /close settings/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('F-UX-007: closing the dialog with unsaved edits asks for confirmation first', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog');
+
+    // Edit a field inside the dialog → the form reports dirty.
+    const hostInput = dialog.querySelector('#host');
+    fireEvent.change(hostInput, { target: { value: 'example.com' } });
+    await waitFor(() => {});
+
+    // Declining the confirm keeps the dialog open.
+    window.confirm.mockReturnValueOnce(false);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    // Accepting it discards the edits and closes.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('F-UX-007: the Settings trigger also guards unsaved edits while the dialog is open', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    const trigger = screen.getByRole('button', { name: 'Settings' });
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog');
+
+    // Make the form dirty, then click the trigger again — it must confirm.
+    fireEvent.change(dialog.querySelector('#host'), { target: { value: 'example.com' } });
+    await waitFor(() => {});
+
+    window.confirm.mockReturnValueOnce(false);
+    fireEvent.click(trigger);
+    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    // Accepting discards the edits and the trigger toggles the dialog shut.
+    fireEvent.click(trigger);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('F-UX-014: clicking the backdrop closes the dialog through the same guard', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog');
+
+    // A click on the flex backdrop (the dialog's parent) closes cleanly.
+    fireEvent.click(dialog.parentElement);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('F-UX-014: the chat textarea has a label and the message list is aria-live', async () => {
+    const { container } = render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    expect(screen.getByLabelText(/chat message/i)).toBeTruthy();
+    expect(container.querySelector('[aria-live="polite"]')).toBeTruthy();
+  });
+
+  it('F-UX-014: Tab is trapped inside the dialog — focus cycles within it', async () => {
+    render(<ChatBox />);
+    await screen.findByText(WELCOME);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const dialog = await screen.findByRole('dialog');
+    const closeButton = screen.getByRole('button', { name: /close settings/i });
+    const resetButton = screen.getByRole('button', { name: /reset to defaults/i });
+
+    // Focus moved into the dialog on open.
+    expect(document.activeElement).toBe(dialog);
+
+    // Shift+Tab from the dialog container wraps to the last control — it must
+    // not step backwards into the page behind the modal.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(resetButton);
+
+    // Tab past the last control wraps to the first.
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+
+    // Shift+Tab from the first control wraps back to the last.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(resetButton);
+  });
 });
