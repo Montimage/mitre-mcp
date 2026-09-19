@@ -32,6 +32,9 @@ describe('ChatMessage markdown', () => {
     expect(table.textContent).toContain('T1059.001');
     // The pipe characters must be consumed by the table, not printed.
     expect(container.textContent).not.toContain('| T1059.001 |');
+    // Header cells are real text: opacity dimming lands below WCAG AA on
+    // the sunk paper bubbles (system tables measure ~3.2:1 at opacity-70).
+    expect(container.querySelector('th').className).not.toContain('opacity');
   });
 
   it('still renders no raw HTML', () => {

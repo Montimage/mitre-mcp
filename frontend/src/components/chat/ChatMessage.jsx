@@ -54,7 +54,7 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
     const allReadOnly = toolCalls.length > 0 && toolCalls.every((tc) => tc.readOnly === true);
     const palette = allReadOnly
       ? { card: 'bg-paper-card border-rule-strong', icon: 'text-blue-600', header: 'text-gray-500', time: 'text-gray-500', inner: 'border-rule', divider: 'border-rule' }
-      : { card: 'bg-paper-sunk border-rule-strong border-l-2 border-l-brass', icon: 'text-amber-700', header: 'text-brass-700', time: 'text-gray-500', inner: 'border-rule-strong', divider: 'border-rule-strong' };
+      : { card: 'bg-paper-sunk border-rule-strong border-l-2 border-l-brass', icon: 'text-amber-700', header: 'text-brass-700', time: 'text-gray-600', inner: 'border-rule-strong', divider: 'border-rule-strong' };
 
     return (
       <div className={`mr-auto mb-3 max-w-[90%] border p-4 shadow-sheet ${palette.card}`}>
@@ -173,9 +173,13 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
   return (
     <div role={type === 'error' ? 'alert' : undefined} className={`${currentStyle.maxWidth} ${currentStyle.container} mb-3 p-3.5 shadow-sheet`}>
       {/* Message Header — the error bubble leads with a warning icon so the
-          failure reads as an alert at a glance, not by colour alone (F-UX-008). */}
+          failure reads as an alert at a glance, not by colour alone (F-UX-008).
+          The caption inherits the bubble's solid text colour: dimming it with
+          opacity drops several variants below the 4.5:1 WCAG AA floor (system
+          ~3.2:1, timestamps ~2.2:1). Opacity is kept only for decorative marks
+          like list bullets. */}
       <div className="flex items-center justify-between mb-1.5">
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] opacity-70">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em]">
           {type === 'error' && (
             <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -183,7 +187,7 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
           )}
           {type === 'user' ? 'You' : type === 'assistant' ? 'Assistant' : type === 'system' ? 'System' : (ERROR_KIND_LABELS[errorKind] || 'Error')}
         </span>
-        <span className="font-mono text-[10px] opacity-50">{formatTime(timestamp)}</span>
+        <span className="font-mono text-[10px]">{formatTime(timestamp)}</span>
       </div>
 
       {/* Message Content — rendered via react-markdown (safe: never injects raw HTML);
@@ -206,7 +210,7 @@ const ChatMessage = memo(function ChatMessage({ message, type = 'user', timestam
               </div>
             ),
             th: ({ children }) => (
-              <th className="border-b border-rule-strong px-2 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] opacity-70">
+              <th className="border-b border-rule-strong px-2 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em]">
                 {children}
               </th>
             ),
