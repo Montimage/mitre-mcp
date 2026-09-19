@@ -36,17 +36,32 @@ FIXTURE_PATHS = {
 }
 
 # Root properties each tool's outputSchema must name — the success payload keys
-# observed on the wire before structured output was added (issue #48).
+# observed on the wire before structured output was added (issue #48), with the
+# pagination block added by the issues #83/#84 paging contract.
 EXPECTED_OUTPUT_PROPERTIES = {
     "get_techniques": {"techniques", "pagination"},
-    "get_tactics": {"tactics"},
-    "get_groups": {"groups"},
-    "get_software": {"software"},
-    "get_techniques_by_tactic": {"techniques"},
-    "get_techniques_used_by_group": {"group", "techniques"},
-    "get_mitigations": {"mitigations"},
-    "get_techniques_mitigated_by_mitigation": {"mitigation", "techniques"},
+    "get_tactics": {"tactics", "pagination"},
+    "get_groups": {"groups", "pagination"},
+    "get_software": {"software", "pagination"},
+    "get_techniques_by_tactic": {"techniques", "pagination"},
+    "get_techniques_used_by_group": {"group", "techniques", "pagination"},
+    "get_mitigations": {"mitigations", "pagination"},
+    "get_techniques_mitigated_by_mitigation": {"mitigation", "techniques", "pagination"},
     "get_technique_by_id": {"technique"},
+}
+
+# Tools sharing the get_techniques paging contract (issues #83 and #84): the
+# four list tools and the three relationship tools. get_technique_by_id
+# returns a single object and stays unpaged.
+PAGED_TOOLS = {
+    "get_techniques",
+    "get_tactics",
+    "get_groups",
+    "get_software",
+    "get_mitigations",
+    "get_techniques_by_tactic",
+    "get_techniques_used_by_group",
+    "get_techniques_mitigated_by_mitigation",
 }
 
 
@@ -94,6 +109,13 @@ async def test_tool_annotations_and_domain_enum():
             set(output.get("properties", {})) == expected
         ), f"{tool.name} outputSchema properties do not match the observed payload keys"
         assert set(output.get("required", [])) == expected, tool.name
+
+        # Issues #83/#84: the four list tools and three relationship tools
+        # carry the get_techniques paging contract in their inputSchema.
+        if tool.name in PAGED_TOOLS:
+            props = tool.input_schema["properties"]
+            assert "limit" in props, f"{tool.name} inputSchema lacks limit"
+            assert "offset" in props, f"{tool.name} inputSchema lacks offset"
 
 
 @pytest.mark.asyncio

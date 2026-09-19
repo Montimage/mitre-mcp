@@ -86,24 +86,28 @@ class TacticsResult(TypedDict):
     """get_tactics result."""
 
     tactics: list[TacticResult]
+    pagination: Pagination
 
 
 class GroupsResult(TypedDict):
     """get_groups result."""
 
     groups: list[GroupResult]
+    pagination: Pagination
 
 
 class SoftwareListResult(TypedDict):
     """get_software result."""
 
     software: list[SoftwareResult]
+    pagination: Pagination
 
 
 class TechniquesListResult(TypedDict):
     """Result for tools returning a flat formatted technique list."""
 
     techniques: list[FormattedTechnique]
+    pagination: Pagination
 
 
 class GroupTechniquesResult(TypedDict):
@@ -111,12 +115,14 @@ class GroupTechniquesResult(TypedDict):
 
     group: EntityRef
     techniques: list[FormattedTechnique]
+    pagination: Pagination
 
 
 class MitigationsResult(TypedDict):
     """get_mitigations result."""
 
     mitigations: list[MitigationResult]
+    pagination: Pagination
 
 
 class MitigationTechniquesResult(TypedDict):
@@ -124,12 +130,24 @@ class MitigationTechniquesResult(TypedDict):
 
     mitigation: EntityRef
     techniques: list[FormattedTechnique]
+    pagination: Pagination
 
 
 class TechniqueResult(TypedDict):
     """get_technique_by_id result."""
 
     technique: FormattedTechnique
+
+
+def truncate_description(description: str) -> str:
+    """Truncate a description to Config.MAX_DESCRIPTION_LENGTH.
+
+    Same rule format_technique has always applied: a value longer than the
+    cap is cut at cap-3 and suffixed with "...".
+    """
+    if len(description) > Config.MAX_DESCRIPTION_LENGTH:
+        return description[: Config.MAX_DESCRIPTION_LENGTH - 3] + "..."
+    return description
 
 
 def format_technique(
@@ -148,12 +166,7 @@ def format_technique(
 
     # Only include description if explicitly requested
     if include_description:
-        description = technique.get("description", "")
-        # Truncate long descriptions to save tokens
-        if len(description) > Config.MAX_DESCRIPTION_LENGTH:
-            result["description"] = description[: Config.MAX_DESCRIPTION_LENGTH - 3] + "..."
-        else:
-            result["description"] = description
+        result["description"] = truncate_description(technique.get("description", ""))
 
     # Add MITRE ATT&CK ID if available
     for ref in technique.get("external_references", []):

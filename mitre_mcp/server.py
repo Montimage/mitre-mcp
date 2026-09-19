@@ -51,6 +51,14 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
         techniques_index = entry.build_technique_index(enterprise_attack)
         logger.info("Lookup indices built successfully.")
 
+        logger.info("Precomputing per-domain lists...")
+        domain_lists = {
+            "enterprise-attack": entry.build_domain_lists(enterprise_attack),
+            "mobile-attack": entry.build_domain_lists(mobile_attack),
+            "ics-attack": entry.build_domain_lists(ics_attack),
+        }
+        logger.info("Per-domain lists precomputed.")
+
         entry.emit_startup_banner(args)
 
         yield AttackContext(
@@ -60,6 +68,7 @@ async def attack_lifespan(server: MCPServer) -> AsyncIterator[AttackContext]:
             groups_index=groups_index,
             mitigations_index=mitigations_index,
             techniques_by_mitre_id=techniques_index,
+            domain_lists=domain_lists,
         )
     except Exception as e:
         logger.error("Failed to initialize MITRE ATT&CK data: %s", e)

@@ -2,9 +2,10 @@
 
 Everything that touches the STIX bundles on disk or the wire lives here —
 disk-space checks, metadata and STIX-bundle validation, the parallel
-download path, and the O(1) lookup indices the tools share. The module is a
-leaf: it never imports the entry point, the server object or the tools, so
-it can be imported first from anywhere.
+download path, the O(1) lookup indices the tools share, and the immutable
+per-domain lists precomputed at load for the paged tools (F-PERF-005).
+The module is a leaf: it never imports the entry point, the server object
+or the tools, so it can be imported first from anywhere.
 """
 
 # Standard library imports
@@ -13,7 +14,7 @@ import json
 import logging
 import os
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,6 +29,23 @@ from .config import Config
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class DomainLists:
+    """Precomputed, immutable per-domain object lists (F-PERF-005).
+
+    Each tuple holds the store's own objects in store order, captured once
+    at load with the tools' default arguments, so a paged call under those
+    defaults slices this list instead of re-querying the dataset. Calls
+    with non-default filters still go through the store.
+    """
+
+    techniques: tuple[dict[str, Any], ...]
+    tactics: tuple[dict[str, Any], ...]
+    groups: tuple[dict[str, Any], ...]
+    software: tuple[dict[str, Any], ...]
+    mitigations: tuple[dict[str, Any], ...]
+
+
 # Define our application context
 @dataclass
 class AttackContext:
@@ -40,6 +58,8 @@ class AttackContext:
     groups_index: dict[str, dict[str, Any]]
     mitigations_index: dict[str, dict[str, Any]]
     techniques_by_mitre_id: dict[str, dict[str, Any]]
+    # Precomputed per-domain lists, keyed by domain name (F-PERF-005)
+    domain_lists: dict[str, DomainLists] = field(default_factory=dict)
 
 
 def check_disk_space(directory: str, required_mb: int | None = None) -> None:
@@ -360,3 +380,31 @@ def build_technique_index(data: MitreAttackData) -> dict[str, dict[str, Any]]:
 
     logger.info("Built technique index: %d entries for %d techniques", len(by_id), len(techniques))
     return by_id
+
+
+def build_domain_lists(data: MitreAttackData) -> DomainLists:
+    """Precompute a domain's immutable object lists (F-PERF-005).
+
+    Called once per domain at load. Each list is captured exactly as the
+    store returns it under the tools' default arguments — subtechniques
+    included, revoked/deprecated objects kept — so default-argument calls
+    can slice the snapshot and skip the store query entirely.
+    """
+    lists = DomainLists(
+        techniques=tuple(
+            data.get_techniques(include_subtechniques=True, remove_revoked_deprecated=False)
+        ),
+        tactics=tuple(data.get_tactics(remove_revoked_deprecated=False)),
+        groups=tuple(data.get_groups(remove_revoked_deprecated=False)),
+        software=tuple(data.get_software(remove_revoked_deprecated=False)),
+        mitigations=tuple(data.get_mitigations(remove_revoked_deprecated=False)),
+    )
+    logger.info(
+        "Built domain lists: %d techniques, %d tactics, %d groups, %d software, %d mitigations",
+        len(lists.techniques),
+        len(lists.tactics),
+        len(lists.groups),
+        len(lists.software),
+        len(lists.mitigations),
+    )
+    return lists
