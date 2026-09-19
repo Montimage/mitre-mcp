@@ -2,8 +2,9 @@
  * OllamaForm Component
  *
  * Server URL + model inputs and the Ollama "test connection" control.
+ * Per-field validation errors arrive via `errors` and render inline.
  */
-export default function OllamaForm({ config, onChange, testing, testResult, onTest }) {
+export default function OllamaForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -17,9 +18,13 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
             type="text"
             value={config.ollamaBaseUrl}
             onChange={(e) => onChange('ollamaBaseUrl', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
+            aria-invalid={Boolean(errors.ollamaBaseUrl)}
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
             placeholder="http://localhost:11434"
           />
+          {errors.ollamaBaseUrl && (
+            <p role="alert" className="text-xs text-red-700 mt-1">{errors.ollamaBaseUrl}</p>
+          )}
         </div>
 
         {/* Ollama Model */}
@@ -32,7 +37,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
             type="text"
             value={config.ollamaModel}
             onChange={(e) => onChange('ollamaModel', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black text-sm"
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
             placeholder="llama3.1:8b"
           />
         </div>
@@ -56,7 +61,7 @@ export default function OllamaForm({ config, onChange, testing, testResult, onTe
         <button
           onClick={onTest}
           disabled={testing}
-          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none"
+          className="px-4 py-2 bg-black text-white text-xs font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
         >
           {testing ? 'Testing Ollama...' : 'Test Ollama Connection'}
         </button>
