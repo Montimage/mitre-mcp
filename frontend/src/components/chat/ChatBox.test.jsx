@@ -19,7 +19,6 @@ import { StrictMode } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import ChatBox from './ChatBox.jsx';
 import { MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
-import { releaseMcpClient } from '../../services/mcpClientCache.js';
 
 const mocks = vi.hoisted(() => ({
   agents: [],
