@@ -27,7 +27,7 @@ export default function Features() {
     },
     {
       title: "High Performance",
-      description: "Optimized with O(1) lookups using pre-built indices. Experience 80-95% faster technique lookups compared to linear scanning.",
+      description: "Pre-built indices make technique lookups 80-95% faster than scanning the full dataset.",
       highlights: ["Indexed data", "Fast responses", "Efficient caching"]
     },
     {

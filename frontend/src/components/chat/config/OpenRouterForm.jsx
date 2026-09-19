@@ -1,10 +1,31 @@
 /**
  * OpenRouterForm Component
  *
- * API key + model select (with a free-form model ID input) and the OpenRouter
- * "test connection" control. Per-field validation errors arrive via `errors`
- * and render inline.
+ * API key + model ID input (one control with manifest suggestions) and the
+ * OpenRouter "test connection" control. Per-field validation errors arrive
+ * via `errors` and render inline.
  */
+import StatusBanner from './StatusBanner.jsx';
+
+// The dropdown suggestions the model input offers — kept in sync with the
+// model list this build supports (same set the old <select> carried).
+const OPENROUTER_MODEL_OPTIONS = [
+  { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 — Anthropic' },
+  { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet — Anthropic' },
+  { value: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku — Anthropic' },
+  { value: 'openai/gpt-4o', label: 'GPT-4o — OpenAI' },
+  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini — OpenAI' },
+  { value: 'openai/o1-preview', label: 'o1 Preview — OpenAI' },
+  { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash — Google' },
+  { value: 'google/gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro — Google' },
+  { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B — Meta' },
+  { value: 'meta-llama/llama-3.1-8b-instruct', label: 'Llama 3.1 8B — Meta' },
+  { value: 'mistralai/mistral-large', label: 'Mistral Large — Mistral' },
+  { value: 'mistralai/mistral-small-3.1-24b-instruct', label: 'Mistral Small 3.1 — Mistral' },
+  { value: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek Chat V3 — DeepSeek' },
+  { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1 — DeepSeek' }
+];
+
 export default function OpenRouterForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
     <>
@@ -26,80 +47,37 @@ export default function OpenRouterForm({ config, onChange, testing, testResult, 
           {errors.openrouterApiKey && (
             <p role="alert" className="text-xs text-red-700 mt-1">{errors.openrouterApiKey}</p>
           )}
-          <p className="text-xs text-gray-500 mt-1">Stored securely in browser IndexedDB</p>
         </div>
 
-        {/* OpenRouter Model */}
+        {/* OpenRouter Model — a single control: a text input with manifest
+            suggestions, so a listed pick and a custom ID are entered in the
+            same field (F-UX-018). */}
         <div>
           <label htmlFor="openrouterModel" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
             Model ID
           </label>
-          <select
+          <input
             id="openrouterModel"
+            type="text"
+            list="openrouter-model-options"
             value={config.openrouterModel}
             onChange={(e) => onChange('openrouterModel', e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm bg-white"
-          >
-            <optgroup label="Anthropic">
-              <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
-              <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-              <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku</option>
-            </optgroup>
-            <optgroup label="OpenAI">
-              <option value="openai/gpt-4o">GPT-4o</option>
-              <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-              <option value="openai/o1-preview">o1 Preview</option>
-            </optgroup>
-            <optgroup label="Google">
-              <option value="google/gemini-2.5-flash-preview">Gemini 2.5 Flash</option>
-              <option value="google/gemini-2.5-pro-preview">Gemini 2.5 Pro</option>
-            </optgroup>
-            <optgroup label="Meta">
-              <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-              <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
-            </optgroup>
-            <optgroup label="Mistral">
-              <option value="mistralai/mistral-large">Mistral Large</option>
-              <option value="mistralai/mistral-small-3.1-24b-instruct">Mistral Small 3.1</option>
-            </optgroup>
-            <optgroup label="DeepSeek">
-              <option value="deepseek/deepseek-chat-v3-0324">DeepSeek Chat V3</option>
-              <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-            </optgroup>
-          </select>
+            className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
+            placeholder="e.g., anthropic/claude-3.5-sonnet"
+          />
+          <datalist id="openrouter-model-options">
+            {OPENROUTER_MODEL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} label={option.label} />
+            ))}
+          </datalist>
           <p className="text-xs text-gray-500 mt-1">
-            Or enter custom model ID from <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">openrouter.ai/models</a>
+            Pick a model or type any ID from <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">openrouter.ai/models</a>
           </p>
         </div>
       </div>
 
-      {/* Custom Model Input */}
-      <div className="mb-4">
-        <label htmlFor="openrouterModelCustom" className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wide">
-          Or Enter Custom Model ID
-        </label>
-        <input
-          id="openrouterModelCustom"
-          type="text"
-          value={config.openrouterModel}
-          onChange={(e) => onChange('openrouterModel', e.target.value)}
-          className="w-full px-3 py-2 border-2 border-gray-300 focus:outline-none focus:border-black focus-visible:ring-2 focus-visible:ring-black text-sm"
-          placeholder="e.g., anthropic/claude-3.5-sonnet"
-        />
-      </div>
-
-      {/* OpenRouter Status Message */}
-      {testResult && (
-        <div
-          className={`mb-4 p-3 text-xs border whitespace-pre-line ${
-            testResult.type === 'success'
-              ? 'bg-white text-gray-900 border-gray-400'
-              : 'bg-gray-100 text-gray-900 border-gray-400'
-          }`}
-        >
-          {testResult.message}
-        </div>
-      )}
+      {/* OpenRouter Status Message — semantics + icon come from StatusBanner (F-UX-008) */}
+      <StatusBanner result={testResult} />
 
       {/* OpenRouter Test Button */}
       <div className="mb-2">

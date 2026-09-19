@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ServerConfig from './ServerConfig.jsx';
 import { saveApiKey, getApiKey, deleteApiKey } from '../../services/storage.js';
+import { probeMcpServer } from '../../services/llmProbes.js';
 import { MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig.js';
 
 vi.mock('../../services/storage.js', () => ({
@@ -188,5 +189,84 @@ describe('ServerConfig', () => {
     expect(saved.port).toBe(9000);
     expect(saved.geminiApiKey).toBe('');
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  describe('F-UX-008: feedback carries real semantics', () => {
+    it('a failed connection probe announces itself as an alert with an icon', async () => {
+      probeMcpServer.mockResolvedValue({ type: 'error', message: 'Connection failed. Check the server.' });
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /test mcp connection/i }));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('Connection failed');
+      expect(alert.className).toContain('bg-red-50');
+      expect(alert.querySelector('svg')).toBeTruthy();
+    });
+
+    it('a successful connection probe announces politely as a status with an icon', async () => {
+      probeMcpServer.mockResolvedValue({ type: 'success', message: 'Connection successful!' });
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /test mcp connection/i }));
+
+      const status = await screen.findByRole('status');
+      expect(status.textContent).toContain('Connection successful');
+      expect(status.className).toContain('bg-green-50');
+      expect(status.querySelector('svg')).toBeTruthy();
+    });
+
+    it('a failed save surfaces an alert that also carries an icon', async () => {
+      saveApiKey.mockRejectedValue(new Error('idb unavailable'));
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /google gemini/i }));
+      fireEvent.change(screen.getByLabelText(/gemini api key/i), { target: { value: 'k-1' } });
+      fireEvent.click(screen.getByRole('button', { name: /save & close/i }));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toMatch(/could not save|failed/i);
+      expect(alert.querySelector('svg')).toBeTruthy();
+    });
+
+    it('the reset confirmation banner reads as a polite status, not an alert', async () => {
+      render(<ServerConfig onConfigChange={vi.fn().mockResolvedValue({ ok: true })} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /reset to defaults/i }));
+
+      const status = await screen.findByRole('status');
+      expect(status.textContent).toContain('reset to defaults');
+      expect(status.querySelector('svg')).toBeTruthy();
+    });
+  });
+
+  describe('F-UX-018: provider fields', () => {
+    it('the OpenRouter model is a single control — one input with manifest suggestions', () => {
+      const { container } = render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openrouter/i }));
+
+      const modelInput = screen.getByLabelText(/model id/i);
+      expect(modelInput.tagName).toBe('INPUT');
+      // One field owns the value — the old second "custom ID" input is gone.
+      expect(container.querySelector('#openrouterModelCustom')).toBeNull();
+      // The manifest options survive as suggestions on the same control.
+      expect(modelInput.getAttribute('list')).toBe('openrouter-model-options');
+      const options = container.querySelectorAll('#openrouter-model-options option');
+      expect(options.length).toBeGreaterThanOrEqual(10);
+      expect([...options].some((o) => o.value === 'anthropic/claude-sonnet-4')).toBe(true);
+
+      fireEvent.change(modelInput, { target: { value: 'custom/model-x' } });
+      expect(modelInput.value).toBe('custom/model-x');
+    });
+
+    it('makes no provider-only storage claim about API keys', () => {
+      render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /openrouter/i }));
+
+      expect(screen.queryByText(/stored securely/i)).toBeNull();
+      expect(screen.queryByText(/indexeddb/i)).toBeNull();
+    });
   });
 });

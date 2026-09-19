@@ -657,4 +657,52 @@ describe('ChatBox', () => {
       );
     });
   });
+
+  describe('F-UX-016: status indicators expose a text status', () => {
+    it('the MCP and LLM pills read their state as words, not colour alone', async () => {
+      const { container } = render(<ChatBox />);
+      await screen.findByText(WELCOME);
+
+      const mcpPill = await waitFor(() => {
+        const el = container.querySelector('div[title="MCP Server: connected"]');
+        expect(el).toBeTruthy();
+        return el;
+      });
+      expect(mcpPill.textContent).toContain('Connected');
+      expect(mcpPill.getAttribute('role')).toBe('status');
+
+      const llmPill = container.querySelector('div[title="LLM: ready"]');
+      expect(llmPill).toBeTruthy();
+      expect(llmPill.textContent).toContain('Ready');
+      expect(llmPill.getAttribute('role')).toBe('status');
+    });
+
+    it('a failed LLM probe reads "Not set up" on the pill, and an unbuilt agent leaves MCP "Not checked"', async () => {
+      mocks.constructorError = new Error('Gemini API key is required.');
+      const { container } = render(<ChatBox />);
+
+      const llmPill = await waitFor(() => {
+        const el = container.querySelector('div[title="LLM: not-configured"]');
+        expect(el).toBeTruthy();
+        return el;
+      });
+      expect(llmPill.textContent).toContain('Not set up');
+
+      const mcpPill = container.querySelector('div[title="MCP Server: unknown"]');
+      expect(mcpPill).toBeTruthy();
+      expect(mcpPill.textContent).toContain('Not checked');
+    });
+
+    it('while the provider probe is still in flight the LLM pill reads "Checking…"', async () => {
+      mocks.probeLlmProvider.mockReturnValue(new Promise(() => {}));
+      const { container } = render(<ChatBox />);
+
+      const llmPill = await waitFor(() => {
+        const el = container.querySelector('div[title="LLM: unknown"]');
+        expect(el).toBeTruthy();
+        return el;
+      });
+      expect(llmPill.textContent).toContain('Checking…');
+    });
+  });
 });
