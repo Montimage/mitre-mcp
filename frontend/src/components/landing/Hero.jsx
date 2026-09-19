@@ -116,7 +116,10 @@ export default function Hero() {
                     <h2 className="text-lg font-bold">Ask a Question</h2>
                     <p className="text-xs text-gray-400 mt-1">AI-Powered MITRE ATT&CK Assistant</p>
                   </div>
-                  <div className="h-[500px] flex items-center justify-center text-gray-400 bg-gray-50 border-b-2 border-gray-300">
+                  <div
+                    role="status"
+                    className="h-[500px] flex items-center justify-center text-gray-400 bg-gray-50 border-b-2 border-gray-300"
+                  >
                     <p className="text-sm">Loading chat…</p>
                   </div>
                 </div>
