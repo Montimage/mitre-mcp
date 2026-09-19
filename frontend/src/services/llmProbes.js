@@ -7,7 +7,7 @@
  * the UI can render the outcome directly.
  */
 
-import { DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL } from './llmProviders.js';
+import { DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL, normalizeOpenAiBaseUrl } from './llmProviders.js';
 
 const PROBE_TIMEOUT_MS = 10000;
 
@@ -204,6 +204,9 @@ export const probeLlmProvider = (config) => {
   if (provider === 'openrouter') {
     return probeOpenRouter(config);
   }
+  if (provider === 'openai-compatible') {
+    return probeOpenAiCompatible(config);
+  }
   return probeOllama(config);
 };
 
@@ -247,6 +250,62 @@ export const probeOpenRouter = async ({ openrouterApiKey, openrouterModel }) => 
     return {
       type: 'error',
       message: `Cannot connect to OpenRouter API: ${error.message}\n\nMake sure your API key is valid.`
+    };
+  }
+};
+
+/**
+ * Probe an OpenAI-compatible endpoint by listing its models and checking the
+ * configured model is present.
+ *
+ * Unlike the cloud providers the API key is OPTIONAL — the Authorization
+ * header is sent only when a key is set, so keyless endpoints (LM Studio,
+ * llama.cpp, …) probe cleanly while a key-requiring gateway still gets its
+ * Bearer credential. A bare-origin URL is normalized through the same helper
+ * the agent init uses, so probe and chat hit the same API root.
+ *
+ * @param {{openaiCompatibleBaseUrl: string, openaiCompatibleApiKey: string, openaiCompatibleModel: string}} config
+ * @returns {Promise<{type: string, message: string}>}
+ */
+export const probeOpenAiCompatible = async ({ openaiCompatibleBaseUrl, openaiCompatibleApiKey, openaiCompatibleModel }) => {
+  const baseUrl = normalizeOpenAiBaseUrl(openaiCompatibleBaseUrl);
+  if (!baseUrl) {
+    return { type: 'error', message: 'Endpoint URL is required. Enter it above.' };
+  }
+
+  try {
+    const headers = {};
+    if (openaiCompatibleApiKey) {
+      headers['Authorization'] = `Bearer ${openaiCompatibleApiKey}`;
+    }
+
+    const response = await fetch(`${baseUrl}/models`, {
+      headers,
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
+    });
+
+    if (!response.ok) {
+      throw new Error(await readProbeError(response));
+    }
+
+    const data = await readProbeJson(response, 'OpenAI-compatible');
+    const modelExists = data.data?.some(m => m.id === openaiCompatibleModel);
+
+    if (modelExists) {
+      return { type: 'success', message: `Endpoint is working! Model "${openaiCompatibleModel}" is available.` };
+    }
+
+    // Custom endpoints usually serve a handful of models, so listing them is
+    // actionable rather than noisy (unlike OpenRouter's catalogue).
+    const availableModels = data.data?.map(m => m.id).join(', ') || 'none';
+    return {
+      type: 'error',
+      message: `Model "${openaiCompatibleModel}" not found. Available models: ${availableModels}`
+    };
+  } catch (error) {
+    return {
+      type: 'error',
+      message: `Cannot connect to the endpoint: ${error.message}\n\nCheck the endpoint URL — and the API key, if it requires one.`
     };
   }
 };
