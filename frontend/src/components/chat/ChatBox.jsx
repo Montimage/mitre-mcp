@@ -8,7 +8,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ServerConfig from './ServerConfig';
 import LangGraphAgent, { LLM_PROVIDERS } from '../../services/langGraphAgent';
-import { isAgentErrorResult, agentErrorKind } from '../../services/agentMessages';
+import { isAgentErrorResult } from '../../services/agentMessages';
 import { getApiKey } from '../../services/storage';
 import { probeLlmProvider } from '../../services/llmProbes';
 import { releaseMcpClient } from '../../services/mcpClientCache';
@@ -406,12 +406,12 @@ export default function ChatBox({ onSetupStatusChange }) {
     } catch (error) {
       console.error('Error processing message:', error);
 
-      // A rejection means the agent could not even classify the failure —
-      // surface it as a retryable error bubble with the classified kind.
+      // A rejection means the failure escaped the agent's own typed
+      // classification — render a generic retryable error bubble rather
+      // than guess at a subsystem label (F-UX-009).
       setMessages(prev => [...prev, makeMessage({
         type: 'error',
         message: `Error: ${error.message}`,
-        errorKind: agentErrorKind(error),
         retryable: true,
         retryQuery: text,
         timestamp: new Date().toISOString()

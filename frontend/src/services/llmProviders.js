@@ -176,5 +176,5 @@ export const buildAgentErrorMessage = (agent, error, kind) => {
   if (kind === 'tool') {
     return `A tool call failed: ${cause}`;
   }
-  return `The LLM provider could not answer: ${cause}\n${buildProviderErrorHint(agent)}`;
+  return `The LLM provider could not complete the request: ${cause}\n${buildProviderErrorHint(agent)}`;
 };
