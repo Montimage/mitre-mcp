@@ -8,6 +8,8 @@ entry point would create an import cycle.
 """
 
 # Standard library imports
+import hmac
+import ipaddress
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -16,11 +18,66 @@ from urllib.parse import urlparse
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import HTTPConnection
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 # Local imports
 from ._entry import load as _entry
 
 logger = logging.getLogger(__name__)
+
+
+class BearerAuthMiddleware:
+    """Require ``Authorization: Bearer <token>`` on every HTTP request.
+
+    Installed by ``build_http_app`` only when ``MITRE_HTTP_AUTH_TOKEN``
+    is set (F-SEC-005). The check covers every HTTP path the app serves —
+    the SDK app mounts only the MCP endpoint — and sits *inside* the CORS
+    middleware so unauthenticated requests are rejected while preflight
+    ``OPTIONS`` requests are still answered. Non-HTTP scopes (lifespan)
+    pass straight through. The token comparison is timing-safe; the
+    scheme name is matched case-insensitively per RFC 7235.
+    """
+
+    def __init__(self, app: ASGIApp, token: str) -> None:
+        self.app = app
+        self._token = token.encode("utf-8")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """ASGI entry point: gate HTTP requests on the bearer token."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        parts = HTTPConnection(scope).headers.get("authorization", "").split(None, 1)
+        authorized = (
+            len(parts) == 2
+            and parts[0].lower() == "bearer"
+            and hmac.compare_digest(parts[1].encode("utf-8"), self._token)
+        )
+        if authorized:
+            await self.app(scope, receive, send)
+            return
+
+        response = JSONResponse(
+            {"detail": "Unauthorized"},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        await response(scope, receive, send)
+
+
+def _is_loopback_host(host: str) -> bool:
+    """True when *host* binds loopback only — ``localhost``, ::1, 127.0.0.0/8."""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # A DNS name (e.g. an intranet hostname) is treated as
+        # non-loopback: the warning is the safe default.
+        return False
 
 
 def build_transport_security(host: str, port: int) -> TransportSecuritySettings:
@@ -121,10 +178,37 @@ def build_http_app(host: str, transport_security: TransportSecuritySettings) -> 
     built explicitly so SDK internals stay untouched. Credentials are
     never allowed; ``"*"`` is an explicit opt-in that reflects any
     origin without credentials.
+
+    When ``Config.HTTP_AUTH_TOKEN`` (``MITRE_HTTP_AUTH_TOKEN``) is set,
+    ``BearerAuthMiddleware`` is wrapped inside the CORS layer so every
+    request must carry ``Authorization: Bearer <token>`` (F-SEC-005).
+    Binding a non-loopback host without the token logs a warning.
     """
     entry = _entry()
 
     app: Starlette = entry.mcp.streamable_http_app(host=host, transport_security=transport_security)
+
+    # Optional bearer auth (F-SEC-005). A non-str value can only come
+    # from a patched/mocked Config — treated as unset, never a token.
+    token = getattr(entry.Config, "HTTP_AUTH_TOKEN", None)
+    if not isinstance(token, str) or not token:
+        token = None
+
+    if token is not None:
+        # Added before CORSMiddleware: Starlette builds the last-registered
+        # user middleware outermost, so CORS stays outside and keeps
+        # answering preflight OPTIONS while auth guards the endpoint.
+        app.add_middleware(BearerAuthMiddleware, token=token)
+        logger.info("Bearer-token authentication enabled (MITRE_HTTP_AUTH_TOKEN)")
+    elif not _is_loopback_host(host):
+        logger.warning(
+            "MITRE_HTTP_AUTH_TOKEN is unset while binding to non-loopback "
+            "host %r: the MCP endpoint accepts unauthenticated requests "
+            "from the network — an open CPU and memory amplifier. Set "
+            "MITRE_HTTP_AUTH_TOKEN or place an authenticating reverse "
+            "proxy in front of the server.",
+            host,
+        )
 
     cors_config = entry.Config.CORS_ORIGINS.strip()
     cors_kwargs: dict[str, Any] = {

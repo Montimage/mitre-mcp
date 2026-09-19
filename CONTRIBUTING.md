@@ -89,7 +89,7 @@ npm test
 
 ### Environment variables
 
-`mitre_mcp/config.py` reads twelve `MITRE_*` variables:
+`mitre_mcp/config.py` reads thirteen `MITRE_*` variables:
 
 | Variable                  | Purpose                                                                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -105,6 +105,7 @@ npm test
 | `MITRE_DATA_DIR`          | Data directory override (unset means the per-user default `$XDG_CACHE_HOME/mitre-mcp`, or `~/.cache/mitre-mcp`)                                        |
 | `MITRE_LOG_LEVEL`         | Logging level                                                                                                                                        |
 | `MITRE_CORS_ORIGINS`      | Comma-separated allowed CORS origins for HTTP mode (defaults to localhost dev origins; add a hosted UI origin explicitly; credentials never allowed) |
+| `MITRE_HTTP_AUTH_TOKEN`   | Bearer token required on every HTTP request when set; unset leaves HTTP mode unauthenticated (recommended for non-loopback binds)                    |
 
 `mitre_mcp/cli.py` additionally reads `FASTMCP_SERVER_HOST` (HTTP bind host) and `FASTMCP_SERVER_PORT` (HTTP port) for the `mitre_mcp.mitre_mcp_server` entry point.
 

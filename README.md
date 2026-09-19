@@ -150,6 +150,38 @@ mitre-mcp --http --host 0.0.0.0 --port 8080
 
 Then use `http://your-server-ip:8080/mcp` in your client configuration.
 
+> **Security — a non-loopback bind is unauthenticated by default.**
+> Binding `--host 0.0.0.0` (or any non-loopback address) exposes the MCP
+> endpoint to the whole network: the data is public, but the endpoint is
+> an open CPU and memory amplifier. Either set `MITRE_HTTP_AUTH_TOKEN`
+> so every request must carry `Authorization: Bearer <token>`:
+>
+> ```bash
+> MITRE_HTTP_AUTH_TOKEN=$(openssl rand -hex 32) mitre-mcp --http --host 0.0.0.0 --port 8080
+> ```
+>
+> or place an authenticating reverse proxy in front of a loopback-only
+> server — nginx example (TLS + basic auth → `127.0.0.1:8000`):
+>
+> ```nginx
+> server {
+>     listen 443 ssl;
+>     server_name mcp.example.com;
+>     ssl_certificate     /etc/nginx/certs/mcp.example.com.pem;
+>     ssl_certificate_key /etc/nginx/certs/mcp.example.com.key;
+>
+>     location / {
+>         auth_basic           "mitre-mcp";
+>         auth_basic_user_file /etc/nginx/.htpasswd;
+>         proxy_pass           http://127.0.0.1:8000;
+>         proxy_set_header     Host $host;
+>     }
+> }
+> ```
+>
+> The server logs a warning at startup whenever it binds a non-loopback
+> host without `MITRE_HTTP_AUTH_TOKEN` set.
+
 **Why HTTP mode?**
 
 - Multiple clients can connect simultaneously
@@ -305,6 +337,7 @@ Set before starting `mitre-mcp` to customize behavior:
 | `MITRE_MAX_DESC_LENGTH`                                     | `500`                          | Trimmed description length in responses                                              |
 | `MITRE_LOG_LEVEL`                                           | `INFO`                         | Logging verbosity (DEBUG, INFO, WARNING, etc.)                                       |
 | `MITRE_CORS_ORIGINS`                                        | localhost origins              | CORS allowed origins for HTTP mode (comma-separated list; `*` is an explicit opt-in) |
+| `MITRE_HTTP_AUTH_TOKEN`                                     | unset (no auth)                | Bearer token required on every HTTP request when set; recommended for non-loopback binds |
 
 To let a hosted UI (e.g. the Netlify deployment) call the server cross-origin, set `MITRE_CORS_ORIGINS` to its origin, e.g. `MITRE_CORS_ORIGINS="https://mitre-mcp.netlify.app,http://localhost:5173"`. Credentials are never allowed in any CORS configuration.
 

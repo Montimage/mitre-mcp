@@ -463,5 +463,136 @@ class TestTransportSecurity(unittest.TestCase):
         self.assertFalse(settings.enable_dns_rebinding_protection)
 
 
+class TestHttpBearerAuth(unittest.TestCase):
+    """Tests for the optional bearer-token check in HTTP mode (F-SEC-005)."""
+
+    @staticmethod
+    def _sdk_app(mock_mcp):
+        """A real Starlette app standing in for the SDK's streamable app."""
+
+        async def ok(request):
+            return JSONResponse({"ok": True})
+
+        sdk_app = Starlette(routes=[Route("/mcp", ok, methods=["POST"])])
+        mock_mcp.streamable_http_app = MagicMock(return_value=sdk_app)
+        return sdk_app
+
+    @staticmethod
+    def _post(app, headers=None):
+        async def run():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://localhost:8000"
+            ) as client:
+                return await client.post("/mcp", json={}, headers=headers or {})
+
+        return asyncio.run(run())
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_auth_missing_header_rejected(self, mock_config, mock_mcp):
+        """Token set + no Authorization header -> HTTP 401."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = "s3cr3t"
+        self._sdk_app(mock_mcp)
+
+        app = build_http_app("127.0.0.1", "ts")
+        response = self._post(app)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Bearer", response.headers.get("www-authenticate", ""))
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_auth_wrong_token_rejected(self, mock_config, mock_mcp):
+        """Token set + wrong bearer token -> HTTP 401."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = "s3cr3t"
+        self._sdk_app(mock_mcp)
+
+        app = build_http_app("127.0.0.1", "ts")
+        response = self._post(app, {"Authorization": "Bearer wrong-token"})
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Bearer", response.headers.get("www-authenticate", ""))
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_auth_non_bearer_scheme_rejected(self, mock_config, mock_mcp):
+        """Token set + non-Bearer Authorization scheme -> HTTP 401."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = "s3cr3t"
+        self._sdk_app(mock_mcp)
+
+        app = build_http_app("127.0.0.1", "ts")
+        response = self._post(app, {"Authorization": "Basic dXNlcjpwYXNz"})
+
+        self.assertEqual(response.status_code, 401)
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_auth_correct_token_accepted(self, mock_config, mock_mcp):
+        """Token set + correct bearer token -> request reaches the endpoint."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = "s3cr3t"
+        self._sdk_app(mock_mcp)
+
+        app = build_http_app("127.0.0.1", "ts")
+        response = self._post(app, {"Authorization": "Bearer s3cr3t"})
+
+        self.assertEqual(response.status_code, 200)
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_auth_unset_behaviour_unchanged(self, mock_config, mock_mcp):
+        """Token unset -> request without Authorization succeeds as before."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = None
+        self._sdk_app(mock_mcp)
+
+        app = build_http_app("127.0.0.1", "ts")
+        response = self._post(app)
+
+        self.assertEqual(response.status_code, 200)
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_non_loopback_without_token_warns(self, mock_config, mock_mcp):
+        """Non-loopback bind without a token logs a warning naming the risk."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = None
+        mock_mcp.streamable_http_app = MagicMock(return_value=MagicMock())
+
+        with self.assertLogs("mitre_mcp.http", level="WARNING") as cm:
+            build_http_app("0.0.0.0", "ts")
+
+        self.assertTrue(
+            any("MITRE_HTTP_AUTH_TOKEN" in line for line in cm.output),
+            f"warning should name MITRE_HTTP_AUTH_TOKEN: {cm.output}",
+        )
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_loopback_without_token_no_warning(self, mock_config, mock_mcp):
+        """Loopback bind without a token stays quiet — local-only exposure."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = None
+        mock_mcp.streamable_http_app = MagicMock(return_value=MagicMock())
+
+        with self.assertNoLogs("mitre_mcp.http", level="WARNING"):
+            build_http_app("127.0.0.1", "ts")
+
+    @patch("mitre_mcp.mitre_mcp_server.mcp")
+    @patch("mitre_mcp.mitre_mcp_server.Config")
+    def test_non_loopback_with_token_no_warning(self, mock_config, mock_mcp):
+        """Non-loopback bind with a token is authenticated — no warning."""
+        mock_config.CORS_ORIGINS = "*"
+        mock_config.HTTP_AUTH_TOKEN = "s3cr3t"
+        mock_mcp.streamable_http_app = MagicMock(return_value=MagicMock())
+
+        with self.assertNoLogs("mitre_mcp.http", level="WARNING"):
+            build_http_app("0.0.0.0", "ts")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -110,6 +110,21 @@ To diagnose MCP HTTP connection issues:
 
 ## Other Common Issues
 
+### 401 Unauthorized
+
+**Symptom:** Every request returns `401 Unauthorized` with a
+`WWW-Authenticate: Bearer` header.
+
+**Cause:** The server was started with `MITRE_HTTP_AUTH_TOKEN` set, so
+each request must carry `Authorization: Bearer <token>`.
+
+**Solution:**
+
+1. Send the header on every request:
+   `Authorization: Bearer <the same token value>`
+2. Or unset `MITRE_HTTP_AUTH_TOKEN` to restore open (loopback-only
+   recommended) access.
+
 ### 404 Not Found
 
 **Symptom:** `GET /` returns 404
