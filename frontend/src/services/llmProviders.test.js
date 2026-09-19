@@ -2,8 +2,27 @@
  * Tests for frontend/src/services/llmProviders.js — provider-hinted error
  * message and the shared LLM_PROVIDERS constant.
  */
-import { describe, it, expect } from 'vitest';
-import { LLM_PROVIDERS, buildProviderErrorMessage } from './llmProviders.js';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  LLM_PROVIDERS,
+  initOllama,
+  initGemini,
+  initOpenRouter,
+  buildProviderErrorMessage
+} from './llmProviders.js';
+
+// Capture the config object each provider class is constructed with.
+const ctors = vi.hoisted(() => ({ ollama: [], genai: [], openai: [] }));
+
+vi.mock('@langchain/ollama', () => ({
+  ChatOllama: class { constructor(config) { ctors.ollama.push(config); } }
+}));
+vi.mock('@langchain/google-genai', () => ({
+  ChatGoogleGenerativeAI: class { constructor(config) { ctors.genai.push(config); } }
+}));
+vi.mock('@langchain/openai', () => ({
+  ChatOpenAI: class { constructor(config) { ctors.openai.push(config); } }
+}));
 
 const agent = (overrides = {}) => ({ llmProvider: LLM_PROVIDERS.OLLAMA, ...overrides });
 const boom = new Error('connection refused');
@@ -35,5 +54,23 @@ describe('llmProviders', () => {
     );
     expect(message).toContain('OpenRouter API key');
     expect(message).toContain('credits');
+  });
+
+  describe('temperature defaulting (F-BUG-034)', () => {
+    it('passes temperature: 0 through to every provider constructor as 0', () => {
+      initOllama({}, { temperature: 0 });
+      expect(ctors.ollama.at(-1).temperature).toBe(0);
+
+      initGemini({}, { temperature: 0, geminiApiKey: 'k' });
+      expect(ctors.genai.at(-1).temperature).toBe(0);
+
+      initOpenRouter({}, { temperature: 0, openrouterApiKey: 'k' });
+      expect(ctors.openai.at(-1).temperature).toBe(0);
+    });
+
+    it('still defaults temperature to 0.7 when unset', () => {
+      initOllama({}, {});
+      expect(ctors.ollama.at(-1).temperature).toBe(0.7);
+    });
   });
 });

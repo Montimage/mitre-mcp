@@ -3,7 +3,13 @@
  * helpers extracted from the agent loop.
  */
 import { describe, it, expect } from 'vitest';
-import { normalizeContent, contentText, formatToolResult, buildSystemPrompt } from './agentMessages.js';
+import {
+  normalizeContent,
+  contentText,
+  formatToolResult,
+  buildSystemPrompt,
+  MAX_TOOL_RESULT_CHARS
+} from './agentMessages.js';
 
 describe('normalizeContent', () => {
   it('passes strings through unchanged', () => {
@@ -31,11 +37,26 @@ describe('contentText', () => {
 });
 
 describe('formatToolResult', () => {
-  it('pretty-prints JSON text payloads', () => {
-    expect(JSON.parse(formatToolResult({ result: { content: [{ text: '{"a":1}' }] } }))).toEqual({ a: 1 });
+  it('serialises JSON payloads compactly — no indentation (F-PERF-008)', () => {
+    const out = formatToolResult({ result: { content: [{ text: '{"a":1,"b":[1,2]}' }] } });
+    expect(out).toBe('{"a":1,"b":[1,2]}');
+    expect(out).not.toContain('\n');
+    expect(JSON.parse(out)).toEqual({ a: 1, b: [1, 2] });
   });
 
-  it('passes non-JSON text through unchanged', () => {
+  it('truncates oversized payloads at the fixed cap (F-PERF-008)', () => {
+    const big = JSON.stringify({ data: 'x'.repeat(MAX_TOOL_RESULT_CHARS + 5000) });
+    const out = formatToolResult({ result: { content: [{ text: big }] } });
+    expect(out).toContain('truncated');
+    expect(out.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS + 200);
+  });
+
+  it('caps non-JSON text passthrough at the same limit', () => {
+    const out = formatToolResult({ result: { content: [{ text: 'y'.repeat(MAX_TOOL_RESULT_CHARS + 10) }] } });
+    expect(out).toContain('truncated');
+  });
+
+  it('passes small non-JSON text through unchanged', () => {
     expect(formatToolResult({ result: { content: [{ text: 'plain text' }] } })).toBe('plain text');
   });
 });

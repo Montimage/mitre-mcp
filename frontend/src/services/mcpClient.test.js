@@ -207,6 +207,27 @@ describe('MitreMCPClient', () => {
     });
   });
 
+  describe('debug flag (F-PERF-013)', () => {
+    it('defaults debug logging off outside dev mode', () => {
+      vi.stubEnv('DEV', false);
+      const client = new MitreMCPClient('https://mcp.example.com/mcp');
+      expect(client.debug).toBe(false);
+    });
+
+    it('enables debug logging in dev mode', () => {
+      vi.stubEnv('DEV', true);
+      const client = new MitreMCPClient('https://mcp.example.com/mcp');
+      expect(client.debug).toBe(true);
+    });
+
+    it('setDebug still overrides the env default', () => {
+      vi.stubEnv('DEV', false);
+      const client = new MitreMCPClient('https://mcp.example.com/mcp');
+      client.setDebug(true);
+      expect(client.debug).toBe(true);
+    });
+  });
+
   describe('MCP_TOOLS', () => {
     it('names the documented mitre-mcp tools', () => {
       expect(MCP_TOOLS.GET_TACTICS).toBe('get_tactics');

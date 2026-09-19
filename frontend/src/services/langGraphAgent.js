@@ -33,6 +33,16 @@ import {
 export { LLM_PROVIDERS };
 
 /**
+ * Maximum number of stored history entries replayed to the model per query.
+ *
+ * `conversationHistory` keeps the full record for the session, but only the
+ * most recent entries are sent so the prompt stays bounded instead of
+ * re-sending an ever-growing transcript every turn (F-PERF-008).
+ * 20 entries ≈ the last 10 user/assistant exchanges.
+ */
+export const MAX_HISTORY_MESSAGES = 20;
+
+/**
  * Browser-Compatible Agent with Multiple LLM Support
  *
  * Implements intelligent query routing and tool execution
@@ -264,13 +274,17 @@ export default class LangGraphAgent {
         content: this.buildSystemPrompt()
       };
 
-      // Build messages for LLM
+      // Build messages for LLM — only real conversation turns are replayed:
+      // 'error' entries are UI-facing failure records, not user input
+      // (F-BUG-021), and the replay is capped at the most recent entries so
+      // the prompt stays bounded (F-PERF-008)
       const messages = [
         systemMessage,
         ...this.conversationHistory
-          .filter(m => m.role !== 'system')
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .slice(-MAX_HISTORY_MESSAGES)
           .map(m => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
+            role: m.role,
             content: m.content
           }))
       ];
@@ -287,17 +301,16 @@ export default class LangGraphAgent {
         // Invoke LLM
         const response = await this.llmWithTools.invoke(currentMessages);
 
-        // Debug: log the full response structure
+        // Debug: log the response shape (content preview + tool calls)
         console.log('[Agent] LLM response:', {
           content: typeof response.content === 'string' ? response.content.substring(0, 200) : response.content,
           contentType: typeof response.content,
-          tool_calls: response.tool_calls,
-          additional_kwargs: response.additional_kwargs
+          tool_calls: response.tool_calls
         });
 
-        // Check if LLM wants to call tools
-        // Some models put tool_calls in additional_kwargs
-        const toolCalls = response.tool_calls || response.additional_kwargs?.tool_calls || [];
+        // Check if the LLM requested tool calls — LangChain normalises
+        // provider responses onto response.tool_calls (F-BUG-032)
+        const toolCalls = response.tool_calls || [];
 
         if (toolCalls.length > 0) {
           console.log(`[Agent] LLM requested ${toolCalls.length} tool call(s)`, toolCalls);
