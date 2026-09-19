@@ -331,6 +331,7 @@ For automation, custom integrations, and batch processing, see **[API-INTEGRATIO
 ```python
 from clients.python.mini_mcp_client import MitreMCPClient
 
+
 async def main():
     client = MitreMCPClient(host="localhost", port=8000)
 
@@ -339,8 +340,7 @@ async def main():
 
     # Get techniques for a group
     techniques = await client.call_tool(
-        "get_techniques_used_by_group",
-        {"group_name": "APT29", "domain": "enterprise-attack"}
+        "get_techniques_used_by_group", {"group_name": "APT29", "domain": "enterprise-attack"}
     )
 ```
 

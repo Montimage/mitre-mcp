@@ -37,10 +37,7 @@ This is a requirement of the MCP protocol's HTTP transport implementation, which
 Include both MIME types in the `Accept` header:
 
 ```python
-headers = {
-    "Content-Type": "application/json",
-    "Accept": "application/json, text/event-stream"
-}
+headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
 ```
 
 ### Correct Implementation
@@ -54,8 +51,8 @@ async with httpx.AsyncClient() as client:
         json=payload,
         headers={
             "Content-Type": "application/json",
-            "Accept": "application/json"  # Missing text/event-stream
-        }
+            "Accept": "application/json",  # Missing text/event-stream
+        },
     )
 ```
 
@@ -68,8 +65,8 @@ async with httpx.AsyncClient() as client:
         json=payload,
         headers={
             "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream"  # Both types
-        }
+            "Accept": "application/json, text/event-stream",  # Both types
+        },
     )
 ```
 
@@ -173,6 +170,7 @@ The MCP HTTP transport uses:
 import httpx
 import asyncio
 
+
 async def test_mcp():
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -181,18 +179,16 @@ async def test_mcp():
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {
-                    "name": "get_tactics",
-                    "arguments": {"domain": "enterprise-attack"}
-                }
+                "params": {"name": "get_tactics", "arguments": {"domain": "enterprise-attack"}},
             },
             headers={
                 "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream"
-            }
+                "Accept": "application/json, text/event-stream",
+            },
         )
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
+
 
 asyncio.run(test_mcp())
 ```

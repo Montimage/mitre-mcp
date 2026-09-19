@@ -34,7 +34,7 @@ def validate_technique_id(technique_id: str) -> str:
     pattern = r"^T\d{4}(\.\d{3})?$"
     if not re.match(pattern, technique_id.upper()):
         raise ValidationError(
-            f"Invalid technique ID format: '{technique_id}'. " "Expected format: T#### or T####.###"
+            f"Invalid technique ID format: '{technique_id}'. Expected format: T#### or T####.###"
         )
 
     return technique_id.upper()
@@ -89,7 +89,7 @@ def validate_domain(domain: _StrT) -> _StrT:
 
     if domain not in valid_domains:
         raise ValidationError(
-            f"Invalid domain: '{domain}'. " f"Valid domains: {', '.join(sorted(valid_domains))}"
+            f"Invalid domain: '{domain}'. Valid domains: {', '.join(sorted(valid_domains))}"
         )
 
     return domain

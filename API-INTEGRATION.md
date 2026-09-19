@@ -51,12 +51,12 @@ Point an official MCP SDK client at the `/mcp` endpoint — the snippets below a
 import asyncio
 from mcp import Client
 
+
 async def main():
     async with Client("http://localhost:8000/mcp") as client:
-        result = await client.call_tool(
-            "get_tactics", {"domain": "enterprise-attack"}
-        )
+        result = await client.call_tool("get_tactics", {"domain": "enterprise-attack"})
         print(result.structured_content)
+
 
 asyncio.run(main())
 ```
@@ -111,6 +111,7 @@ import importlib
 
 MitreMCPClient = importlib.import_module("mini-mcp-client").MitreMCPClient
 
+
 async def main():
     client = MitreMCPClient(host="localhost", port=8000)
 
@@ -121,11 +122,12 @@ async def main():
     # Get techniques for a tactic
     result = await client.call_tool(
         "get_techniques_by_tactic",
-        {"tactic_shortname": "initial-access", "domain": "enterprise-attack"}
+        {"tactic_shortname": "initial-access", "domain": "enterprise-attack"},
     )
     print(result["result"]["isError"])
 
     await client.close()
+
 
 asyncio.run(main())
 ```
@@ -291,6 +293,7 @@ For local-only integrations, the same SDKs also speak stdio — the Python SDK a
 import asyncio
 from mcp import Client, StdioServerParameters
 
+
 async def main():
     params = StdioServerParameters(
         command="/path/to/.venv/bin/python",
@@ -302,6 +305,7 @@ async def main():
             {"tactic_shortname": "initial-access", "domain": "enterprise-attack"},
         )
         print(result.structured_content)
+
 
 asyncio.run(main())
 ```
