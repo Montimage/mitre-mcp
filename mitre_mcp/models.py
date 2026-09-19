@@ -33,6 +33,23 @@ class Pagination(TypedDict):
     has_more: bool
 
 
+# Tool option models — internal call signatures, never wire payloads.
+class GetTechniquesOptions(TypedDict):
+    """get_techniques inputs packed for the internal implementation.
+
+    F-CLEAN-007: the public tool keeps its per-parameter signature (the
+    published inputSchema is generated from it); the implementation takes
+    this single options object instead of seven parameters.
+    """
+
+    domain: str
+    include_subtechniques: bool
+    remove_revoked_deprecated: bool
+    include_descriptions: bool
+    limit: int | None
+    offset: int
+
+
 class TacticResult(TypedDict):
     """Single tactic entry in get_tactics results."""
 
