@@ -74,7 +74,7 @@ export default function McpServerForm({ config, onChange, testing, testResult, o
           </p>
         )}
         {pageCannotReachLoopback() && isLoopbackHost(config.host) && (
-          <p role="status" className="text-xs text-red-700">
+          <p role="alert" className="text-xs text-red-700">
             <span className="font-medium">This hosted page cannot reach a local MCP server.</span>{' '}
             The browser blocks public sites from calling localhost (and would also try HTTPS, which mitre-mcp does not speak). Open the local UI at{' '}
             <code className="border border-rule bg-paper px-1.5 py-0.5 font-mono text-ink">http://localhost:5173</code>

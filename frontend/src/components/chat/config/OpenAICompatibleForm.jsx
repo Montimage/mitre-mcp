@@ -98,7 +98,7 @@ export default function OpenAICompatibleForm({ config, onChange, testing, testRe
           The browser calls the endpoint directly, so it must allow cross-origin (CORS) requests. Leave the API key empty when the endpoint does not require one.
         </p>
         {pageCannotReachLoopback() && isLoopbackHost(config.openaiCompatibleBaseUrl) && (
-          <p role="status" className="text-red-700">
+          <p role="alert" className="text-red-700">
             A hosted page cannot call a local endpoint — the browser blocks access to the loopback address space. Use the local UI at{' '}
             <code className="border border-rule bg-paper px-1.5 py-0.5 font-mono text-ink">http://localhost:5173</code>
             {' '}to talk to LM Studio / llama.cpp on this machine.
