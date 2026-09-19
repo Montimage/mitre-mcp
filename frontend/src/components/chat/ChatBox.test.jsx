@@ -6,11 +6,15 @@
  *    resolves to, not the absence of a throw (it never throws).
  *  - F-BUG-010: clearing the chat while a tool approval is pending must
  *    resolve that approval so the input is re-enabled.
+ *  - F-BUG-023: the init effect must be StrictMode-safe — a cancelled flag
+ *    plus cleanup so remounts initialise a single agent and no state update
+ *    fires after unmount.
  *
  * LangGraphAgent is mocked; indexedDB is stubbed for the API-key lookup.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import ChatBox from './ChatBox.jsx';
 
 const mocks = vi.hoisted(() => ({
@@ -118,5 +122,40 @@ describe('ChatBox', () => {
     expect(screen.queryByText('Tool Execution Request')).toBeNull();
     expect(screen.getByText('Chat cleared. How can I help you?')).toBeTruthy();
     expect(mocks.agents[0].cleared).toBe(true);
+  });
+
+  it('F-BUG-023 regression: StrictMode mount/unmount/remount initialises one agent per live mount, nothing after unmount', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      // StrictMode double-mounts in dev: the stale init run must bail, so the
+      // mounted tree ends up with exactly one agent.
+      const first = render(<StrictMode><ChatBox /></StrictMode>);
+      await screen.findByText(WELCOME);
+      expect(mocks.agents).toHaveLength(1);
+      first.unmount();
+
+      // Unmounting while init is still in flight (the stubbed IndexedDB read
+      // resolves on a setTimeout) must cancel every pending continuation —
+      // no agent is constructed and no setState fires once it resolves.
+      const second = render(<StrictMode><ChatBox /></StrictMode>);
+      second.unmount();
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+      expect(mocks.agents).toHaveLength(1);
+
+      // A clean remount still initialises exactly one agent of its own.
+      const third = render(<StrictMode><ChatBox /></StrictMode>);
+      await screen.findByText(WELCOME);
+      expect(mocks.agents).toHaveLength(2);
+      third.unmount();
+
+      // No stray act() or state-update-on-unmounted warnings at any point.
+      const reactWarnings = consoleError.mock.calls.flat().filter(
+        (arg) => typeof arg === 'string' && /not wrapped in act|state update on an unmounted/i.test(arg)
+      );
+      expect(reactWarnings).toEqual([]);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
