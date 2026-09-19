@@ -97,6 +97,15 @@ describe('ChatMessage', () => {
       render(<ChatMessage type="error" message="broken" />);
       expect(screen.getByText('Error')).toBeTruthy();
     });
+
+    it('F-UX-008: the alert bubble leads with an icon — the failure is not colour-only', () => {
+      render(
+        <ChatMessage type="error" message="provider down" errorKind="llm" retryable retryQuery="q" onRetry={vi.fn()} />
+      );
+
+      const alert = screen.getByRole('alert');
+      expect(alert.querySelector('svg')).toBeTruthy();
+    });
   });
 
   describe('tool-approval card', () => {
