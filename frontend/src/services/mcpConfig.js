@@ -52,3 +52,29 @@ export const getMcpServerAddress = () => {
   }
   return `${host}:${port}`;
 };
+
+/**
+ * Build the MCP endpoint URL the client will call, from a host/port pair.
+ *
+ * A host already carrying a scheme (https://…/mcp) is used verbatim — the
+ * settings dialog accepts full URLs. Otherwise the URL is assembled with
+ * `new URL` so invalid components throw instead of silently producing a
+ * malformed endpoint; the caller falls back to the raw interpolation for
+ * preview purposes only, and save-time validation rejects such input anyway.
+ *
+ * @param {string} host - Hostname or full URL
+ * @param {number|string} port - TCP port
+ * @returns {string|null} The endpoint URL, or null when it cannot be built
+ */
+export const buildMcpServerUrl = (host, port) => {
+  const h = String(host ?? '').trim();
+  if (!h) return null;
+  if (/^https?:\/\//i.test(h)) return h;
+  try {
+    // Scheme-relative so an HTTPS-served UI keeps HTTPS (mixed content), the
+    // same rule mcpClient applies when dialing.
+    return new URL(`//${h}:${port}/mcp`, window.location.origin).href;
+  } catch {
+    return null;
+  }
+};

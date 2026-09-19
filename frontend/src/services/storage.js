@@ -4,6 +4,9 @@
  * The single module that talks to IndexedDB. API keys are stored here rather
  * than in localStorage so they never sit in a plainly-readable web store.
  * Database `mitre-mcp-config`, object store `api-keys` keyed by `id`.
+ *
+ * Every helper closes the connection it opens — including when building the
+ * transaction throws — because a leaked connection blocks future upgrades.
  */
 
 const DB_NAME = 'mitre-mcp-config';
@@ -34,11 +37,17 @@ const openDB = () => {
 export const saveApiKey = async (keyName, value) => {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.put({ id: keyName, value });
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
+    let request;
+    try {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      request = transaction.objectStore(STORE_NAME).put({ id: keyName, value });
+    } catch (error) {
+      db.close();
+      reject(error);
+      return;
+    }
+    request.onerror = () => { db.close(); reject(request.error); };
+    request.onsuccess = () => { db.close(); resolve(); };
   });
 };
 
@@ -53,14 +62,21 @@ export const getApiKey = async (keyName) => {
   try {
     const db = await openDB();
     if (!db.objectStoreNames.contains(STORE_NAME)) {
+      db.close();
       return '';
     }
     return await new Promise((resolve) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(keyName);
-      request.onerror = () => resolve('');
-      request.onsuccess = () => resolve(request.result?.value || '');
+      let request;
+      try {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        request = transaction.objectStore(STORE_NAME).get(keyName);
+      } catch {
+        db.close();
+        resolve('');
+        return;
+      }
+      request.onerror = () => { db.close(); resolve(''); };
+      request.onsuccess = () => { db.close(); resolve(request.result?.value || ''); };
     });
   } catch {
     return '';
@@ -76,10 +92,16 @@ export const getApiKey = async (keyName) => {
 export const deleteApiKey = async (keyName) => {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(keyName);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
+    let request;
+    try {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      request = transaction.objectStore(STORE_NAME).delete(keyName);
+    } catch (error) {
+      db.close();
+      reject(error);
+      return;
+    }
+    request.onerror = () => { db.close(); reject(request.error); };
+    request.onsuccess = () => { db.close(); resolve(); };
   });
 };
