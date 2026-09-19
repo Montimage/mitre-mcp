@@ -400,7 +400,7 @@ def build_domain_lists(data: MitreAttackData) -> DomainLists:
         mitigations=tuple(data.get_mitigations(remove_revoked_deprecated=False)),
     )
     logger.info(
-        "Built domain lists: %d techniques, %d tactics, %d groups, " "%d software, %d mitigations",
+        "Built domain lists: %d techniques, %d tactics, %d groups, %d software, %d mitigations",
         len(lists.techniques),
         len(lists.tactics),
         len(lists.groups),
