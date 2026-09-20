@@ -1,10 +1,23 @@
 /**
  * GeminiForm Component
  *
- * API key + model select and the Gemini "test connection" control.
- * Per-field validation errors arrive via `errors` and render inline.
+ * API key + model name input (one control with model suggestions) and the
+ * Gemini "test connection" control. Per-field validation errors arrive
+ * via `errors` and render inline.
  */
 import StatusBanner from './StatusBanner.jsx';
+
+// The dropdown suggestions the model input offers — kept in sync with the
+// model list this build supports (same set the old <select> carried).
+const GEMINI_MODEL_OPTIONS = [
+  { value: 'gemini-3-pro', label: 'Gemini 3 Pro — Most Intelligent' },
+  { value: 'gemini-3-deep-think', label: 'Gemini 3 Deep Think — Deep Reasoning' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — Powerful' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — Fast + Thinking' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite — Cost Effective' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash — Balanced' },
+  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite — Low Latency' }
+];
 
 export default function GeminiForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
   return (
@@ -29,31 +42,30 @@ export default function GeminiForm({ config, onChange, testing, testResult, onTe
           )}
         </div>
 
-        {/* Gemini Model */}
+        {/* Gemini Model — a single control: a text input with model
+            suggestions, so a listed pick and any new or renamed model are
+            entered in the same field (F-UX-018). */}
         <div>
           <label htmlFor="geminiModel" className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-gray-500">
             Model Name
           </label>
-          <select
+          <input
             id="geminiModel"
+            type="text"
+            list="gemini-model-options"
             value={config.geminiModel}
             onChange={(e) => onChange('geminiModel', e.target.value)}
-            className="w-full border border-rule-strong bg-paper-card px-3 py-2 text-sm text-ink transition-colors focus:border-ink focus:outline-none"
-          >
-            <optgroup label="Gemini 3 (Latest)">
-              <option value="gemini-3-pro">gemini-3-pro (Most Intelligent)</option>
-              <option value="gemini-3-deep-think">gemini-3-deep-think (Deep Reasoning)</option>
-            </optgroup>
-            <optgroup label="Gemini 2.5">
-              <option value="gemini-2.5-pro">gemini-2.5-pro (Powerful)</option>
-              <option value="gemini-2.5-flash">gemini-2.5-flash (Fast + Thinking)</option>
-              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Cost Effective)</option>
-            </optgroup>
-            <optgroup label="Gemini 2.0">
-              <option value="gemini-2.0-flash">gemini-2.0-flash (Balanced)</option>
-              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (Low Latency)</option>
-            </optgroup>
-          </select>
+            className="w-full border border-rule-strong bg-paper px-3 py-2 text-sm text-ink transition-colors focus:border-ink focus:bg-paper-card focus:outline-none"
+            placeholder="e.g., gemini-2.5-flash"
+          />
+          <datalist id="gemini-model-options">
+            {GEMINI_MODEL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} label={option.label} />
+            ))}
+          </datalist>
+          <p className="text-xs text-gray-500 mt-1">
+            Pick a model or type any name from <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener noreferrer" className="text-brass-700 underline decoration-brass underline-offset-2 transition-colors hover:text-ink">ai.google.dev/gemini-api/docs/models</a>
+          </p>
         </div>
       </div>
 

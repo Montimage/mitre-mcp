@@ -261,6 +261,24 @@ describe('ServerConfig', () => {
       expect(modelInput.value).toBe('custom/model-x');
     });
 
+    it('the Gemini model is a single control — one input with model suggestions', () => {
+      const { container } = render(<ServerConfig onConfigChange={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('radio', { name: /google gemini/i }));
+
+      const modelInput = screen.getByLabelText(/model name/i);
+      expect(modelInput.tagName).toBe('INPUT');
+      // The shipped list survives as suggestions on the same control.
+      expect(modelInput.getAttribute('list')).toBe('gemini-model-options');
+      const options = container.querySelectorAll('#gemini-model-options option');
+      expect(options.length).toBe(7);
+      expect([...options].some((o) => o.value === 'gemini-2.5-flash')).toBe(true);
+
+      // A newly released/renamed model is typed straight in — no whitelist.
+      fireEvent.change(modelInput, { target: { value: 'gemini-4-ultra-preview' } });
+      expect(modelInput.value).toBe('gemini-4-ultra-preview');
+    });
+
     it('makes no provider-only storage claim about API keys', () => {
       render(<ServerConfig onConfigChange={vi.fn()} />);
 
