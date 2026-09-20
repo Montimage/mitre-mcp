@@ -74,14 +74,11 @@ const LLM_STATUS_TEXT = {
 let messageIdCounter = 0;
 const makeMessage = (msg) => ({ id: `msg-${++messageIdCounter}`, ...msg });
 
-// Dedicated chat fragment — distinct from the landing embed's id="chat"
-// (`#chat`). Hash routing so GitHub Pages reloads without a 404.html fallback.
-const DEDICATED_CHAT_HASH = '#/chat';
-
-export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
-  // `full` fills the dedicated-page viewport; `embedded` (default) keeps the
-  // in-page 500px / 70dvh message-pane cap (F-UX-019, F-UX-020).
-  const isFullLayout = layout === 'full';
+export default function ChatBox({ onSetupStatusChange }) {
+  // `expanded` fills the viewport with a fixed overlay (F-UX-020); the
+  // default keeps the in-page 500px / 70dvh message-pane cap (F-UX-019).
+  // Expanding in place keeps ChatBox mounted, so the transcript survives.
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -117,6 +114,28 @@ export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // While expanded: Esc collapses and the page behind the overlay stops
+  // scrolling (F-UX-020). Collapsing returns focus to the Expand control.
+  const expandButtonRef = useRef(null);
+  const wasExpandedRef = useRef(false);
+  useEffect(() => {
+    if (wasExpandedRef.current && !expanded) {
+      expandButtonRef.current?.focus();
+    }
+    wasExpandedRef.current = expanded;
+    if (!expanded) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [expanded]);
 
   const settingsButtonRef = useRef(null);
   const settingsDialogRef = useRef(null);
@@ -628,9 +647,13 @@ export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
   };
 
   return (
-    <div className={isFullLayout
-      ? 'flex h-full min-h-0 w-full flex-col border border-rule bg-paper-card shadow-sheet-lifted'
-      : 'w-full border border-rule bg-paper-card shadow-sheet-lifted'}
+    <div
+      role={expanded ? 'dialog' : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-label={expanded ? 'Chat — expanded view' : undefined}
+      className={expanded
+        ? 'fixed inset-0 z-50 flex min-h-0 w-full flex-col border border-rule bg-paper-card shadow-sheet-lifted'
+        : 'w-full border border-rule bg-paper-card shadow-sheet-lifted'}
     >
       {/* Header — flex-wrap lets the controls drop below the title on
           narrow screens instead of overflowing (F-UX-019). */}
@@ -678,16 +701,26 @@ export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
               </div>
             </div>
 
-            {/* Open in page — embedded only (F-UX-020). The dedicated
-                view is already `#/chat`, so the control is omitted there. */}
-            {!isFullLayout && (
-              <a
-                href={DEDICATED_CHAT_HASH}
-                className="px-3 py-1.5 min-h-11 sm:min-h-0 inline-flex items-center border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
-                title="Open chat in a dedicated page"
+            {/* Expand / collapse — the in-place full-viewport toggle
+                (F-UX-020). Same mounted ChatBox, so the transcript and the
+                agent session are untouched. */}
+            {expanded ? (
+              <button
+                onClick={() => setExpanded(false)}
+                className="px-3 py-1.5 min-h-11 sm:min-h-0 border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
+                title="Return to embedded size (Esc)"
               >
-                Open in page
-              </a>
+                Collapse
+              </button>
+            ) : (
+              <button
+                ref={expandButtonRef}
+                onClick={() => setExpanded(true)}
+                className="px-3 py-1.5 min-h-11 sm:min-h-0 border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
+                title="Expand chat to full size"
+              >
+                Expand
+              </button>
             )}
 
             {/* Clear Chat Button — min-h-11 keeps the tap target at least
@@ -801,12 +834,12 @@ export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
       {/* Messages Container — aria-live so appended messages are announced.
           Embedded height caps at 70% of the dynamic viewport below the 500px
           desktop size so the input stays reachable on small screens
-          (F-UX-019). Full layout fills the remaining dedicated-page
-          viewport instead (F-UX-020). */}
+          (F-UX-019). Expanded fills the remaining overlay viewport instead
+          (F-UX-020). */}
       <div
         ref={messagesContainerRef}
         aria-live="polite"
-        className={isFullLayout
+        className={expanded
           ? 'min-h-0 flex-1 overflow-y-auto border-b border-rule bg-paper p-4'
           : 'h-[min(500px,70dvh)] overflow-y-auto border-b border-rule bg-paper p-4'}
       >
@@ -883,7 +916,7 @@ export default function ChatBox({ onSetupStatusChange, layout = 'embedded' }) {
         )}
       </div>
 
-      {/* Input — shrink-0 so the full-layout pane, not the composer, yields
+      {/* Input — shrink-0 so the expanded-view pane, not the composer, yields
           when the viewport is short (F-UX-020). */}
       <div className="shrink-0">
         <ChatInput

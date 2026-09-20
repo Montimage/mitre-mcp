@@ -725,7 +725,7 @@ describe('ChatBox', () => {
     });
   });
 
-  describe('F-UX-020: dedicated full-size layout', () => {
+  describe('F-UX-020: expandable full-size view', () => {
     it('the embedded default keeps the 500px/70dvh message-pane cap', async () => {
       const { container } = render(<ChatBox />);
       await screen.findByText(WELCOME);
@@ -735,33 +735,53 @@ describe('ChatBox', () => {
       expect(pane.className).not.toContain('flex-1');
     });
 
-    it('layout="full" lets the message pane fill the remaining viewport', async () => {
-      const { container } = render(<ChatBox layout="full" />);
+    it('Expand enlarges the chatbox to a full-viewport overlay in place', async () => {
+      const { container } = render(<ChatBox />);
+      const textarea = await screen.findByPlaceholderText('Ask about MITRE ATT&CK...');
       await screen.findByText(WELCOME);
 
+      fireEvent.change(textarea, { target: { value: 'list tactics' } });
+      fireEvent.submit(textarea.closest('form'));
+      expect(await screen.findByText('agent answer')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
+
+      const overlay = screen.getByRole('dialog', { name: 'Chat — expanded view' });
+      expect(overlay.className).toContain('fixed inset-0');
       const pane = container.querySelector('[aria-live="polite"]');
       expect(pane.className).toContain('flex-1');
       expect(pane.className).toContain('min-h-0');
-      expect(pane.className).not.toContain('h-[min(500px,70dvh)]');
-    });
-
-    it('the embedded header has an open-in-page control pointing at #/chat', async () => {
-      render(<ChatBox />);
-      await screen.findByText(WELCOME);
-
-      const link = screen.getByRole('link', { name: /open in page/i });
-      expect(link.getAttribute('href')).toBe('#/chat');
-    });
-
-    it('the full layout omits the open-in-page control — already on the dedicated page', async () => {
-      render(<ChatBox layout="full" />);
-      await screen.findByText(WELCOME);
-
-      expect(screen.queryByRole('link', { name: /open in page/i })).toBeNull();
+      // Same mounted ChatBox — the transcript survives expansion.
+      expect(screen.getByText('agent answer')).toBeTruthy();
       // Parity: Clear, Settings and the composer stay available.
       expect(screen.getByText('Clear')).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
       expect(screen.getByPlaceholderText('Ask about MITRE ATT&CK...')).toBeTruthy();
+    });
+
+    it('Collapse restores the embedded layout and focus returns to Expand', async () => {
+      const { container } = render(<ChatBox />);
+      await screen.findByText(WELCOME);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      const pane = container.querySelector('[aria-live="polite"]');
+      expect(pane.className).toContain('h-[min(500px,70dvh)]');
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand' }));
+    });
+
+    it('Esc collapses the expanded view and page scroll locks while expanded', async () => {
+      render(<ChatBox />);
+      await screen.findByText(WELCOME);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
+      expect(document.body.style.overflow).toBe('hidden');
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.body.style.overflow).toBe('');
     });
   });
 });

@@ -114,23 +114,6 @@ project-site path.
 **Note:** the live site is static — the chat connects to whatever MCP server
 the visitor configures in the settings dialog (default `localhost:8000`).
 
-### Dedicated chat URL
-
-The chat can be opened at full viewport size at the hash URL `#/chat`
-(from the chat header's **Open in page** control, or by linking and
-reloading directly). Example on GitHub Pages:
-
-`https://montimage.github.io/mitre-mcp/#/chat`
-
-This is distinct from `#chat`, which is the landing-page in-page embed
-anchor (`id="chat"`). Navbar **Try it** still points at `#chat`.
-
-Because the dedicated view is a hash route, it reloads on GitHub Pages
-and Netlify without an extra SPA fallback (`404.html` or a rewrite of
-unknown paths to `index.html`). A path route such as `/chat` is
-intentionally not used yet: GitHub Pages project sites do not serve a
-`404.html` SPA fallback, so a real `/chat` URL would 404 on reload.
-
 ### Option 4: Docker
 
 **Create `Dockerfile`**:
