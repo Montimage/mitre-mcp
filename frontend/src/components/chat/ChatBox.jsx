@@ -75,6 +75,10 @@ let messageIdCounter = 0;
 const makeMessage = (msg) => ({ id: `msg-${++messageIdCounter}`, ...msg });
 
 export default function ChatBox({ onSetupStatusChange }) {
+  // `expanded` fills the viewport with a fixed overlay (F-UX-020); the
+  // default keeps the in-page 500px / 70dvh message-pane cap (F-UX-019).
+  // Expanding in place keeps ChatBox mounted, so the transcript survives.
+  const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -110,6 +114,28 @@ export default function ChatBox({ onSetupStatusChange }) {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // While expanded: Esc collapses and the page behind the overlay stops
+  // scrolling (F-UX-020). Collapsing returns focus to the Expand control.
+  const expandButtonRef = useRef(null);
+  const wasExpandedRef = useRef(false);
+  useEffect(() => {
+    if (wasExpandedRef.current && !expanded) {
+      expandButtonRef.current?.focus();
+    }
+    wasExpandedRef.current = expanded;
+    if (!expanded) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [expanded]);
 
   const settingsButtonRef = useRef(null);
   const settingsDialogRef = useRef(null);
@@ -621,10 +647,17 @@ export default function ChatBox({ onSetupStatusChange }) {
   };
 
   return (
-    <div className="w-full border border-rule bg-paper-card shadow-sheet-lifted">
+    <div
+      role={expanded ? 'dialog' : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-label={expanded ? 'Chat — expanded view' : undefined}
+      className={expanded
+        ? 'fixed inset-0 z-50 flex min-h-0 w-full flex-col border border-rule bg-paper-card shadow-sheet-lifted'
+        : 'w-full border border-rule bg-paper-card shadow-sheet-lifted'}
+    >
       {/* Header — flex-wrap lets the controls drop below the title on
           narrow screens instead of overflowing (F-UX-019). */}
-      <div className="border-b border-ink bg-black px-5 py-4 text-white">
+      <div className="shrink-0 border-b border-ink bg-black px-5 py-4 text-white">
         <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-2">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass">AI-Powered</p>
@@ -668,6 +701,28 @@ export default function ChatBox({ onSetupStatusChange }) {
               </div>
             </div>
 
+            {/* Expand / collapse — the in-place full-viewport toggle
+                (F-UX-020). Same mounted ChatBox, so the transcript and the
+                agent session are untouched. */}
+            {expanded ? (
+              <button
+                onClick={() => setExpanded(false)}
+                className="px-3 py-1.5 min-h-11 sm:min-h-0 border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
+                title="Return to embedded size (Esc)"
+              >
+                Collapse
+              </button>
+            ) : (
+              <button
+                ref={expandButtonRef}
+                onClick={() => setExpanded(true)}
+                className="px-3 py-1.5 min-h-11 sm:min-h-0 border border-gray-700 font-mono text-[10px] uppercase tracking-[0.14em] text-gray-300 transition-colors hover:border-brass hover:text-white"
+                title="Expand chat to full size"
+              >
+                Expand
+              </button>
+            )}
+
             {/* Clear Chat Button — min-h-11 keeps the tap target at least
                 44px tall on small screens (F-UX-019). */}
             <button
@@ -695,7 +750,7 @@ export default function ChatBox({ onSetupStatusChange }) {
           chat is usable but the LLM will not answer until configured
           (F-UX-002). The settings action is the fix path. */}
       {simulationMode ? (
-        <div role="status" className="flex items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
           <p className="text-xs text-ink">
             No mitre-mcp server connected — answers are curated samples, not live ATT&CK data.
           </p>
@@ -707,7 +762,7 @@ export default function ChatBox({ onSetupStatusChange }) {
           </button>
         </div>
       ) : llmStatus === 'not-configured' ? (
-        <div role="status" className="flex items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
+        <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-l-4 border-rule border-l-brass bg-paper-sunk px-5 py-2.5">
           <p className="text-xs text-ink">
             The LLM provider is not set up yet{llmSetupError ? ` — ${llmSetupError.split('\n')[0]}` : '.'}
           </p>
@@ -777,12 +832,16 @@ export default function ChatBox({ onSetupStatusChange }) {
       )}
 
       {/* Messages Container — aria-live so appended messages are announced.
-          Height caps at 70% of the dynamic viewport below the 500px desktop
-          size so the input stays reachable on small screens (F-UX-019). */}
+          Embedded height caps at 70% of the dynamic viewport below the 500px
+          desktop size so the input stays reachable on small screens
+          (F-UX-019). Expanded fills the remaining overlay viewport instead
+          (F-UX-020). */}
       <div
         ref={messagesContainerRef}
         aria-live="polite"
-        className="h-[min(500px,70dvh)] overflow-y-auto border-b border-rule bg-paper p-4"
+        className={expanded
+          ? 'min-h-0 flex-1 overflow-y-auto border-b border-rule bg-paper p-4'
+          : 'h-[min(500px,70dvh)] overflow-y-auto border-b border-rule bg-paper p-4'}
       >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-500">
@@ -857,16 +916,19 @@ export default function ChatBox({ onSetupStatusChange }) {
         )}
       </div>
 
-      {/* Input */}
-      <ChatInput
-        onSendMessage={handleSendMessage}
-        isLoading={isLoading}
-        modelInfo={
-          simulationMode
-            ? { provider: 'Simulation', model: 'sample answers', accent: 'border-l-brass' }
-            : getModelDisplayInfo(serverConfig)
-        }
-      />
+      {/* Input — shrink-0 so the expanded-view pane, not the composer, yields
+          when the viewport is short (F-UX-020). */}
+      <div className="shrink-0">
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          isLoading={isLoading}
+          modelInfo={
+            simulationMode
+              ? { provider: 'Simulation', model: 'sample answers', accent: 'border-l-brass' }
+              : getModelDisplayInfo(serverConfig)
+          }
+        />
+      </div>
     </div>
   );
 }
