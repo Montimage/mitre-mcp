@@ -11,7 +11,11 @@
 // Build-time defaults — overridable at runtime via the settings dialog
 // (persisted to localStorage), so these only apply to a first run or after
 // the saved config is cleared.
-export const DEFAULT_MCP_HOST = import.meta.env.VITE_MCP_DEFAULT_HOST || 'localhost';
+// Without an explicit host, default to the host serving this page, so a UI
+// opened as http://<machine>:5173 targets the MCP server on <machine>.
+export const DEFAULT_MCP_HOST = import.meta.env.VITE_MCP_DEFAULT_HOST
+  || (typeof window !== 'undefined' && window.location?.hostname)
+  || 'localhost';
 export const DEFAULT_MCP_PORT = Number(import.meta.env.VITE_MCP_DEFAULT_PORT) || 8000;
 
 export const MCP_CONFIG_STORAGE_KEY = 'mcp-server-config';
@@ -32,6 +36,16 @@ export const isLoopbackHost = (host) => {
     }
   }
   return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+};
+
+/**
+ * True when *host* is loopback or the host serving this page. In development
+ * such a host on port 8000 is reached through the Vite /mcp proxy.
+ */
+export const isProxiedHost = (host) => {
+  if (isLoopbackHost(host)) return true;
+  if (typeof window === 'undefined') return false;
+  return String(host ?? '').trim().toLowerCase() === window.location.hostname.toLowerCase();
 };
 
 /**

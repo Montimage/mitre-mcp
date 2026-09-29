@@ -115,6 +115,11 @@ The frontend reads the `VITE_*` names listed in `frontend/.env.example` — name
 | ----------------------- | ---------------------------------------------------- |
 | `VITE_MCP_DEFAULT_HOST` | Default MCP server host shown in the settings dialog |
 | `VITE_MCP_DEFAULT_PORT` | Default MCP server port shown in the settings dialog |
+| `VITE_LLM_DEFAULT_PROVIDER` | Default LLM provider (`ollama`, `gemini`, `openrouter`, `openai-compatible`) |
+| `VITE_OPENAI_COMPATIBLE_DEFAULT_BASE_URL` | Default endpoint URL for the OpenAI-compatible provider |
+| `VITE_OPENAI_COMPATIBLE_DEFAULT_MODEL` | Default model for the OpenAI-compatible provider |
+
+The dev-server `/mcp` proxy also reads `MITRE_HTTP_AUTH_TOKEN` and forwards it as a bearer token. Setting `OPENAI_COMPATIBLE_PROXY_TARGET` (e.g. `http://host:8001`) adds a `/llm` proxy for OpenAI-compatible servers without CORS; a path default such as `/llm/v1` resolves against the page origin.
 
 LLM API keys (Gemini, OpenRouter, OpenAI) are entered at runtime via the
 settings dialog and stored in browser IndexedDB — there is no build-time
