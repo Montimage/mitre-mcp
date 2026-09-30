@@ -14,6 +14,7 @@ import { probeLlmProvider } from '../../services/llmProbes';
 import { createPortal } from 'react-dom';
 import { releaseMcpClient } from '../../services/mcpClientCache';
 import { DEFAULT_MCP_HOST, DEFAULT_MCP_PORT, MCP_CONFIG_STORAGE_KEY } from '../../services/mcpConfig';
+import { DEFAULT_LLM_PROVIDER, DEFAULT_OPENAI_COMPATIBLE_BASE_URL, DEFAULT_OPENAI_COMPATIBLE_MODEL } from '../../services/llmDefaults.js';
 import { SIMULATION_TOOL_PREFIX, SIMULATION_WELCOME, getSimulatedAnswer } from '../../services/simulation';
 
 // Helper to get display name for LLM provider and model.
@@ -215,7 +216,13 @@ export default function ChatBox({ onSetupStatusChange }) {
     const initAgent = async () => {
       // Load config from localStorage
       const savedConfig = localStorage.getItem(MCP_CONFIG_STORAGE_KEY);
-      let config = { host: DEFAULT_MCP_HOST, port: DEFAULT_MCP_PORT, llmProvider: 'ollama' };
+      let config = {
+        host: DEFAULT_MCP_HOST,
+        port: DEFAULT_MCP_PORT,
+        llmProvider: DEFAULT_LLM_PROVIDER,
+        openaiCompatibleBaseUrl: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+        openaiCompatibleModel: DEFAULT_OPENAI_COMPATIBLE_MODEL
+      };
 
       if (savedConfig) {
         try {

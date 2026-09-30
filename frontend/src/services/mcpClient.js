@@ -9,7 +9,7 @@
  * expired-session retry added for server session loss.
  */
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { isLoopbackHost } from './mcpConfig.js';
+import { isLoopbackHost, isProxiedHost } from './mcpConfig.js';
 
 export default class MitreMCPClient {
   /**
@@ -23,7 +23,7 @@ export default class MitreMCPClient {
     // Use relative URL in development to go through Vite proxy (avoids CORS)
     // In production, the full server URL comes from the settings dialog
     const portNum = typeof port === 'string' ? parseInt(port) : port;
-    const isDefaultConfig = host === 'localhost' && portNum === 8000;
+    const isDefaultConfig = isProxiedHost(host) && portNum === 8000;
 
     if (import.meta.env.DEV && isDefaultConfig) {
       this.baseUrl = '/mcp';

@@ -41,7 +41,21 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
+        // A token-protected backend (MITRE_HTTP_AUTH_TOKEN) is reached through
+        // this proxy, so the token stays server-side and never ships to the browser.
+        headers: process.env.MITRE_HTTP_AUTH_TOKEN
+          ? { Authorization: `Bearer ${process.env.MITRE_HTTP_AUTH_TOKEN}` }
+          : {},
       },
+      // Optional proxy to an OpenAI-compatible server that does not send CORS
+      // headers; point VITE_OPENAI_COMPATIBLE_DEFAULT_BASE_URL at /llm/v1.
+      ...(process.env.OPENAI_COMPATIBLE_PROXY_TARGET && {
+        '/llm': {
+          target: process.env.OPENAI_COMPATIBLE_PROXY_TARGET,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/llm/, ''),
+        },
+      }),
       '/ollama': {
         target: 'http://localhost:11434',
         changeOrigin: true,

@@ -25,6 +25,7 @@ import OllamaForm from './config/OllamaForm.jsx';
 import GeminiForm from './config/GeminiForm.jsx';
 import OpenRouterForm from './config/OpenRouterForm.jsx';
 import OpenAICompatibleForm from './config/OpenAICompatibleForm.jsx';
+import { DEFAULT_LLM_PROVIDER, DEFAULT_OPENAI_COMPATIBLE_BASE_URL, DEFAULT_OPENAI_COMPATIBLE_MODEL } from '../../services/llmDefaults.js';
 
 const LLM_PROVIDERS = {
   OLLAMA: 'ollama',
@@ -36,7 +37,7 @@ const LLM_PROVIDERS = {
 const DEFAULT_CONFIG = {
   host: DEFAULT_MCP_HOST,
   port: DEFAULT_MCP_PORT,
-  llmProvider: LLM_PROVIDERS.OLLAMA,
+  llmProvider: DEFAULT_LLM_PROVIDER,
   ollamaBaseUrl: DEFAULT_OLLAMA_BASE_URL,
   ollamaModel: DEFAULT_OLLAMA_MODEL,
   geminiApiKey: '',
@@ -44,8 +45,8 @@ const DEFAULT_CONFIG = {
   openrouterApiKey: '',
   openrouterModel: 'anthropic/claude-3.5-sonnet',
   openaiCompatibleApiKey: '',
-  openaiCompatibleBaseUrl: '',
-  openaiCompatibleModel: ''
+  openaiCompatibleBaseUrl: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  openaiCompatibleModel: DEFAULT_OPENAI_COMPATIBLE_MODEL
 };
 
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);

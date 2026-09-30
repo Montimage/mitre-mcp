@@ -6,7 +6,7 @@
  * `errors` and render inline beneath their input; an invalid form blocks the
  * save in the parent, so these messages are the user's only signal.
  */
-import { buildMcpServerUrl, isLoopbackHost, pageCannotReachLoopback } from '../../../services/mcpConfig.js';
+import { buildMcpServerUrl, isLoopbackHost, isProxiedHost, pageCannotReachLoopback } from '../../../services/mcpConfig.js';
 import StatusBanner from './StatusBanner.jsx';
 
 export default function McpServerForm({ config, onChange, testing, testResult, onTest, errors = {} }) {
@@ -68,7 +68,7 @@ export default function McpServerForm({ config, onChange, testing, testResult, o
             {serverUrl}
           </code>
         </p>
-        {import.meta.env.DEV && isLoopbackHost(config.host) && Number(config.port) === 8000 && (
+        {import.meta.env.DEV && isProxiedHost(config.host) && Number(config.port) === 8000 && (
           <p className="text-xs text-green-700">
             <span className="font-medium">Note:</span> In development, requests are sent through this app's local proxy (/mcp) so the browser can reach the server.
           </p>
